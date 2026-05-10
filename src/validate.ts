@@ -5,7 +5,7 @@ const formatSchema = z.enum(["article", "social_post", "product_review", "captio
 const intendedUseSchema = z.enum(["publish", "train", "cite", "moderate", "other"]).default("other");
 
 const requestSchema = z.object({
-  text: z.string().min(20).max(20_000),
+  text: z.string().min(20).max(100_000),
   context: z.object({
     format: formatSchema.optional(),
     intended_use: intendedUseSchema.optional(),

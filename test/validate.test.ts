@@ -32,4 +32,15 @@ describe("parseAnalyzeRequest", () => {
   it("rejects short text", async () => {
     await expect(parseAnalyzeRequest(req({ text: "too short" }))).rejects.toBeInstanceOf(ValidationError);
   });
+  it("accepts the 100k production pricing limit", async () => {
+    const text = "a".repeat(100_000);
+    const parsed = await parseAnalyzeRequest(req({ text }));
+    expect(parsed.text).toHaveLength(100_000);
+  });
+
+  it("rejects text above the 100k production pricing limit", async () => {
+    const text = "a".repeat(100_001);
+    await expect(parseAnalyzeRequest(req({ text }))).rejects.toBeInstanceOf(ValidationError);
+  });
+
 });

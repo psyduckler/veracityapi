@@ -11,12 +11,28 @@ VeracityAPI is a probabilistic risk layer, not a truth oracle and not proof of a
 - Docs: https://veracityapi.com/docs
 - Evals/proof: https://veracityapi.com/evals
 - Examples/use cases: https://veracityapi.com/examples
+- Pricing: https://veracityapi.com/pricing
 - Privacy: https://veracityapi.com/privacy
-- Request beta key: https://veracityapi.com/request-access
+- Request API key: https://veracityapi.com/request-access
 - OpenAPI: https://veracityapi.com/openapi.json
 - Agent instructions: https://veracityapi.com/llms.txt
 - Agent discovery manifest: https://veracityapi.com/.well-known/agents.json
 - Sitemap: https://veracityapi.com/sitemap.xml
+
+
+## Pricing
+
+No subscriptions. Buy credits. Every request debits your balance.
+
+| Request size | Price |
+| --- | ---: |
+| ≤4k chars | $0.01 |
+| ≤20k chars | $0.03 |
+| ≤50k chars | $0.06 |
+| ≤100k chars | $0.12 |
+| >100k chars | chunk or contact us |
+
+Public demo is free, no-key, privacy_mode=true, capped at 4,000 characters, and rate limited. Production API access is credit-based.
 
 ## MVP endpoint
 
@@ -67,7 +83,8 @@ curl https://api.veracityapi.com/v1/analyze-text \
 - `/docs` gives human-readable auth, schema, TypeScript/Python, and agent-tool integration examples.
 - `/evals` shows early dogfooding proof from Tabiji Japan scam city pages.
 - `/examples` describes agent workflows: pre-publish QA, RAG source triage, training data filtering, and UGC moderation.
-- `/request-access` stores private beta key requests in D1.
+- `/pricing` describes credit-based, no-subscription billing.
+- `/request-access` stores credit-based API access requests in D1.
 - `site_events` stores lightweight page/demo/access-request analytics.
 
 ## Local development

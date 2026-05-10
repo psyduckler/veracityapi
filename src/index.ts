@@ -4,7 +4,7 @@ import { logAnalysis } from "./db";
 import { LlmError, scoreText } from "./llm";
 import { deriveAction, deriveRiskLevel } from "./scoring";
 import { agentsJson, llmsTxt, ogSvg, openApiSpec, robotsTxt, sitemapXml } from "./discovery";
-import { docsHtml, evalsHtml, examplesHtml, privacyHtml, requestAccessHtml } from "./pages";
+import { docsHtml, evalsHtml, examplesHtml, pricingHtml, privacyHtml, requestAccessHtml } from "./pages";
 import { homepageHtml } from "./site";
 import type { AnalyzeResponse, Env } from "./types";
 import { parseAnalyzeRequest, ValidationError } from "./validate";
@@ -34,6 +34,7 @@ export default {
       "/docs": docsHtml,
       "/evals": evalsHtml,
       "/examples": examplesHtml,
+      "/pricing": pricingHtml,
       "/privacy": privacyHtml,
       "/request-access": requestAccessHtml,
     };

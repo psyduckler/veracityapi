@@ -26,7 +26,7 @@ export function openApiSpec(): Record<string, unknown> {
       { name: "analysis", description: "Text content trust scoring" },
       { name: "demo", description: "No-key public demo endpoint" },
       { name: "health", description: "Service health" },
-      { name: "access", description: "Private beta API key requests" },
+      { name: "access", description: "Credit-based API access requests" },
     ],
     paths: {
       "/health": {
@@ -140,7 +140,7 @@ export function openApiSpec(): Record<string, unknown> {
           type: "object",
           required: ["text"],
           properties: {
-            text: { type: "string", minLength: 20, maxLength: 20000, description: "English text to score." },
+            text: { type: "string", minLength: 20, maxLength: 100000, description: "English text to score. Requests are priced by character bucket up to 100k chars." },
             context: {
               type: "object",
               properties: {
@@ -268,7 +268,7 @@ Content-Type: application/json
 ## Request schema
 
 {
-  "text": "string, 20-20000 chars",
+  "text": "string, 20-100000 chars",
   "context": {
     "format": "article | social_post | product_review | caption | other",
     "intended_use": "publish | train | cite | moderate | other",
@@ -302,12 +302,21 @@ curl ${API_BASE_URL}/v1/analyze-text \\
 - Docs: ${BASE_URL}/docs
 - Evals/proof: ${BASE_URL}/evals
 - Use cases/examples: ${BASE_URL}/examples
+- Pricing: ${BASE_URL}/pricing
 - Privacy: ${BASE_URL}/privacy
 - Request access: ${BASE_URL}/request-access
 
 ## Access
 
-Public demo is open. Production API keys are available through ${BASE_URL}/request-access or by email: bernard@tabiji.ai
+Public demo is open. Production API access uses prepaid credits. No subscriptions. Every request debits the account balance by character bucket. Request access through ${BASE_URL}/request-access or by email: bernard@tabiji.ai
+
+## Pricing
+
+- ≤4k chars: $0.01
+- ≤20k chars: $0.03
+- ≤50k chars: $0.06
+- ≤100k chars: $0.12
+- >100k chars: chunk or contact us
 
 ## Limitations
 
@@ -319,7 +328,7 @@ Public demo is open. Production API keys are available through ${BASE_URL}/reque
 
 export function sitemapXml(): string {
   const updated = new Date().toISOString();
-  const urls = ["/", "/docs", "/evals", "/examples", "/privacy", "/request-access", "/openapi.json", "/llms.txt", "/.well-known/agents.json", "/sitemap.xml"];
+  const urls = ["/", "/docs", "/evals", "/examples", "/pricing", "/privacy", "/request-access", "/openapi.json", "/llms.txt", "/.well-known/agents.json", "/sitemap.xml"];
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${urls.map((path) => `  <url><loc>${BASE_URL}${path}</loc><lastmod>${updated}</lastmod><changefreq>weekly</changefreq><priority>${path === "/" ? "1.0" : "0.7"}</priority></url>`).join("\n")}
@@ -339,12 +348,24 @@ export function agentsJson(): Record<string, unknown> {
     docs: `${BASE_URL}/docs`,
     evals: `${BASE_URL}/evals`,
     examples: `${BASE_URL}/examples`,
+    pricing_url: `${BASE_URL}/pricing`,
     privacy: `${BASE_URL}/privacy`,
     access_request: `${BASE_URL}/request-access`,
     auth: {
       type: "bearer",
       header: "Authorization header: Bearer token",
-      instructions: "Request an API key from the homepage or email bernard@tabiji.ai.",
+      instructions: "Request credit-based API access from the homepage or email bernard@tabiji.ai.",
+    },
+    pricing: {
+      model: "prepaid_credits",
+      billing: "No subscriptions. Every request debits the account balance by character bucket.",
+      buckets: [
+        { max_chars: 4000, price_usd: 0.01 },
+        { max_chars: 20000, price_usd: 0.03 },
+        { max_chars: 50000, price_usd: 0.06 },
+        { max_chars: 100000, price_usd: 0.12 },
+      ],
+      above_100k: "chunk or contact us",
     },
     demo: {
       endpoint: `${BASE_URL}/demo/analyze`,
