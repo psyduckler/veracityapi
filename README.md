@@ -8,6 +8,11 @@ VeracityAPI is a probabilistic risk layer, not a truth oracle and not proof of a
 
 - Homepage + public demo: https://veracityapi.com
 - Production API base: https://api.veracityapi.com
+- Docs: https://veracityapi.com/docs
+- Evals/proof: https://veracityapi.com/evals
+- Examples/use cases: https://veracityapi.com/examples
+- Privacy: https://veracityapi.com/privacy
+- Request beta key: https://veracityapi.com/request-access
 - OpenAPI: https://veracityapi.com/openapi.json
 - Agent instructions: https://veracityapi.com/llms.txt
 - Agent discovery manifest: https://veracityapi.com/.well-known/agents.json
@@ -56,6 +61,14 @@ curl https://api.veracityapi.com/v1/analyze-text \
   "limitations": ["Probabilistic risk score, not proof of authorship.", "English-only at MVP."]
 }
 ```
+
+## P1 conversion/distribution surface
+
+- `/docs` gives human-readable auth, schema, TypeScript/Python, and agent-tool integration examples.
+- `/evals` shows early dogfooding proof from Tabiji Japan scam city pages.
+- `/examples` describes agent workflows: pre-publish QA, RAG source triage, training data filtering, and UGC moderation.
+- `/request-access` stores private beta key requests in D1.
+- `site_events` stores lightweight page/demo/access-request analytics.
 
 ## Local development
 

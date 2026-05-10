@@ -4,6 +4,7 @@ import { logAnalysis } from "./db";
 import { LlmError, scoreText } from "./llm";
 import { deriveAction, deriveRiskLevel } from "./scoring";
 import { agentsJson, llmsTxt, ogSvg, openApiSpec, robotsTxt, sitemapXml } from "./discovery";
+import { docsHtml, evalsHtml, examplesHtml, privacyHtml, requestAccessHtml } from "./pages";
 import { homepageHtml } from "./site";
 import type { AnalyzeResponse, Env } from "./types";
 import { parseAnalyzeRequest, ValidationError } from "./validate";
@@ -25,7 +26,25 @@ export default {
     }
 
     if ((request.method === "GET" || request.method === "HEAD") && (url.pathname === "/" || url.pathname === "/index.html")) {
+      if (request.method === "GET") await logSiteEvent(env, request, "page_view", url.pathname);
       return html(request.method === "HEAD" ? "" : homepageHtml());
+    }
+
+    const pageRoutes: Record<string, () => string> = {
+      "/docs": docsHtml,
+      "/evals": evalsHtml,
+      "/examples": examplesHtml,
+      "/privacy": privacyHtml,
+      "/request-access": requestAccessHtml,
+    };
+    const pageRenderer = pageRoutes[url.pathname];
+    if ((request.method === "GET" || request.method === "HEAD") && pageRenderer) {
+      if (request.method === "GET") await logSiteEvent(env, request, "page_view", url.pathname);
+      return html(request.method === "HEAD" ? "" : pageRenderer());
+    }
+
+    if (request.method === "POST" && url.pathname === "/request-access") {
+      return handleAccessRequest(request, env);
     }
 
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/openapi.json") {
@@ -57,6 +76,7 @@ export default {
     }
 
     if (request.method === "POST" && url.pathname === "/demo/analyze") {
+      await logSiteEvent(env, request, "demo_run", url.pathname);
       return handleDemoAnalyze(request, env);
     }
 
@@ -67,6 +87,29 @@ export default {
     return json({ error: "not_found" }, 404);
   },
 };
+
+async function handleAccessRequest(request: Request, env: Env): Promise<Response> {
+  try {
+    const body = await request.json() as Record<string, unknown>;
+    const name = cleanText(body.name, 120);
+    const email = cleanText(body.email, 180).toLowerCase();
+    const company = cleanText(body.company, 160);
+    const useCase = cleanText(body.use_case, 1200);
+    const volume = cleanText(body.volume, 80);
+    if (!name || !email || !useCase) return json({ error: "bad_request", message: "name, email, and use_case are required" }, 400);
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "bad_request", message: "email must be valid" }, 400);
+    const ip = request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for") || "unknown";
+    const requestId = `req_${ulid()}`;
+    await env.DB.prepare(`INSERT INTO access_requests (request_id, created_at, name, email, company, use_case, volume, source, ip_hash, user_agent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .bind(requestId, new Date().toISOString(), name, email, company || null, useCase, volume || null, "website", await sha256Hex(ip), request.headers.get("user-agent") || null)
+      .run();
+    await logSiteEvent(env, request, "access_request", "/request-access", { request_id: requestId, volume });
+    return json({ ok: true, request_id: requestId });
+  } catch (err) {
+    console.error(err);
+    return json({ error: "internal_error" }, 500);
+  }
+}
 
 async function handleDemoAnalyze(request: Request, env: Env): Promise<Response> {
   const start = Date.now();
@@ -153,6 +196,22 @@ async function handleAnalyzeText(request: Request, env: Env): Promise<Response> 
     console.error(err);
     return json({ error: "internal_error" }, 500);
   }
+}
+
+async function logSiteEvent(env: Env, request: Request, eventName: string, path: string, metadata: Record<string, unknown> = {}): Promise<void> {
+  try {
+    const ip = request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for") || "unknown";
+    await env.DB.prepare(`INSERT INTO site_events (event_id, created_at, event_name, path, ip_hash, user_agent, metadata_json) VALUES (?, ?, ?, ?, ?, ?, ?)`)
+      .bind(`evt_${ulid()}`, new Date().toISOString(), eventName, path, await sha256Hex(ip), request.headers.get("user-agent") || null, JSON.stringify(metadata))
+      .run();
+  } catch (err) {
+    console.warn("site_event_log_failed", err);
+  }
+}
+
+function cleanText(value: unknown, maxLength: number): string {
+  if (typeof value !== "string") return "";
+  return value.trim().replace(/\s+/g, " ").slice(0, maxLength);
 }
 
 function consumeDemoQuota(key: string, limit: number): boolean {

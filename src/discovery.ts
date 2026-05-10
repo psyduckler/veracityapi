@@ -26,6 +26,7 @@ export function openApiSpec(): Record<string, unknown> {
       { name: "analysis", description: "Text content trust scoring" },
       { name: "demo", description: "No-key public demo endpoint" },
       { name: "health", description: "Service health" },
+      { name: "access", description: "Private beta API key requests" },
     ],
     paths: {
       "/health": {
@@ -106,6 +107,20 @@ export function openApiSpec(): Record<string, unknown> {
           },
         },
       },
+      "/request-access": {
+        post: {
+          tags: ["access"],
+          summary: "Request private beta API access",
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { "$ref": "#/components/schemas/AccessRequest" } } },
+          },
+          responses: {
+            "200": { description: "Access request stored", content: { "application/json": { schema: { type: "object", properties: { ok: { type: "boolean" }, request_id: { type: "string" } } } } } },
+            "400": { "$ref": "#/components/responses/BadRequest" },
+          },
+        },
+      },
     },
     components: {
       securitySchemes: {
@@ -162,6 +177,17 @@ export function openApiSpec(): Record<string, unknown> {
             span: { type: "string", example: "should always stay alert" },
             explanation: { type: "string", example: "Vague, universally applicable advice lacking specificity." },
           },
+        },
+        AccessRequest: {
+          type: "object",
+          required: ["name", "email", "use_case"],
+          properties: {
+            name: { type: "string", maxLength: 120 },
+            email: { type: "string", format: "email", maxLength: 180 },
+            company: { type: "string", maxLength: 160 },
+            use_case: { type: "string", maxLength: 1200 },
+            volume: { type: "string", enum: ["under 1k", "1k-10k", "10k-100k", "100k+"] }
+          }
         },
         ErrorResponse: {
           type: "object",
@@ -271,9 +297,17 @@ curl ${API_BASE_URL}/v1/analyze-text \\
   -H "Content-Type: application/json" \\
   -d '{"text":"Paste article, review, caption, or source text here...","context":{"format":"article","intended_use":"publish","domain":"travel safety"},"privacy_mode":true}'
 
+## Human docs
+
+- Docs: ${BASE_URL}/docs
+- Evals/proof: ${BASE_URL}/evals
+- Use cases/examples: ${BASE_URL}/examples
+- Privacy: ${BASE_URL}/privacy
+- Request access: ${BASE_URL}/request-access
+
 ## Access
 
-Public demo is open. Production API keys are available by request for early agent builders: bernard@tabiji.ai
+Public demo is open. Production API keys are available through ${BASE_URL}/request-access or by email: bernard@tabiji.ai
 
 ## Limitations
 
@@ -285,7 +319,7 @@ Public demo is open. Production API keys are available by request for early agen
 
 export function sitemapXml(): string {
   const updated = new Date().toISOString();
-  const urls = ["/", "/openapi.json", "/llms.txt", "/.well-known/agents.json", "/sitemap.xml"];
+  const urls = ["/", "/docs", "/evals", "/examples", "/privacy", "/request-access", "/openapi.json", "/llms.txt", "/.well-known/agents.json", "/sitemap.xml"];
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${urls.map((path) => `  <url><loc>${BASE_URL}${path}</loc><lastmod>${updated}</lastmod><changefreq>weekly</changefreq><priority>${path === "/" ? "1.0" : "0.7"}</priority></url>`).join("\n")}
@@ -302,6 +336,11 @@ export function agentsJson(): Record<string, unknown> {
     openapi: `${BASE_URL}/openapi.json`,
     llms_txt: `${BASE_URL}/llms.txt`,
     sitemap: `${BASE_URL}/sitemap.xml`,
+    docs: `${BASE_URL}/docs`,
+    evals: `${BASE_URL}/evals`,
+    examples: `${BASE_URL}/examples`,
+    privacy: `${BASE_URL}/privacy`,
+    access_request: `${BASE_URL}/request-access`,
     auth: {
       type: "bearer",
       header: "Authorization header: Bearer token",
