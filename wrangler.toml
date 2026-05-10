@@ -1,0 +1,15 @@
+name = "veracityapi"
+main = "src/index.ts"
+compatibility_date = "2026-05-01"
+workers_dev = true
+routes = [
+  { pattern = "api.veracityapi.com", custom_domain = true }
+]
+
+[vars]
+MODEL_VERSION = "v0.1"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "veracityapi"
+database_id = "62c734dc-ac84-4b04-a1e1-d2a803dfa6e8"

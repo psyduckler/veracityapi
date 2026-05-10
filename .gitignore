@@ -1,0 +1,7 @@
+.veracityapi_key
+node_modules
+.wrangler
+.dev.vars
+.env
+dist
+.DS_Store

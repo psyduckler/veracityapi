@@ -1,0 +1,3 @@
+{"id":"generic_travel_1","text":"Travelers should always be careful in tourist areas because scams can happen anywhere. Keep your belongings close and avoid strangers who seem suspicious.","expected_risk_level":"high","notes":"generic advice"}
+{"id":"specific_travel_1","text":"At Gare du Nord near the RER B ticket machines, a man with a laminated charity sheet asked us to sign before requesting a cash donation. Staff waved him away when we pointed to the sheet.","expected_risk_level":"low","notes":"specific scam report"}
+{"id":"caption_1","text":"Paris arrival day. Coffee, rain, and one very confused metro transfer.","expected_risk_level":"low","notes":"short caption should be low confidence but not automatically high risk"}
