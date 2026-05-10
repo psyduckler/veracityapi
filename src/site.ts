@@ -1,0 +1,111 @@
+export function homepageHtml(): string {
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VeracityAPI — Content trust scoring for agents</title>
+  <meta name="description" content="Synthetic-content and AI slop risk scoring API for agents. Paste content, get evidence, risk scores, and a recommended action." />
+  <meta property="og:title" content="VeracityAPI — Content trust scoring for agents" />
+  <meta property="og:description" content="Score content for synthetic risk, slop risk, weak provenance, and agent-safe next actions." />
+  <meta property="og:type" content="website" />
+  <meta name="theme-color" content="#08090a" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg:#08090a; --bg2:#0d0e10; --panel:#0f1011; --surface:#17181b; --surface2:#1f2024;
+      --text:#f7f8f8; --muted:#a2a8b3; --dim:#737985; --line:rgba(255,255,255,.08); --line2:rgba(255,255,255,.05);
+      --accent:#7170ff; --accent2:#8b5cf6; --good:#10b981; --warn:#f59e0b; --bad:#ef4444; --blue:#38bdf8;
+      --mono:'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      --sans:'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    }
+    *{box-sizing:border-box} html{scroll-behavior:smooth} body{margin:0;background:radial-gradient(circle at 20% -10%, rgba(113,112,255,.22), transparent 34rem),radial-gradient(circle at 86% 16%, rgba(56,189,248,.12), transparent 30rem),var(--bg);color:var(--text);font-family:var(--sans);font-feature-settings:'cv01','ss03';}
+    a{color:inherit;text-decoration:none} .wrap{max-width:1180px;margin:0 auto;padding:0 22px}.nav{position:sticky;top:0;z-index:20;background:rgba(8,9,10,.78);backdrop-filter:blur(18px);border-bottom:1px solid var(--line2)}
+    .navin{height:68px;display:flex;align-items:center;justify-content:space-between}.brand{display:flex;gap:10px;align-items:center;font-weight:600;letter-spacing:-.02em}.mark{width:28px;height:28px;border:1px solid var(--line);border-radius:8px;background:linear-gradient(135deg,rgba(113,112,255,.9),rgba(56,189,248,.2));box-shadow:0 0 36px rgba(113,112,255,.25) inset}.links{display:flex;gap:22px;align-items:center;color:#d0d6e0;font-size:13px;font-weight:510}.links a:hover{color:#fff}.btn{border:1px solid var(--line);background:rgba(255,255,255,.04);color:#f7f8f8;border-radius:8px;padding:10px 13px;font:500 13px var(--sans);cursor:pointer;display:inline-flex;gap:8px;align-items:center;justify-content:center}.btn.primary{background:linear-gradient(135deg,#5e6ad2,#7170ff);border-color:rgba(255,255,255,.12);box-shadow:0 12px 35px rgba(94,106,210,.28)}.btn:hover{background:rgba(255,255,255,.07)}.btn.primary:hover{filter:brightness(1.08)}
+    .hero{padding:82px 0 48px}.eyebrow{display:inline-flex;gap:8px;align-items:center;border:1px solid var(--line);background:rgba(255,255,255,.03);border-radius:999px;padding:7px 11px;color:#d0d6e0;font:500 12px var(--mono)}.dot{width:7px;height:7px;border-radius:99px;background:var(--good);box-shadow:0 0 14px rgba(16,185,129,.9)}h1{max-width:930px;margin:20px 0 18px;font-size:clamp(42px,7vw,76px);line-height:.96;letter-spacing:-.055em;font-weight:510}.lead{max-width:760px;color:var(--muted);font-size:19px;line-height:1.65;letter-spacing:-.01em}.herocta{display:flex;gap:12px;flex-wrap:wrap;margin-top:28px}.statbar{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;margin-top:44px;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--line)}.stat{background:rgba(15,16,17,.82);padding:18px}.stat b{display:block;font:500 22px var(--mono)}.stat span{color:var(--dim);font-size:12px}.section{padding:46px 0}.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.card{border:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.018));border-radius:16px;padding:20px;box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}.card h3{margin:0 0 8px;font-size:18px;letter-spacing:-.02em}.card p{margin:0;color:var(--muted);line-height:1.55}.mono{font-family:var(--mono)}.label{color:var(--dim);font:500 12px var(--mono);text-transform:uppercase;letter-spacing:.04em}.demo{border:1px solid var(--line);background:rgba(15,16,17,.78);border-radius:20px;overflow:hidden}.demohead{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);padding:14px 16px}.traffic{display:flex;gap:6px}.traffic i{width:10px;height:10px;border-radius:99px;background:#3a3d44}.demoBody{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);min-height:620px}.pane{padding:18px}.pane+ .pane{border-left:1px solid var(--line)}textarea,select,input{width:100%;border:1px solid var(--line);background:rgba(255,255,255,.025);color:var(--text);border-radius:10px;padding:12px 13px;font:400 14px/1.55 var(--sans);outline:none}textarea{min-height:310px;resize:vertical;font-family:var(--sans)}textarea:focus,select:focus,input:focus{border-color:rgba(113,112,255,.65);box-shadow:0 0 0 3px rgba(113,112,255,.14)}.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}.hint{color:var(--dim);font-size:12px;line-height:1.45}.actions{display:flex;gap:10px;align-items:center;margin-top:12px}.resultTop{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}.score{border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.025);padding:12px}.score b{display:block;font:500 24px var(--mono)}.score span{font-size:11px;color:var(--dim);text-transform:uppercase;font-family:var(--mono)}.risk-low{color:var(--good)}.risk-medium{color:var(--warn)}.risk-high{color:var(--bad)}pre{margin:0;white-space:pre-wrap;word-break:break-word;background:#08090a;border:1px solid var(--line);border-radius:12px;padding:14px;color:#d0d6e0;font:400 12px/1.55 var(--mono);max-height:410px;overflow:auto}.evidence{display:grid;gap:8px;margin:12px 0}.ev{border:1px solid var(--line2);background:rgba(255,255,255,.02);border-radius:10px;padding:10px}.ev strong{font-size:12px}.ev p{margin:5px 0 0;color:var(--muted);font-size:13px}.codeblock{position:relative}.copy{position:absolute;right:10px;top:10px}.pricing{display:flex;align-items:center;justify-content:space-between;gap:18px}.footer{padding:44px 0 60px;color:var(--dim);border-top:1px solid var(--line2);font-size:13px}.error{color:#fecaca}.small{font-size:12px;color:var(--dim)}
+    @media(max-width:860px){.links{display:none}.demoBody,.grid{grid-template-columns:1fr}.pane+.pane{border-left:0;border-top:1px solid var(--line)}.statbar{grid-template-columns:1fr 1fr}.pricing{display:block}.resultTop{grid-template-columns:1fr}.hero{padding-top:52px}}
+  </style>
+</head>
+<body>
+  <nav class="nav"><div class="wrap navin"><a class="brand" href="/"><span class="mark"></span><span>VeracityAPI</span></a><div class="links"><a href="#demo">Try API</a><a href="#docs">Docs</a><a href="https://github.com/psyduckler/veracityapi">GitHub</a><a class="btn primary" href="#demo">Analyze content</a></div></div></nav>
+  <main>
+    <section class="hero wrap">
+      <div class="eyebrow"><span class="dot"></span> Public beta · content trust scoring for agents</div>
+      <h1>Risk scores for synthetic content before your agent publishes, trains, cites, or moderates.</h1>
+      <p class="lead">VeracityAPI is a small, fast API that returns synthetic-content risk, AI slop risk, evidence spans, and a recommended action. It is not a truth oracle; it is a probabilistic trust layer agents can call before taking irreversible actions.</p>
+      <div class="herocta"><a class="btn primary" href="#demo">Try the API</a><a class="btn" href="#docs">Copy curl</a><a class="btn" href="https://github.com/psyduckler/veracityapi">View GitHub</a></div>
+      <div class="statbar"><div class="stat"><b>/v1</b><span>single endpoint MVP</span></div><div class="stat"><b>JSON</b><span>agent-native responses</span></div><div class="stat"><b>Private</b><span>raw text off by default</span></div><div class="stat"><b>Beta</b><span>free keys for early builders</span></div></div>
+    </section>
+
+    <section class="section wrap" id="demo">
+      <div class="demo">
+        <div class="demohead"><div><div class="label">Live demo</div><strong>Paste content → get split-view risk evidence + raw JSON</strong></div><div class="traffic"><i></i><i></i><i></i></div></div>
+        <div class="demoBody">
+          <div class="pane">
+            <label class="label" for="text">Content block</label>
+            <textarea id="text">Travelers visiting major European cities should always stay alert. Pickpockets are everywhere, scams happen constantly, and you should never trust strangers. Keep your belongings safe and avoid tourist areas because criminals target all visitors. This guide will help you stay safe with essential tips for every destination.</textarea>
+            <div class="formgrid"><div><label class="label" for="format">Format</label><select id="format"><option value="article">article</option><option value="social_post">social_post</option><option value="product_review">product_review</option><option value="caption">caption</option><option value="other">other</option></select></div><div><label class="label" for="use">Intended use</label><select id="use"><option value="publish">publish</option><option value="train">train</option><option value="cite">cite</option><option value="moderate">moderate</option><option value="other">other</option></select></div></div>
+            <label class="label" for="domain">Domain</label><input id="domain" value="travel safety" />
+            <div class="actions"><button class="btn primary" id="run">Analyze</button><button class="btn" id="sample">Load concrete sample</button><span class="hint">Demo is public, privacy_mode=true, capped at 4k chars.</span></div>
+          </div>
+          <div class="pane">
+            <div class="resultTop"><div class="score"><span>synthetic</span><b id="synthetic">—</b></div><div class="score"><span>slop</span><b id="slop">—</b></div><div class="score"><span>action</span><b id="action" style="font-size:16px">—</b></div></div>
+            <div id="summary" class="card"><div class="label">Result</div><p class="hint">Click Analyze to call the live VeracityAPI demo endpoint.</p></div>
+            <div class="evidence" id="evidence"></div>
+            <div class="label" style="margin:14px 0 8px">Raw JSON</div><pre id="json">{}</pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section wrap">
+      <div class="grid"><div class="card"><h3>Built for agent decisions</h3><p>Use the response to decide whether to allow, revise, human-review, or reject content before publishing, citing, training, or moderation workflows.</p></div><div class="card"><h3>Evidence over vibes</h3><p>Responses include scored risk, confidence, evidence spans, and recommended fixes — useful for automation and human QA.</p></div><div class="card"><h3>Privacy-first logging</h3><p>privacy_mode defaults to true. The service logs hashes and metadata, not raw submitted text, unless explicitly disabled by API clients.</p></div><div class="card"><h3>Model-swappable core</h3><p>The MVP uses a Cloudflare Worker, D1 logs, and a configurable LLM scorer. The API contract is designed to survive model bakeoffs.</p></div></div>
+    </section>
+
+    <section class="section wrap" id="docs">
+      <div class="grid"><div><div class="label">API</div><h2 style="font-size:38px;letter-spacing:-.04em;margin:10px 0">One endpoint. Agent-readable output.</h2><p class="lead" style="font-size:16px">POST text plus lightweight context. Receive risk scores, evidence, fixes, limitations, and a recommended action.</p></div><div class="codeblock"><button class="btn copy" data-copy="curl">Copy</button><pre id="curl">curl https://api.veracityapi.com/v1/analyze-text \\
+  -H "Authorization: Bearer $VERACITYAPI_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "text": "Paste article, review, caption, or source text here...",
+    "context": {
+      "format": "article",
+      "intended_use": "publish",
+      "domain": "travel safety"
+    },
+    "privacy_mode": true
+  }'</pre></div></div>
+    </section>
+
+    <section class="section wrap"><div class="card pricing"><div><div class="label">Beta access</div><h3 style="margin:8px 0">Private beta. Free API keys for early agent builders.</h3><p>x402/pay-per-call support is planned after the contract and eval set stabilize.</p></div><a class="btn primary" href="mailto:bernard@tabiji.ai?subject=VeracityAPI%20beta%20key">Request API key</a></div></section>
+  </main>
+  <footer class="footer"><div class="wrap">VeracityAPI · Probabilistic content risk scoring, not proof of authorship or truth. Built for agents that need a second-pass content trust signal.</div></footer>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const sample2 = "At Shinjuku Station's east exit on Friday night, a man in a navy blazer approached tourists near the Godzilla Head and said the usual ticket machines were broken. He walked them to a side kiosk, asked for cash for a discounted Narita Express fare, then disappeared before producing tickets. The real JR East travel center was open downstairs and staff confirmed no such cash-only ticket desk exists.";
+    $('sample').onclick = () => { $('text').value = sample2; $('domain').value = 'travel scams'; };
+    document.querySelectorAll('[data-copy]').forEach(btn => btn.onclick = async () => { await navigator.clipboard.writeText($('curl').innerText); btn.textContent='Copied'; setTimeout(()=>btn.textContent='Copy',1200); });
+    function pct(n){ return Math.round(Number(n || 0) * 100) + '%'; }
+    function riskClass(level){ return level === 'high' ? 'risk-high' : level === 'medium' ? 'risk-medium' : 'risk-low'; }
+    $('run').onclick = async () => {
+      const text = $('text').value.trim();
+      $('run').disabled = true; $('run').textContent = 'Analyzing…'; $('summary').innerHTML = '<div class="label">Running</div><p class="hint">Calling /demo/analyze with privacy_mode=true.</p>'; $('evidence').innerHTML='';
+      try {
+        const res = await fetch('/demo/analyze', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ text, context:{ format:$('format').value, intended_use:$('use').value, domain:$('domain').value }, privacy_mode:true }) });
+        const data = await res.json(); $('json').textContent = JSON.stringify(data, null, 2);
+        if(!res.ok) throw new Error(data.message || data.error || 'Request failed');
+        $('synthetic').textContent = pct(data.synthetic_risk); $('slop').textContent = pct(data.slop_risk); $('action').textContent = data.recommended_action;
+        $('synthetic').className = riskClass(data.risk_level); $('slop').className = riskClass(data.risk_level); $('action').className = riskClass(data.risk_level);
+        $('summary').innerHTML = '<div class="label">' + data.risk_level + ' risk · ' + data.confidence + ' confidence</div><p>Recommended action: <strong>' + data.recommended_action + '</strong>. ' + (data.recommended_fixes?.[0] || 'Review evidence before using this content in an automated workflow.') + '</p>';
+        $('evidence').innerHTML = (data.evidence || []).slice(0,4).map(ev => '<div class="ev"><strong>' + ev.severity + ' · ' + ev.type + '</strong><p><em>"' + (ev.span || '').replace(/[<>]/g,'') + '"</em></p><p>' + (ev.explanation || '').replace(/[<>]/g,'') + '</p></div>').join('');
+      } catch (e) {
+        $('summary').innerHTML = '<div class="label error">Error</div><p class="error">' + e.message + '</p>';
+      } finally { $('run').disabled = false; $('run').textContent = 'Analyze'; }
+    };
+  </script>
+</body>
+</html>`;
+}

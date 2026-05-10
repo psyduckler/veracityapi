@@ -10,6 +10,7 @@ export interface Env {
   ANTHROPIC_MODEL?: string;
   API_KEYS: string;
   MODEL_VERSION?: string;
+  DEMO_RATE_LIMIT_PER_HOUR?: string;
 }
 
 export interface AnalyzeContext {
