@@ -3,6 +3,7 @@ import { authenticate, AuthError, sha256Hex } from "./auth";
 import { logAnalysis } from "./db";
 import { LlmError, scoreText } from "./llm";
 import { deriveAction, deriveRiskLevel } from "./scoring";
+import { agentsJson, llmsTxt, ogSvg, openApiSpec, robotsTxt, sitemapXml } from "./discovery";
 import { homepageHtml } from "./site";
 import type { AnalyzeResponse, Env } from "./types";
 import { parseAnalyzeRequest, ValidationError } from "./validate";
@@ -25,6 +26,30 @@ export default {
 
     if ((request.method === "GET" || request.method === "HEAD") && (url.pathname === "/" || url.pathname === "/index.html")) {
       return html(request.method === "HEAD" ? "" : homepageHtml());
+    }
+
+    if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/openapi.json") {
+      return json(request.method === "HEAD" ? null : openApiSpec(), 200, { "cache-control": "public, max-age=300" });
+    }
+
+    if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/.well-known/agents.json") {
+      return json(request.method === "HEAD" ? null : agentsJson(), 200, { "cache-control": "public, max-age=300" });
+    }
+
+    if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/llms.txt") {
+      return text(request.method === "HEAD" ? "" : llmsTxt(), "text/plain; charset=utf-8");
+    }
+
+    if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/sitemap.xml") {
+      return text(request.method === "HEAD" ? "" : sitemapXml(), "application/xml; charset=utf-8");
+    }
+
+    if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/robots.txt") {
+      return text(request.method === "HEAD" ? "" : robotsTxt(), "text/plain; charset=utf-8");
+    }
+
+    if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/og.svg") {
+      return text(request.method === "HEAD" ? "" : ogSvg(), "image/svg+xml; charset=utf-8");
     }
 
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/health") {
@@ -159,6 +184,16 @@ function html(body: string): Response {
     headers: {
       "content-type": "text/html; charset=utf-8",
       "cache-control": "public, max-age=120",
+      ...corsHeaders(),
+    },
+  });
+}
+
+function text(body: string, contentType: string): Response {
+  return new Response(body, {
+    headers: {
+      "content-type": contentType,
+      "cache-control": "public, max-age=300",
       ...corsHeaders(),
     },
   });
