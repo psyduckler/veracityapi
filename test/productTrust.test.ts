@@ -115,28 +115,69 @@ describe("privacy logging", () => {
 });
 
 describe("homepage conversion", () => {
-  it("leads with the text/slop wedge, shows curl and JSON above the live demo, and has two primary CTAs", () => {
+  it("leads with workflow routing instead of AI-detector proof claims and shows valid curl/JSON", () => {
     const html = homepageHtml();
-    expect(html).toContain("A content trust gate for agents");
-    expect(html).toContain("workflow risk");
+    expect(html.toLowerCase()).toContain("workflow routing, not an ai detector");
+    expect(html).toContain("should this content be allowed, revised, reviewed, or rejected");
     expect(html).toContain("$1.50 free credit — enough for 150 short text analyses");
     expect(html).toContain("curl https://api.veracityapi.com/v1/analyze-text");
     expect(html).toContain('"recommended_action"');
+    expect(html).toContain("Authorization: Bearer");
     const hero = html.slice(html.indexOf("<section class=\"hero"), html.indexOf("</section>", html.indexOf("<section class=\"hero")));
     expect((hero.match(/class=\"btn/g) || []).length).toBe(2);
     expect(hero).toContain("Get API key");
     expect(hero).toContain("Read docs");
   });
+
+  it("surfaces the action matrix, agent-ready discovery, local MCP, and key use cases", () => {
+    const html = homepageHtml();
+    expect(html).toContain("Traffic-light action matrix");
+    expect(html).toContain("Green = allow");
+    expect(html).toContain("Yellow = revise");
+    expect(html).toContain("Red = reject");
+    expect(html).toContain("Agent-ready by default");
+    expect(html).toContain("Claude Desktop / MCP ready");
+    expect(html).toContain("Claude.ai connector requires remote MCP later");
+    expect(html).toContain("veracityapi.com/llms.txt");
+    expect(html).toContain("Pre-publish moderation");
+    expect(html).toContain("Voice-message authenticity triage");
+    expect(html).toContain("Influencer product post verification");
+  });
+});
+
+describe("developer examples and dashboard conversion", () => {
+  it("renders framework copy-paste wrappers for agent builders", async () => {
+    const res = await worker.fetch(new Request("https://veracityapi.com/examples"), { DB: new EmptyDb(), ANTHROPIC_API_KEY: "test", API_KEYS: "" } as any);
+    const html = await res.text();
+    expect(html).toContain("LangChain @tool");
+    expect(html).toContain("Vercel AI SDK tool");
+    expect(html).toContain("LlamaIndex FunctionTool");
+    expect(html).toContain("LangGraph routing node");
+  });
+
+  it("renders a pricing calculator", async () => {
+    const res = await worker.fetch(new Request("https://veracityapi.com/pricing"), { DB: new EmptyDb(), ANTHROPIC_API_KEY: "test", API_KEYS: "" } as any);
+    const html = await res.text();
+    expect(html).toContain("Interactive pricing calculator");
+    expect(html).toContain("textChecks");
+    expect(html).toContain("imageChecks");
+    expect(html).toContain("audioChecks");
+    expect(html).toContain("estimateCost");
+  });
 });
 
 describe("dashboard activation", () => {
-  it("renders copy-key guidance, prefilled curl, and a terminal-style run block", () => {
+  it("renders copy-key guidance, balance progress, prefilled curl, and a terminal-style run block", () => {
     const account: AccountView = { account_id: "acct_1", email: "agent@example.com", balance_cents: 150, apiKeys: [{ key_id: "key_1", key_prefix: "vap_abc12345", label: "default", created_at: "2026-05-10T00:00:00Z" }], usage: [] };
     const html = accountHtml(account, "API key created. Copy it now: vap_secret_example");
     expect(html).toContain("Copy API key");
+    expect(html).toContain("Current balance");
+    expect(html).toContain("Equivalent to ~150 short text analyses");
+    expect(html).toContain("progressbar");
     expect(html).toContain("Run this");
     expect(html).toContain("curl https://api.veracityapi.com/v1/analyze-text");
     expect(html).toContain("Bearer vap_secret_example");
+    expect(html).toContain("Authorization: Bearer");
     expect(html).toContain("terminal");
   });
 });
