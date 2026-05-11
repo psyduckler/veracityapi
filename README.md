@@ -1,5 +1,7 @@
 # VeracityAPI
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE) [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-f38020.svg)](https://workers.cloudflare.com/) [![OpenAPI](https://img.shields.io/badge/OpenAPI-3.1-blue.svg)](https://veracityapi.com/openapi.json) [![MCP](https://img.shields.io/badge/MCP-ready-purple.svg)](https://veracityapi.com/mcp)
+
 Content, image, and audio trust scoring for agents. VeracityAPI scores English-calibrated text for generic/slop risk, weak provenance, and low specificity; image URLs for visible synthetic-image risk; and short HTTPS audio URLs for synthetic-audio workflow triage with transcript return.
 
 VeracityAPI is **not** a binary AI detector. It does not prove whether content was written, generated, spoken, or edited by a human or a model. It answers the agent workflow question: should this text, image, or audio be allowed, revised, reviewed, or rejected before publishing, citing, training, or moderation?
@@ -12,11 +14,15 @@ VeracityAPI is **not** a binary AI detector. It does not prove whether content w
 - Docs: https://veracityapi.com/docs
 - How it works: https://veracityapi.com/how-it-works
 - Evals/proof: https://veracityapi.com/evals
+- Changelog: ./CHANGELOG.md
+- Security policy: ./SECURITY.md
 - Use cases: https://veracityapi.com/use-cases
 - Examples/tool wrapper: https://veracityapi.com/examples
 - Pricing: https://veracityapi.com/pricing
 - Privacy: https://veracityapi.com/privacy
 - OpenAPI: https://veracityapi.com/openapi.json
+- MCP integration: https://veracityapi.com/mcp
+- For agents: https://veracityapi.com/for-agents
 - Agent instructions: https://veracityapi.com/llms.txt
 - Agent discovery manifest: https://veracityapi.com/.well-known/agents.json
 - Sitemap: https://veracityapi.com/sitemap.xml

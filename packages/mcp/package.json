@@ -23,10 +23,10 @@
     "content-trust",
     "ai-safety"
   ],
-  "homepage": "https://veracityapi.com",
+  "homepage": "https://veracityapi.com/mcp",
   "repository": {
     "type": "git",
-    "url": "https://github.com/veracityapi/veracityapi.git",
+    "url": "https://github.com/psyduckler/veracityapi.git",
     "directory": "packages/mcp"
   },
   "bugs": {

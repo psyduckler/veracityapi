@@ -8,7 +8,7 @@ import { deriveAction, deriveAudioRiskLevel, deriveAudioTrustScore, deriveImageR
 import { agentsJson, faviconSvg, INDEXNOW_KEY, llmsTxt, ogSvg, openApiSpec, robotsTxt, sitemapXml } from "./discovery";
 import { DEMO_IMAGE_CONTENT_TYPE, DEMO_IMAGE_PATH, demoImageBytes } from "./demoImage";
 import { DEMO_AUDIO_CONTENT_TYPE, DEMO_AUDIO_PATH, demoAudioBytes } from "./demoAudio";
-import { docsHtml, evalsHtml, examplesHtml, howItWorksHtml, pricingHtml, privacyHtml, requestAccessHtml, useCaseHtml, useCasesIndexHtml } from "./pages";
+import { docsHtml, evalsHtml, examplesHtml, forAgentsHtml, howItWorksHtml, mcpHtml, pricingHtml, privacyHtml, requestAccessHtml, useCaseHtml, useCasesIndexHtml } from "./pages";
 import { distributionPageHtml, distributionRedirectTarget } from "./distribution";
 import { homepageHtml } from "./site";
 import type { AnalyzeAudioResponse, AnalyzeBatchRequest, AnalyzeImageResponse, AnalyzeResponse, Env } from "./types";
@@ -57,6 +57,8 @@ export default {
       "/how-it-works": howItWorksHtml,
       "/evals": evalsHtml,
       "/examples": examplesHtml,
+      "/for-agents": forAgentsHtml,
+      "/mcp": mcpHtml,
       "/use-cases": useCasesIndexHtml,
       "/pricing": pricingHtml,
       "/privacy": privacyHtml,

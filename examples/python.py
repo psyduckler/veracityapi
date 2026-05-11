@@ -4,11 +4,11 @@ import os
 import urllib.error
 import urllib.request
 
-API_BASE = os.environ.get("VERACITYAPI_BASE_URL", "https://api.veracityapi.com")
-API_KEY = os.environ.get("VERACITYAPI_KEY")
+API_BASE = os.environ.get("VERACITY_API_BASE_URL", "https://api.veracityapi.com")
+API_KEY = os.environ.get("VERACITY_API_KEY")
 
 if not API_KEY:
-    raise SystemExit("Set VERACITYAPI_KEY")
+    raise SystemExit("Set VERACITY_API_KEY")
 
 
 def request(path: str, method: str = "POST", payload: dict | None = None) -> dict:

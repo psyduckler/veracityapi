@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
-: "${VERACITYAPI_KEY:?set VERACITYAPI_KEY}"
-BASE_URL="${VERACITYAPI_BASE_URL:-https://api.veracityapi.com}"
+: "${VERACITY_API_KEY:?set VERACITY_API_KEY}"
+BASE_URL="${VERACITY_API_BASE_URL:-https://api.veracityapi.com}"
 
 curl "$BASE_URL/v1/analyze" \
-  -H "Authorization: Bearer $VERACITYAPI_KEY" \
+  -H "Authorization: Bearer $VERACITY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "type": "text",

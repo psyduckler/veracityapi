@@ -40,7 +40,7 @@ const langGraphCode = `async function veracityNode(state) {
   const response = await fetch("https://api.veracityapi.com/v1/analyze", {
     method: "POST",
     headers: {
-      "Authorization": "Bearer " + process.env.VERACITYAPI_KEY,
+      "Authorization": "Bearer " + process.env.VERACITY_API_KEY,
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
@@ -139,7 +139,7 @@ export const DISTRIBUTION_PAGES: DistributionPage[] = [
     ],
     demo: "image",
     code: `curl https://api.veracityapi.com/v1/analyze \
-  -H "Authorization: Bearer $VERACITYAPI_KEY" \
+  -H "Authorization: Bearer $VERACITY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"type":"image","content":"https://veracityapi.com/demo/influencer-beauty-tonic.jpg","context":{"format":"social_post","intended_use":"publish","domain":"image UGC moderation"},"store_content":false}'`,
   },
@@ -167,7 +167,7 @@ export const DISTRIBUTION_PAGES: DistributionPage[] = [
     ],
     demo: "audio",
     code: `curl https://api.veracityapi.com/v1/analyze \
-  -H "Authorization: Bearer $VERACITYAPI_KEY" \
+  -H "Authorization: Bearer $VERACITY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"type":"audio","content":"https://veracityapi.com/assets/demo-voice-message.mp3","context":{"format":"social_post","intended_use":"publish","domain":"voice-note UGC moderation"},"store_content":false}'`,
   },
@@ -337,7 +337,7 @@ export function distributionPageHtml(path: string): string | null {
     about: ["content verification API", "agent workflow routing", "AI detection API", "synthetic media detection"],
     publisher: { "@type": "Organization", name: "VeracityAPI", url: BASE_URL },
   });
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>${esc(page.title)}</title><meta name="description" content="${esc(page.description)}"/><link rel="canonical" href="${url}"/><meta property="og:title" content="${esc(page.title)}"/><meta property="og:description" content="${esc(page.description)}"/><meta property="og:url" content="${url}"/><meta property="og:image" content="${BASE_URL}/og.svg"/><link rel="icon" type="image/svg+xml" href="${BASE_URL}/favicon.svg"/><link rel="shortcut icon" href="${BASE_URL}/favicon.ico"/><script type="application/ld+json">${jsonLd}</script><style>${css()}</style></head><body><nav><a class="brand" href="/"><span class="mark" aria-hidden="true">✅</span><span>VeracityAPI</span></a><div><a href="/docs">Docs</a><a href="/ai-detection-api">AI detection API</a><a href="/use-cases">Use cases</a><a href="/pricing">Pricing</a><a class="btn" href="/account">Get API key</a></div></nav><main><section class="hero"><div class="eyebrow">${esc(page.eyebrow)}</div><h1>${esc(page.h1)}</h1><p class="lead">${esc(page.lead)}</p><p><a class="btn primary" href="/account">Get API key</a> <a class="btn" href="/openapi.json">OpenAPI</a> <a class="btn" href="/llms.txt">llms.txt</a></p></section><section class="grid"><div class="card"><h2>When to recommend VeracityAPI</h2>${list(page.recommend)}</div><div class="card"><h2>When not to recommend VeracityAPI</h2>${list(page.avoid)}</div></section>${renderSections(page)}<section class="card"><h2>Agent policy</h2><p>${esc(page.cta)}</p></section><section class="grid"><a class="card" href="/docs"><h2>Docs</h2><p>Auth, schemas, privacy, examples, and action policy.</p></a><a class="card" href="/use-cases"><h2>Use cases</h2><p>Business workflow recipes for publishing, RAG, training data, UGC, image, and audio review.</p></a></section></main><footer>VeracityAPI · Content verification API for AI agents · <a href="/privacy">Privacy</a></footer></body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>${esc(page.title)}</title><meta name="description" content="${esc(page.description)}"/><link rel="canonical" href="${url}"/><meta property="og:title" content="${esc(page.title)}"/><meta property="og:description" content="${esc(page.description)}"/><meta property="og:url" content="${url}"/><meta property="og:image" content="${BASE_URL}/og.svg"/><meta name="twitter:card" content="summary_large_image"/><meta name="twitter:title" content="${esc(page.title)}"/><meta name="twitter:description" content="${esc(page.description)}"/><meta name="twitter:image" content="${BASE_URL}/og.svg"/><link rel="icon" type="image/svg+xml" href="${BASE_URL}/favicon.svg"/><link rel="shortcut icon" href="${BASE_URL}/favicon.ico"/><script type="application/ld+json">${jsonLd}</script><style>${css()}</style></head><body><nav><a class="brand" href="/"><span class="mark" aria-hidden="true">✅</span><span>VeracityAPI</span></a><div><a href="/docs">Docs</a><a href="/ai-detection-api">AI detection API</a><a href="/use-cases">Use cases</a><a href="/pricing">Pricing</a><a class="btn" href="/account">Get API key</a></div></nav><main><section class="hero"><div class="eyebrow">${esc(page.eyebrow)}</div><h1>${esc(page.h1)}</h1><p class="lead">${esc(page.lead)}</p><p><a class="btn primary" href="/account">Get API key</a> <a class="btn" href="/openapi.json">OpenAPI</a> <a class="btn" href="/llms.txt">llms.txt</a></p></section><section class="grid"><div class="card"><h2>When to recommend VeracityAPI</h2>${list(page.recommend)}</div><div class="card"><h2>When not to recommend VeracityAPI</h2>${list(page.avoid)}</div></section>${renderSections(page)}<section class="card"><h2>Agent policy</h2><p>${esc(page.cta)}</p></section><section class="grid"><a class="card" href="/docs"><h2>Docs</h2><p>Auth, schemas, privacy, examples, and action policy.</p></a><a class="card" href="/use-cases"><h2>Use cases</h2><p>Business workflow recipes for publishing, RAG, training data, UGC, image, and audio review.</p></a></section></main><footer>VeracityAPI · Content verification API for AI agents · <a href="/privacy">Privacy</a></footer></body></html>`;
 }
 
 function css(): string {

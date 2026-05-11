@@ -1,7 +1,7 @@
-const API_BASE = process.env.VERACITYAPI_BASE_URL ?? "https://api.veracityapi.com";
-const API_KEY = process.env.VERACITYAPI_KEY;
+const API_BASE = process.env.VERACITY_API_BASE_URL ?? "https://api.veracityapi.com";
+const API_KEY = process.env.VERACITY_API_KEY;
 
-if (!API_KEY) throw new Error("Set VERACITYAPI_KEY");
+if (!API_KEY) throw new Error("Set VERACITY_API_KEY");
 
 type Json = Record<string, unknown>;
 

@@ -218,6 +218,32 @@ describe("developer examples and dashboard conversion", () => {
   });
 });
 
+  it("renders /for-agents and /mcp pages for agent distribution", async () => {
+    const env = { DB: new EmptyDb(), ANTHROPIC_API_KEY: "test", API_KEYS: "" } as any;
+    const forAgents = await (await worker.fetch(new Request("https://veracityapi.com/for-agents"), env)).text();
+    const mcp = await (await worker.fetch(new Request("https://veracityapi.com/mcp"), env)).text();
+    expect(forAgents).toContain("Call VeracityAPI before your workflow trusts content");
+    expect(forAgents).toContain("recommended_action");
+    expect(forAgents).toContain("routing-action quality, not authorship proof");
+    expect(mcp).toContain("Content verification tools for MCP agents");
+    expect(mcp).toContain("@veracityapi/mcp");
+    expect(mcp).toContain("VERACITY_API_KEY");
+  });
+
+  it("publishes benchmark proof and agent eval metadata", async () => {
+    const env = { DB: new EmptyDb(), ANTHROPIC_API_KEY: "test", API_KEYS: "" } as any;
+    const evals = await (await worker.fetch(new Request("https://veracityapi.com/evals"), env)).text();
+    const agents = agentsJson() as any;
+    expect(evals).toContain("500");
+    expect(evals).toContain("Macro F1");
+    expect(evals).toContain("0.871");
+    expect(evals).toContain("routing-action F1, not AI-authorship proof");
+    expect(agents.for_agents).toBe("https://veracityapi.com/for-agents");
+    expect(agents.mcp).toBe("https://veracityapi.com/mcp");
+    expect(agents.evals_object.sample_count).toBe(500);
+    expect(agents.evals_object.macro_f1).toBe(0.871);
+  });
+
 describe("dashboard activation", () => {
   it("renders copy-key guidance, balance progress, prefilled curl, and a terminal-style run block", () => {
     const account: AccountView = { account_id: "acct_1", email: "agent@example.com", balance_cents: 150, apiKeys: [{ key_id: "key_1", key_prefix: "vap_abc12345", label: "default", created_at: "2026-05-10T00:00:00Z" }], usage: [] };

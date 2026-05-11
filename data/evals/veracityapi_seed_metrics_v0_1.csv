@@ -1,0 +1,5 @@
+action,precision,recall,f1,support
+allow,0.905,0.95,0.927,200
+revise,0.833,0.875,0.854,200
+human_review,0.938,0.75,0.833,100
+reject,0,0,0,0

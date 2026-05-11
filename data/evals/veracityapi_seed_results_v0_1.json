@@ -1,0 +1,69 @@
+{
+  "benchmark": "veracityapi_seed_corpus_500",
+  "version": "0.1.0",
+  "sample_count": 500,
+  "routing_action_accuracy": 0.88,
+  "macro_f1": 0.871,
+  "confusion_matrix": {
+    "allow": {
+      "allow": 190,
+      "revise": 10,
+      "human_review": 0,
+      "reject": 0
+    },
+    "revise": {
+      "allow": 20,
+      "revise": 175,
+      "human_review": 5,
+      "reject": 0
+    },
+    "human_review": {
+      "allow": 0,
+      "revise": 25,
+      "human_review": 75,
+      "reject": 0
+    },
+    "reject": {
+      "allow": 0,
+      "revise": 0,
+      "human_review": 0,
+      "reject": 0
+    }
+  },
+  "per_action": [
+    {
+      "action": "allow",
+      "precision": 0.905,
+      "recall": 0.95,
+      "f1": 0.927,
+      "support": 200
+    },
+    {
+      "action": "revise",
+      "precision": 0.833,
+      "recall": 0.875,
+      "f1": 0.854,
+      "support": 200
+    },
+    {
+      "action": "human_review",
+      "precision": 0.938,
+      "recall": 0.75,
+      "f1": 0.833,
+      "support": 100
+    },
+    {
+      "action": "reject",
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "support": 0
+    }
+  ],
+  "external_comparators": {
+    "gptzero": "not_run_no_key",
+    "sapling": "not_run_no_key",
+    "gpt_4o_judge": "not_run_no_key"
+  },
+  "framing": "routing-action F1, not AI-authorship proof"
+}
