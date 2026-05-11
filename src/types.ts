@@ -11,6 +11,17 @@ export interface Env {
   API_KEYS: string;
   MODEL_VERSION?: string;
   DEMO_RATE_LIMIT_PER_HOUR?: string;
+  RESEND_API_KEY?: string;
+  RESEND_FROM?: string;
+  STRIPE_SECRET_KEY?: string;
+  STRIPE_WEBHOOK_SECRET?: string;
+}
+
+export interface BillingMetadata {
+  chars_analyzed: number;
+  bucket: string;
+  price_cents: number;
+  remaining_balance_cents: number;
 }
 
 export interface AnalyzeContext {
@@ -46,4 +57,5 @@ export interface AnalyzeResponse extends LlmScoredFields {
   recommended_action: RecommendedAction;
   model_version: string;
   limitations: string[];
+  billing?: BillingMetadata;
 }

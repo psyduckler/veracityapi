@@ -1,0 +1,117 @@
+import { ulid } from "ulid";
+import { sha256Hex } from "./auth";
+import type { AnalyzeRequest, BillingMetadata, Env } from "./types";
+
+export const CREDIT_PACKS: Record<string, { amountCents: number; label: string }> = {
+  starter: { amountCents: 1000, label: "$10 credits" },
+  growth: { amountCents: 5000, label: "$50 credits" },
+  scale: { amountCents: 20000, label: "$200 credits" },
+};
+
+export function priceForChars(chars: number): { bucket: string; priceCents: number } {
+  if (chars <= 4_000) return { bucket: "up_to_4k", priceCents: 1 };
+  if (chars <= 20_000) return { bucket: "up_to_20k", priceCents: 3 };
+  if (chars <= 50_000) return { bucket: "up_to_50k", priceCents: 6 };
+  return { bucket: "up_to_100k", priceCents: 12 };
+}
+
+export async function authenticateUsageKey(request: Request, env: Env): Promise<{ accountId?: string; apiKeyId?: string; apiKeyHash: string; legacy: boolean }> {
+  const header = request.headers.get("authorization") ?? "";
+  const token = header.match(/^Bearer\s+(.+)$/i)?.[1]?.trim() ?? "";
+  if (!token) throw new BillingAuthError();
+
+  const hash = await sha256Hex(token);
+  const row = await env.DB.prepare(`SELECT key_id, account_id, status FROM api_keys WHERE key_hash = ? AND status = 'active'`).bind(hash).first<{ key_id: string; account_id: string; status: string }>();
+  if (row) return { accountId: row.account_id, apiKeyId: row.key_id, apiKeyHash: hash, legacy: false };
+
+  const validKeys = new Set((env.API_KEYS ?? "").split(",").map((k) => k.trim()).filter(Boolean));
+  if (validKeys.has(token)) return { apiKeyHash: hash, legacy: true };
+  throw new BillingAuthError();
+}
+
+export async function debitForRequest(env: Env, accountId: string, apiKeyId: string, analysisId: string, parsed: AnalyzeRequest): Promise<BillingMetadata> {
+  const chars = parsed.text.length;
+  const { bucket, priceCents } = priceForChars(chars);
+  const updated = await env.DB.prepare(`UPDATE accounts SET balance_cents = balance_cents - ?, updated_at = ? WHERE account_id = ? AND deleted_at IS NULL AND balance_cents >= ?`)
+    .bind(priceCents, new Date().toISOString(), accountId, priceCents)
+    .run();
+  if (!updated.meta || updated.meta.changes < 1) {
+    const account = await getAccountBalance(env, accountId);
+    throw new InsufficientBalanceError(priceCents, account.balanceCents);
+  }
+  const account = await getAccountBalance(env, accountId);
+  const usageId = `use_${ulid()}`;
+  await env.DB.prepare(`INSERT INTO credit_ledger (ledger_id, account_id, type, amount_cents, balance_after_cents, reference_id, metadata_json, created_at) VALUES (?, ?, 'usage_debit', ?, ?, ?, ?, ?)`)
+    .bind(`led_${ulid()}`, accountId, -priceCents, account.balanceCents, analysisId, JSON.stringify({ api_key_id: apiKeyId, chars_analyzed: chars, bucket }), new Date().toISOString())
+    .run();
+  await env.DB.prepare(`INSERT INTO usage_events (usage_id, account_id, api_key_id, analysis_id, chars_analyzed, bucket, price_cents, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'debited', ?)`)
+    .bind(usageId, accountId, apiKeyId, analysisId, chars, bucket, priceCents, new Date().toISOString())
+    .run();
+  return { chars_analyzed: chars, bucket, price_cents: priceCents, remaining_balance_cents: account.balanceCents };
+}
+
+export async function refundUsage(env: Env, accountId: string, apiKeyId: string, analysisId: string, billing: BillingMetadata, reason: string): Promise<void> {
+  const now = new Date().toISOString();
+  await env.DB.prepare(`UPDATE accounts SET balance_cents = balance_cents + ?, updated_at = ? WHERE account_id = ?`).bind(billing.price_cents, now, accountId).run();
+  const account = await getAccountBalance(env, accountId);
+  await env.DB.prepare(`INSERT INTO credit_ledger (ledger_id, account_id, type, amount_cents, balance_after_cents, reference_id, metadata_json, created_at) VALUES (?, ?, 'usage_refund', ?, ?, ?, ?, ?)`)
+    .bind(`led_${ulid()}`, accountId, billing.price_cents, account.balanceCents, analysisId, JSON.stringify({ api_key_id: apiKeyId, reason }), now)
+    .run();
+  await env.DB.prepare(`UPDATE usage_events SET status = 'refunded' WHERE analysis_id = ? AND api_key_id = ?`).bind(analysisId, apiKeyId).run();
+}
+
+export async function getAccountBalance(env: Env, accountId: string): Promise<{ balanceCents: number }> {
+  const row = await env.DB.prepare(`SELECT balance_cents FROM accounts WHERE account_id = ?`).bind(accountId).first<{ balance_cents: number }>();
+  return { balanceCents: Number(row?.balance_cents ?? 0) };
+}
+
+export async function creditCheckoutSession(env: Env, stripeSession: Record<string, unknown>): Promise<void> {
+  const stripeSessionId = String(stripeSession.id || "");
+  const metadata = (stripeSession.metadata || {}) as Record<string, unknown>;
+  const accountId = String(metadata.account_id || "");
+  const amountCents = Number(stripeSession.amount_total || metadata.amount_cents || 0);
+  if (!stripeSessionId || !accountId || !amountCents) return;
+
+  const existing = await env.DB.prepare(`SELECT status FROM checkout_sessions WHERE stripe_session_id = ?`).bind(stripeSessionId).first<{ status: string }>();
+  if (existing?.status === "paid") return;
+
+  const now = new Date().toISOString();
+  await env.DB.prepare(`UPDATE checkout_sessions SET status = 'paid', paid_at = ? WHERE stripe_session_id = ?`).bind(now, stripeSessionId).run();
+  await env.DB.prepare(`UPDATE accounts SET balance_cents = balance_cents + ?, updated_at = ? WHERE account_id = ?`).bind(amountCents, now, accountId).run();
+  const account = await getAccountBalance(env, accountId);
+  await env.DB.prepare(`INSERT INTO credit_ledger (ledger_id, account_id, type, amount_cents, balance_after_cents, reference_id, metadata_json, created_at) VALUES (?, ?, 'checkout_credit', ?, ?, ?, ?, ?)`)
+    .bind(`led_${ulid()}`, accountId, amountCents, account.balanceCents, stripeSessionId, JSON.stringify({ stripe_session_id: stripeSessionId }), now)
+    .run();
+}
+
+export async function verifyStripeWebhook(body: string, signatureHeader: string, secret: string): Promise<boolean> {
+  if (!secret || !signatureHeader) return false;
+  const parts = Object.fromEntries(signatureHeader.split(",").map((p) => p.split("=", 2)).filter((p) => p.length === 2) as [string, string][]);
+  const timestamp = parts.t;
+  const expected = parts.v1;
+  if (!timestamp || !expected) return false;
+  const signedPayload = `${timestamp}.${body}`;
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(signedPayload));
+  const hex = [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  return timingSafeEqual(hex, expected);
+}
+
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let out = 0;
+  for (let i = 0; i < a.length; i++) out |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return out === 0;
+}
+
+export class BillingAuthError extends Error { constructor() { super("unauthorized"); this.name = "BillingAuthError"; } }
+export class InsufficientBalanceError extends Error {
+  requiredCents: number;
+  balanceCents: number;
+  constructor(requiredCents: number, balanceCents: number) {
+    super("insufficient_balance");
+    this.name = "InsufficientBalanceError";
+    this.requiredCents = requiredCents;
+    this.balanceCents = balanceCents;
+  }
+}

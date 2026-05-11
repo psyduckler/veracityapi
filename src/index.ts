@@ -1,5 +1,7 @@
 import { ulid } from "ulid";
-import { authenticate, AuthError, sha256Hex } from "./auth";
+import { sha256Hex } from "./auth";
+import { accountHtml, buildAccountView, cleanEmail, clearSessionCookie, consumeMagicLink, createApiKey, createMagicLink, getSessionAccount, parseForm, redirect, requireAccount, sendMagicLink, sessionCookie, validEmail } from "./account";
+import { authenticateUsageKey, BillingAuthError, creditCheckoutSession, CREDIT_PACKS, debitForRequest, InsufficientBalanceError, refundUsage, verifyStripeWebhook } from "./billing";
 import { logAnalysis } from "./db";
 import { LlmError, scoreText } from "./llm";
 import { deriveAction, deriveRiskLevel } from "./scoring";
@@ -47,6 +49,22 @@ export default {
     if (request.method === "POST" && url.pathname === "/request-access") {
       return handleAccessRequest(request, env);
     }
+
+    if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/account") {
+      const account = await getSessionAccount(request, env);
+      const view = account ? await buildAccountView(env, account.accountId, account.email) : null;
+      return html(request.method === "HEAD" ? "" : accountHtml(view, url.searchParams.get("message") || ""), false);
+    }
+
+    if (request.method === "POST" && url.pathname === "/auth/login") return handleLogin(request, env);
+    if (request.method === "GET" && url.pathname === "/auth/callback") return handleCallback(request, env);
+    if (request.method === "POST" && url.pathname === "/auth/logout") return handleLogout(request, env);
+    if (request.method === "POST" && url.pathname === "/api-keys") return handleCreateApiKey(request, env);
+    if (request.method === "POST" && /^\/api-keys\/[^/]+\/revoke$/.test(url.pathname)) return handleRevokeApiKey(request, env, url.pathname.split("/")[2]);
+    if (request.method === "POST" && url.pathname === "/account/email") return handleUpdateEmail(request, env);
+    if (request.method === "POST" && url.pathname === "/account/delete") return handleDeleteAccount(request, env);
+    if (request.method === "POST" && url.pathname === "/billing/checkout") return handleCheckout(request, env);
+    if (request.method === "POST" && url.pathname === "/billing/webhook") return handleStripeWebhook(request, env);
 
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/openapi.json") {
       return json(request.method === "HEAD" ? null : openApiSpec(), 200, { "cache-control": "public, max-age=300" });
@@ -167,36 +185,153 @@ async function handleDemoAnalyze(request: Request, env: Env): Promise<Response> 
 
 async function handleAnalyzeText(request: Request, env: Env): Promise<Response> {
   const start = Date.now();
+  let debit: { accountId: string; apiKeyId: string; billing: NonNullable<AnalyzeResponse["billing"]>; analysisId: string } | null = null;
   try {
-    const { apiKeyHash } = await authenticate(request, env);
+    const auth = await authenticateUsageKey(request, env);
     const parsed = await parseAnalyzeRequest(request);
+    const analysisId = `ana_${ulid()}`;
+    const billing = auth.legacy ? undefined : await debitForRequest(env, auth.accountId!, auth.apiKeyId!, analysisId, parsed);
+    if (billing) debit = { accountId: auth.accountId!, apiKeyId: auth.apiKeyId!, billing, analysisId };
     const scored = await scoreText(parsed, env);
     const riskLevel = deriveRiskLevel(scored.synthetic_risk, scored.slop_risk);
     const action = deriveAction(riskLevel, parsed.context.intended_use);
     const response: AnalyzeResponse = {
-      analysis_id: `ana_${ulid()}`,
+      analysis_id: analysisId,
       ...scored,
       risk_level: riskLevel,
       recommended_action: action,
       model_version: env.MODEL_VERSION || "v0.1",
       limitations: LIMITATIONS,
+      ...(billing ? { billing } : {}),
     };
     await logAnalysis({
       env,
       analysisId: response.analysis_id,
-      apiKeyHash,
+      apiKeyHash: auth.apiKeyHash,
       request: parsed,
       response,
       latencyMs: Date.now() - start,
     });
     return json(response);
   } catch (err) {
-    if (err instanceof AuthError) return json({ error: "unauthorized" }, 401);
+    if (debit && (err instanceof LlmError)) await refundUsage(env, debit.accountId, debit.apiKeyId, debit.analysisId, debit.billing, "llm_unavailable");
+    if (err instanceof BillingAuthError) return json({ error: "unauthorized" }, 401);
+    if (err instanceof InsufficientBalanceError) return json({ error: "insufficient_balance", message: `This request costs $${(err.requiredCents / 100).toFixed(2)}. Your balance is $${(err.balanceCents / 100).toFixed(2)}.`, required_cents: err.requiredCents, balance_cents: err.balanceCents, top_up_url: "https://veracityapi.com/account" }, 402);
     if (err instanceof ValidationError) return json({ error: "bad_request", message: err.message }, 400);
     if (err instanceof LlmError) return json({ error: "llm_unavailable", message: "Scoring model unavailable. Retry shortly." }, 503, { "Retry-After": "10" });
     console.error(err);
     return json({ error: "internal_error" }, 500);
   }
+}
+
+async function handleLogin(request: Request, env: Env): Promise<Response> {
+  try {
+    const params = parseForm(await request.text());
+    const email = cleanEmail(params.get("email") || "");
+    if (!validEmail(email)) return html(accountHtml(null, "Enter a valid email address."), false);
+    const link = await createMagicLink(email, request, env);
+    await sendMagicLink(env, email, link);
+    return html(accountHtml(null, "Login link sent. Check your email."), false);
+  } catch (err) {
+    console.error(err);
+    return html(accountHtml(null, "Could not send login email yet. If DNS verification is still pending, try again shortly."), false);
+  }
+}
+
+async function handleCallback(request: Request, env: Env): Promise<Response> {
+  const token = new URL(request.url).searchParams.get("token") || "";
+  try {
+    const session = await consumeMagicLink(env, token);
+    return redirect("/account?message=Logged+in", { "Set-Cookie": sessionCookie(session.sessionToken) });
+  } catch {
+    return redirect("/account?message=Login+link+expired+or+invalid");
+  }
+}
+
+async function handleLogout(request: Request, env: Env): Promise<Response> {
+  const account = await getSessionAccount(request, env);
+  if (account) await env.DB.prepare(`DELETE FROM sessions WHERE account_id = ?`).bind(account.accountId).run();
+  return redirect("/account?message=Logged+out", { "Set-Cookie": clearSessionCookie() });
+}
+
+async function handleCreateApiKey(request: Request, env: Env): Promise<Response> {
+  const account = await requireAccount(request, env);
+  if (account instanceof Response) return account;
+  const params = parseForm(await request.text());
+  const label = (params.get("label") || "default").slice(0, 80);
+  const created = await createApiKey(env, account.accountId, label);
+  const view = await buildAccountView(env, account.accountId, account.email);
+  return html(accountHtml(view, `API key created. Copy it now: ${created.key}`), false);
+}
+
+async function handleRevokeApiKey(request: Request, env: Env, keyId: string): Promise<Response> {
+  const account = await requireAccount(request, env);
+  if (account instanceof Response) return account;
+  await env.DB.prepare(`UPDATE api_keys SET status = 'revoked', revoked_at = ? WHERE key_id = ? AND account_id = ?`).bind(new Date().toISOString(), keyId, account.accountId).run();
+  return redirect("/account?message=API+key+revoked");
+}
+
+async function handleUpdateEmail(request: Request, env: Env): Promise<Response> {
+  const account = await requireAccount(request, env);
+  if (account instanceof Response) return account;
+  const email = cleanEmail(parseForm(await request.text()).get("email") || "");
+  if (!validEmail(email)) return redirect("/account?message=Invalid+email");
+  try {
+    await env.DB.prepare(`UPDATE accounts SET email = ?, updated_at = ? WHERE account_id = ?`).bind(email, new Date().toISOString(), account.accountId).run();
+    return redirect("/account?message=Email+updated");
+  } catch {
+    return redirect("/account?message=Email+already+exists");
+  }
+}
+
+async function handleDeleteAccount(request: Request, env: Env): Promise<Response> {
+  const account = await requireAccount(request, env);
+  if (account instanceof Response) return account;
+  const now = new Date().toISOString();
+  await env.DB.prepare(`UPDATE accounts SET deleted_at = ?, updated_at = ? WHERE account_id = ?`).bind(now, now, account.accountId).run();
+  await env.DB.prepare(`UPDATE api_keys SET status = 'revoked', revoked_at = ? WHERE account_id = ?`).bind(now, account.accountId).run();
+  await env.DB.prepare(`DELETE FROM sessions WHERE account_id = ?`).bind(account.accountId).run();
+  return redirect("/account?message=Account+deleted", { "Set-Cookie": clearSessionCookie() });
+}
+
+async function handleCheckout(request: Request, env: Env): Promise<Response> {
+  const account = await requireAccount(request, env);
+  if (account instanceof Response) return account;
+  if (!env.STRIPE_SECRET_KEY) return redirect("/account?message=Stripe+is+not+configured");
+  const packId = parseForm(await request.text()).get("pack") || "starter";
+  const pack = CREDIT_PACKS[packId] || CREDIT_PACKS.starter;
+  const origin = new URL(request.url).origin;
+  const params = new URLSearchParams({
+    mode: "payment",
+    success_url: `${origin}/account?message=Checkout+complete.+Credits+will+appear+after+webhook+confirmation`,
+    cancel_url: `${origin}/account?message=Checkout+canceled`,
+    "line_items[0][quantity]": "1",
+    "line_items[0][price_data][currency]": "usd",
+    "line_items[0][price_data][unit_amount]": String(pack.amountCents),
+    "line_items[0][price_data][product_data][name]": `VeracityAPI ${pack.label}`,
+    "metadata[account_id]": account.accountId,
+    "metadata[amount_cents]": String(pack.amountCents),
+    customer_email: account.email,
+  });
+  const res = await fetch("https://api.stripe.com/v1/checkout/sessions", { method: "POST", headers: { authorization: `Bearer ${env.STRIPE_SECRET_KEY}`, "content-type": "application/x-www-form-urlencoded" }, body: params });
+  const data = await res.json() as Record<string, unknown>;
+  if (!res.ok || !data.url || !data.id) {
+    console.error("stripe_checkout_failed", data);
+    return redirect("/account?message=Stripe+checkout+failed");
+  }
+  await env.DB.prepare(`INSERT INTO checkout_sessions (checkout_id, account_id, stripe_session_id, amount_cents, status, created_at) VALUES (?, ?, ?, ?, 'created', ?)`).bind(`chk_${ulid()}`, account.accountId, String(data.id), pack.amountCents, new Date().toISOString()).run();
+  return redirect(String(data.url));
+}
+
+async function handleStripeWebhook(request: Request, env: Env): Promise<Response> {
+  const body = await request.text();
+  const sig = request.headers.get("stripe-signature") || "";
+  if (!env.STRIPE_WEBHOOK_SECRET) return json({ error: "webhook_secret_not_configured" }, 503);
+  if (!(await verifyStripeWebhook(body, sig, env.STRIPE_WEBHOOK_SECRET))) return json({ error: "bad_signature" }, 400);
+  const event = JSON.parse(body) as { type: string; data?: { object?: Record<string, unknown> } };
+  if (event.type === "checkout.session.completed" && event.data?.object) await creditCheckoutSession(env, event.data.object);
+  if (event.type === "checkout.session.expired" && event.data?.object?.id) await env.DB.prepare(`UPDATE checkout_sessions SET status = 'expired' WHERE stripe_session_id = ?`).bind(String(event.data.object.id)).run();
+  return json({ received: true });
 }
 
 async function logSiteEvent(env: Env, request: Request, eventName: string, path: string, metadata: Record<string, unknown> = {}): Promise<void> {
@@ -239,11 +374,11 @@ function jsonRequest(url: string, body: unknown): Request {
   });
 }
 
-function html(body: string): Response {
+function html(body: string, cache = true): Response {
   return new Response(body, {
     headers: {
       "content-type": "text/html; charset=utf-8",
-      "cache-control": "public, max-age=120",
+      "cache-control": cache ? "public, max-age=120" : "no-store",
       ...corsHeaders(),
     },
   });
