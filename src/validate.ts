@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { AnalyzeAudioRequest, AnalyzeBatchRequest, AnalyzeImageRequest, AnalyzeRequest } from "./types";
+import type { AnalyzeAudioRequest, AnalyzeBatchRequest, AnalyzeImageRequest, AnalyzeRequest, UnifiedAnalyzeRequest } from "./types";
 
 const formatSchema = z.enum(["article", "social_post", "product_review", "caption", "other"]).default("other");
 const intendedUseSchema = z.enum(["publish", "train", "cite", "moderate", "other"]).default("other");
@@ -11,7 +11,8 @@ const requestSchema = z.object({
     intended_use: intendedUseSchema.optional(),
     domain: z.string().max(100).optional(),
   }).optional(),
-  privacy_mode: z.boolean().optional().default(true),
+  privacy_mode: z.boolean().optional(),
+  store_content: z.boolean().optional(),
 });
 
 const batchRequestSchema = z.object({
@@ -24,7 +25,8 @@ const batchRequestSchema = z.object({
     intended_use: intendedUseSchema.optional(),
     domain: z.string().max(100).optional(),
   }).optional(),
-  privacy_mode: z.boolean().optional().default(true),
+  privacy_mode: z.boolean().optional(),
+  store_content: z.boolean().optional(),
 }).superRefine((value, ctx) => {
   const totalChars = value.items.reduce((sum, item) => sum + item.text.length, 0);
   if (totalChars > 50_000) {
@@ -42,7 +44,22 @@ const audioRequestSchema = z.object({
     intended_use: intendedUseSchema.optional(),
     domain: z.string().max(100).optional(),
   }).optional(),
-  privacy_mode: z.boolean().optional().default(true),
+  privacy_mode: z.boolean().optional(),
+  store_content: z.boolean().optional(),
+});
+
+
+const unifiedRequestSchema = z.object({
+  type: z.enum(["text", "image", "audio"]),
+  content: z.string().min(1).max(100_000),
+  transcript: z.string().max(10000).optional(),
+  context: z.object({
+    format: formatSchema.optional(),
+    intended_use: intendedUseSchema.optional(),
+    domain: z.string().max(100).optional(),
+  }).optional(),
+  privacy_mode: z.boolean().optional(),
+  store_content: z.boolean().optional(),
 });
 
 const imageRequestSchema = z.object({
@@ -58,8 +75,56 @@ const imageRequestSchema = z.object({
     intended_use: intendedUseSchema.optional(),
     domain: z.string().max(100).optional(),
   }).optional(),
-  privacy_mode: z.boolean().optional().default(true),
+  privacy_mode: z.boolean().optional(),
+  store_content: z.boolean().optional(),
 });
+
+
+function privacyModeFrom(parsed: { privacy_mode?: boolean; store_content?: boolean }): boolean {
+  if (parsed.privacy_mode !== undefined && parsed.store_content !== undefined && parsed.privacy_mode === parsed.store_content) {
+    throw new ValidationError("privacy_mode and store_content conflict; prefer store_content:false or omit both for no raw content storage");
+  }
+  if (parsed.store_content !== undefined) return !parsed.store_content;
+  return parsed.privacy_mode ?? true;
+}
+
+export async function parseUnifiedAnalyzeRequest(request: Request): Promise<UnifiedAnalyzeRequest> {
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    throw new ValidationError("Request body must be valid JSON");
+  }
+
+  const parsed = unifiedRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    throw new ValidationError(`${issue.path.join(".") || "body"}: ${issue.message}`);
+  }
+
+  const content = parsed.data.content;
+  if (parsed.data.type === "text" && (content.length < 20 || content.length > 100_000)) {
+    throw new ValidationError("content: Text content must be 20-100000 characters");
+  }
+  if ((parsed.data.type === "image" || parsed.data.type === "audio")) {
+    let parsedUrl: URL;
+    try { parsedUrl = new URL(content); } catch { throw new ValidationError("content: Media content must be an https URL"); }
+    if (parsedUrl.protocol !== "https:") throw new ValidationError("content: Media content must be an https URL");
+    if (content.length > 2000) throw new ValidationError("content: Media URL must be 2000 characters or less");
+  }
+
+  return {
+    type: parsed.data.type,
+    content,
+    transcript: parsed.data.transcript,
+    context: {
+      format: parsed.data.context?.format ?? "other",
+      intended_use: parsed.data.context?.intended_use ?? "other",
+      domain: parsed.data.context?.domain,
+    },
+    privacy_mode: privacyModeFrom(parsed.data),
+  };
+}
 
 export async function parseAnalyzeRequest(request: Request): Promise<AnalyzeRequest> {
   let body: unknown;
@@ -82,7 +147,7 @@ export async function parseAnalyzeRequest(request: Request): Promise<AnalyzeRequ
       intended_use: parsed.data.context?.intended_use ?? "other",
       domain: parsed.data.context?.domain,
     },
-    privacy_mode: parsed.data.privacy_mode,
+    privacy_mode: privacyModeFrom(parsed.data),
   };
 }
 
@@ -107,7 +172,7 @@ export async function parseAnalyzeBatchRequest(request: Request): Promise<Analyz
       intended_use: parsed.data.context?.intended_use ?? "other",
       domain: parsed.data.context?.domain,
     },
-    privacy_mode: parsed.data.privacy_mode,
+    privacy_mode: privacyModeFrom(parsed.data),
   };
 }
 
@@ -127,7 +192,7 @@ export async function parseAnalyzeAudioRequest(request: Request): Promise<Analyz
       intended_use: parsed.data.context?.intended_use ?? "other",
       domain: parsed.data.context?.domain,
     },
-    privacy_mode: parsed.data.privacy_mode,
+    privacy_mode: privacyModeFrom(parsed.data),
   };
 }
 
@@ -152,7 +217,7 @@ export async function parseAnalyzeImageRequest(request: Request): Promise<Analyz
       intended_use: parsed.data.context?.intended_use ?? "other",
       domain: parsed.data.context?.domain,
     },
-    privacy_mode: parsed.data.privacy_mode,
+    privacy_mode: privacyModeFrom(parsed.data),
   };
 }
 

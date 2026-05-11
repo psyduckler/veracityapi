@@ -24,20 +24,23 @@ const httpsUrl = (field: string) => z.string().url().max(2000).refine((value) =>
 export const analyzeTextInputSchema = z.object({
   text: z.string().min(20).max(100_000),
   context: contextSchema,
-  privacy_mode: z.boolean().optional().default(true),
+  store_content: z.boolean().optional().default(false),
+  privacy_mode: z.boolean().optional(),
 });
 
 export const analyzeImageInputSchema = z.object({
   image_url: httpsUrl("image_url"),
   context: contextSchema,
-  privacy_mode: z.boolean().optional().default(true),
+  store_content: z.boolean().optional().default(false),
+  privacy_mode: z.boolean().optional(),
 });
 
 export const analyzeAudioInputSchema = z.object({
   audio_url: httpsUrl("audio_url"),
   transcript: z.string().max(10_000).optional(),
   context: contextSchema,
-  privacy_mode: z.boolean().optional().default(true),
+  store_content: z.boolean().optional().default(false),
+  privacy_mode: z.boolean().optional(),
 });
 
 export type AnalyzeTextInput = z.infer<typeof analyzeTextInputSchema>;
@@ -51,7 +54,8 @@ export const toolInputSchemas = {
     properties: {
       text: { type: "string", minLength: 20, maxLength: 100000, description: "Text to score for content trust/workflow risk." },
       context: contextJsonSchema(),
-      privacy_mode: { type: "boolean", default: true },
+      store_content: { type: "boolean", default: false, description: "Explicit default: do not store raw content. Set true only if you want raw text retained for debugging/audit workflows." },
+      privacy_mode: { type: "boolean", default: true, deprecated: true, description: "Legacy alias. Prefer store_content:false." },
     },
   },
   analyze_image: {
@@ -60,7 +64,8 @@ export const toolInputSchemas = {
     properties: {
       image_url: { type: "string", format: "uri", maxLength: 2000, description: "HTTPS image URL to analyze." },
       context: contextJsonSchema(),
-      privacy_mode: { type: "boolean", default: true },
+      store_content: { type: "boolean", default: false, description: "Explicit default: do not store raw content. Set true only if you want raw text retained for debugging/audit workflows." },
+      privacy_mode: { type: "boolean", default: true, deprecated: true, description: "Legacy alias. Prefer store_content:false." },
     },
   },
   analyze_audio: {
@@ -68,9 +73,10 @@ export const toolInputSchemas = {
     required: ["audio_url"],
     properties: {
       audio_url: { type: "string", format: "uri", maxLength: 2000, description: "HTTPS audio URL. VeracityAPI supports common short audio formats up to 4 MB." },
-      transcript: { type: "string", maxLength: 10000, description: "Optional caller-supplied transcript or context." },
+      transcript: { type: "string", maxLength: 10000, description: "Optional caller-supplied transcript/context. VeracityAPI transcribes audio with Gemini and returns a transcript in the response." },
       context: contextJsonSchema(),
-      privacy_mode: { type: "boolean", default: true },
+      store_content: { type: "boolean", default: false, description: "Explicit default: do not store raw content. Set true only if you want raw text retained for debugging/audit workflows." },
+      privacy_mode: { type: "boolean", default: true, deprecated: true, description: "Legacy alias. Prefer store_content:false." },
     },
   },
   check_balance: {

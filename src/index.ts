@@ -9,10 +9,10 @@ import { agentsJson, faviconSvg, INDEXNOW_KEY, llmsTxt, ogSvg, openApiSpec, robo
 import { DEMO_IMAGE_CONTENT_TYPE, DEMO_IMAGE_PATH, demoImageBytes } from "./demoImage";
 import { DEMO_AUDIO_CONTENT_TYPE, DEMO_AUDIO_PATH, demoAudioBytes } from "./demoAudio";
 import { docsHtml, evalsHtml, examplesHtml, howItWorksHtml, pricingHtml, privacyHtml, requestAccessHtml, useCaseHtml, useCasesIndexHtml } from "./pages";
-import { distributionPageHtml } from "./distribution";
+import { distributionPageHtml, distributionRedirectTarget } from "./distribution";
 import { homepageHtml } from "./site";
 import type { AnalyzeAudioResponse, AnalyzeBatchRequest, AnalyzeImageResponse, AnalyzeResponse, Env } from "./types";
-import { parseAnalyzeAudioRequest, parseAnalyzeBatchRequest, parseAnalyzeImageRequest, parseAnalyzeRequest, ValidationError } from "./validate";
+import { parseAnalyzeAudioRequest, parseAnalyzeBatchRequest, parseAnalyzeImageRequest, parseAnalyzeRequest, parseUnifiedAnalyzeRequest, ValidationError } from "./validate";
 
 const LIMITATIONS = [
   "Scores are probabilistic workflow risk signals, not proof of AI authorship or truth.",
@@ -104,6 +104,8 @@ export default {
     }
 
     if ((request.method === "GET" || request.method === "HEAD")) {
+      const redirectTarget = distributionRedirectTarget(url.pathname);
+      if (redirectTarget) return Response.redirect(`${url.origin}${redirectTarget}`, 301);
       const distribution = distributionPageHtml(url.pathname);
       if (distribution) return html(request.method === "HEAD" ? "" : distribution);
     }
@@ -176,6 +178,10 @@ export default {
       return handleBalance(request, env);
     }
 
+    if (request.method === "POST" && url.pathname === "/v1/analyze") {
+      return handleUnifiedAnalyze(request, env);
+    }
+
     if (request.method === "POST" && url.pathname === "/v1/analyze-text") {
       return handleAnalyzeText(request, env);
     }
@@ -225,7 +231,7 @@ async function handleDemoAnalyze(request: Request, env: Env): Promise<Response> 
   try {
     const ip = request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for") || "unknown";
     if (!consumeDemoQuota(ip, Number(env.DEMO_RATE_LIMIT_PER_HOUR || 12))) {
-      return json({ error: "rate_limited", message: "Public demo limit reached. Try again later or create an account for $1.50 free credit — enough for 150 short text analyses." }, 429, { "Retry-After": "3600" });
+      return json({ error: "rate_limited", message: "Public demo limit reached. Try again later or create an account for $1.50 free credit — enough for 300 1k-character text analyses." }, 429, { "Retry-After": "3600" });
     }
 
     let body: Record<string, unknown>;
@@ -352,6 +358,23 @@ async function handleBalance(request: Request, env: Env): Promise<Response> {
     return json(await getBalanceSummary(env, auth.accountId));
   } catch (err) {
     if (err instanceof BillingAuthError) return json({ error: "unauthorized" }, 401);
+    console.error(err);
+    return json({ error: "internal_error" }, 500);
+  }
+}
+
+async function handleUnifiedAnalyze(request: Request, env: Env): Promise<Response> {
+  try {
+    const parsed = await parseUnifiedAnalyzeRequest(request);
+    if (parsed.type === "text") {
+      return handleAnalyzeText(jsonRequestFrom(request, { text: parsed.content, context: parsed.context, privacy_mode: parsed.privacy_mode }), env);
+    }
+    if (parsed.type === "image") {
+      return handleAnalyzeImage(jsonRequestFrom(request, { image_url: parsed.content, context: parsed.context, privacy_mode: parsed.privacy_mode }), env);
+    }
+    return handleAnalyzeAudio(jsonRequestFrom(request, { audio_url: parsed.content, transcript: parsed.transcript, context: parsed.context, privacy_mode: parsed.privacy_mode }), env);
+  } catch (err) {
+    if (err instanceof ValidationError) return json({ error: "bad_request", message: err.message }, 400);
     console.error(err);
     return json({ error: "internal_error" }, 500);
   }
@@ -677,6 +700,13 @@ function consumeWindowQuota(store: Map<string, { count: number; resetAt: number 
   if (current.count >= limit) return false;
   current.count += 1;
   return true;
+}
+
+function jsonRequestFrom(source: Request, body: unknown): Request {
+  const headers = new Headers({ "content-type": "application/json" });
+  const authorization = source.headers.get("authorization");
+  if (authorization) headers.set("authorization", authorization);
+  return new Request(source.url, { method: "POST", headers, body: JSON.stringify(body) });
 }
 
 function jsonRequest(url: string, body: unknown): Request {

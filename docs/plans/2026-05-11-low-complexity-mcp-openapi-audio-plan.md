@@ -98,7 +98,7 @@ Content-Type: application/json
     "intended_use": "moderate",
     "domain": "travel safety"
   },
-  "privacy_mode": true
+  "store_content": false
 }
 ```
 
@@ -266,7 +266,7 @@ Input:
     "intended_use": "publish|train|cite|moderate|other",
     "domain": "optional string"
   },
-  "privacy_mode": true
+  "store_content": false
 }
 ```
 
@@ -278,7 +278,7 @@ Input:
 {
   "image_url": "https://example.com/image.jpg",
   "context": { "format": "article", "intended_use": "publish", "domain": "news" },
-  "privacy_mode": true
+  "store_content": false
 }
 ```
 
@@ -291,7 +291,7 @@ Input:
   "audio_url": "https://example.com/clip.mp3",
   "transcript": "Optional caller-provided transcript or context, max 10000 chars.",
   "context": { "format": "social_post", "intended_use": "moderate", "domain": "travel safety" },
-  "privacy_mode": true
+  "store_content": false
 }
 ```
 
@@ -520,4 +520,4 @@ If forced, scope OAuth as its own milestone:
 
 Gemini's strategic correction is right: OpenAI wants OpenAPI; MCP is for Claude Desktop/Cursor/Windsurf/Hermes-style clients. The lowest-complexity plan is not a universal connector. It is a clean HTTP API plus two thin wrappers: OpenAPI and MCP.
 
-The only modification is that v0 must include `analyze_audio` alongside text/image/balance using the live direct-audio URL contract: HTTPS audio URL, optional transcript, 4 MB cap, supported audio content types, no stored audio bytes/base64/full URL.
+The only modification is that v0 must include `analyze_audio` alongside text/image/balance using the live direct-audio URL contract: HTTPS audio URL, optional caller transcript; VeracityAPI returns a Gemini-generated transcript, 4 MB cap, supported audio content types, no stored audio bytes/base64/full URL.

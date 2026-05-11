@@ -6,12 +6,12 @@ It exposes VeracityAPI's live HTTP API as thin MCP tools for Claude Desktop, Cur
 
 ## Tools
 
-- `analyze_text` → `POST /v1/analyze-text`
+- `analyze_text` → `POST /v1/analyze` with `type: "text"`
   - Scores text for content trust, specificity/slop risk, weak provenance, evidence, recommended fixes, and workflow action.
-- `analyze_image` → `POST /v1/analyze-image`
+- `analyze_image` → `POST /v1/analyze` with `type: "image"`
   - Scores an HTTPS image URL for visible synthetic-image artifact risk and workflow action.
-- `analyze_audio` → `POST /v1/analyze-audio`
-  - Scores a short HTTPS audio URL for synthetic-audio workflow triage.
+- `analyze_audio` → `POST /v1/analyze` with `type: "audio"`
+  - Scores a short HTTPS audio URL for synthetic-audio workflow triage with transcript return.
   - Optional caller transcript/context can be supplied.
   - The MCP server does not download, transcode, or store audio.
 - `check_balance` → `GET /v1/balance`
@@ -69,7 +69,7 @@ VERACITY_API_KEY=vap_...
 {
   "text": "Travelers should always be careful in tourist areas because scams can happen anywhere. Keep your belongings close and avoid strangers.",
   "context": { "format": "article", "intended_use": "publish", "domain": "travel safety" },
-  "privacy_mode": true
+  "store_content": false
 }
 ```
 
@@ -79,7 +79,7 @@ VERACITY_API_KEY=vap_...
 {
   "image_url": "https://veracityapi.com/demo/influencer-beauty-tonic.jpg",
   "context": { "format": "social_post", "intended_use": "publish", "domain": "influencer product post" },
-  "privacy_mode": true
+  "store_content": false
 }
 ```
 
@@ -90,13 +90,13 @@ VERACITY_API_KEY=vap_...
   "audio_url": "https://veracityapi.com/demo/synthetic-voice-message.wav",
   "transcript": "Optional caller-supplied transcript or context.",
   "context": { "format": "social_post", "intended_use": "moderate", "domain": "voice-message authenticity triage" },
-  "privacy_mode": true
+  "store_content": false
 }
 ```
 
 ## Privacy notes
 
-- Text: when `privacy_mode=true`, raw text is not stored in D1 analysis logs.
+- Text: when `store_content=false`, raw text is not stored in D1 analysis logs.
 - Image: VeracityAPI stores no image bytes and logs only URL hash + hostname.
 - Audio: VeracityAPI fetches capped HTTPS audio transiently, stores no audio bytes/base64/full URL, and logs only URL hash + hostname.
 - Local MCP server only proxies JSON to VeracityAPI and returns JSON responses to the calling agent.

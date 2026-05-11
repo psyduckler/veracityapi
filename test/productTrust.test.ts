@@ -76,6 +76,9 @@ describe("OpenAPI and agent discovery", () => {
     expect(JSON.stringify(spec)).toMatch(/analyze-audio|synthetic_audio|audio_v0/i);
     expect(JSON.stringify(spec)).toMatch(/not proof|workflow risk|workflow triage/i);
 
+    expect(spec.paths["/v1/analyze"].post.operationId).toBe("analyze");
+    expect(spec.paths["/v1/analyze"].post.responses["402"]).toBeTruthy();
+    expect(spec.components.schemas.UnifiedAnalyzeRequest.properties.type.enum).toEqual(["text", "image", "audio"]);
     expect(spec.paths["/v1/analyze-text"].post.responses["402"]).toBeTruthy();
     expect(spec.paths["/v1/analyze-image"].post.operationId).toBe("analyzeImage");
     expect(spec.paths["/v1/analyze-audio"].post.operationId).toBe("analyzeAudio");
@@ -90,7 +93,7 @@ describe("OpenAPI and agent discovery", () => {
 
   it("uses precise signup credit copy in machine-readable discovery", () => {
     const combined = `${llmsTxt()} ${JSON.stringify(agentsJson())}`;
-    expect(combined).toContain("$1.50 free credit — enough for 150 short text analyses");
+    expect(combined).toContain("$1.50 free credit — enough for 300 1k-character text analyses");
     expect(combined).not.toContain("150 free API calls");
   });
 });
@@ -115,33 +118,37 @@ describe("privacy logging", () => {
 });
 
 describe("homepage conversion", () => {
-  it("leads with workflow routing instead of AI-detector proof claims and shows valid curl/JSON", () => {
+  it("leads with content verification, action-first routing, and developer switch-statement value", () => {
     const html = homepageHtml();
-    expect(html.toLowerCase()).toContain("workflow routing, not an ai detector");
-    expect(html).toContain("should this content be allowed, revised, reviewed, or rejected");
-    expect(html).toContain("$1.50 free credit — enough for 150 short text analyses");
-    expect(html).toContain("curl https://api.veracityapi.com/v1/analyze-text");
+    expect(html).toContain("Content Verification API for AI Agents");
+    expect(html).toContain("Stop agents from ingesting, citing, or publishing synthetic slop and suspicious media");
+    expect(html).toContain("Just write your switch statement");
+    expect(html).toContain("switch (result.recommended_action)");
+    expect(html).toContain("$1.50 free credit — enough for 300 1k-character text analyses");
+    expect(html).toContain("curl https://api.veracityapi.com/v1/analyze");
     expect(html).toContain('"recommended_action"');
-    expect(html).toContain("Authorization: Bearer");
     const hero = html.slice(html.indexOf("<section class=\"hero"), html.indexOf("</section>", html.indexOf("<section class=\"hero")));
-    expect((hero.match(/class=\"btn/g) || []).length).toBe(2);
+    expect((hero.match(/class=\"btn/g) || []).length).toBe(3);
     expect(hero).toContain("Get API key");
     expect(hero).toContain("Read docs");
+    expect(hero).toContain("Try live demo");
   });
 
-  it("surfaces the action matrix, agent-ready discovery, local MCP, and key use cases", () => {
+  it("surfaces four routing actions, agent-ready discovery, local MCP, and P0 jobs to be done", () => {
     const html = homepageHtml();
-    expect(html).toContain("Traffic-light action matrix");
-    expect(html).toContain("Green = allow");
-    expect(html).toContain("Yellow = revise");
-    expect(html).toContain("Red = reject");
+    expect(html).toContain("One API call. Four routing actions.");
+    expect(html).toContain("<code>allow</code>");
+    expect(html).toContain("<code>revise</code>");
+    expect(html).toContain("<code>human_review</code>");
+    expect(html).toContain("<code>reject</code>");
     expect(html).toContain("Agent-ready by default");
     expect(html).toContain("Claude Desktop / MCP ready");
     expect(html).toContain("Claude.ai connector requires remote MCP later");
     expect(html).toContain("veracityapi.com/llms.txt");
-    expect(html).toContain("Pre-publish moderation");
-    expect(html).toContain("Voice-message authenticity triage");
-    expect(html).toContain("Influencer product post verification");
+    expect(html).toContain("Pre-publish QA");
+    expect(html).toContain("RAG / training-data ingestion");
+    expect(html).toContain("Async UGC moderation");
+    expect(html).toContain("Demo audio is a generated fixture");
   });
 });
 
@@ -172,10 +179,10 @@ describe("dashboard activation", () => {
     const html = accountHtml(account, "API key created. Copy it now: vap_secret_example");
     expect(html).toContain("Copy API key");
     expect(html).toContain("Current balance");
-    expect(html).toContain("Equivalent to ~150 short text analyses");
+    expect(html).toContain("Equivalent to ~300 1k-character text analyses");
     expect(html).toContain("progressbar");
     expect(html).toContain("Run this");
-    expect(html).toContain("curl https://api.veracityapi.com/v1/analyze-text");
+    expect(html).toContain("curl https://api.veracityapi.com/v1/analyze");
     expect(html).toContain("Bearer vap_secret_example");
     expect(html).toContain("Authorization: Bearer");
     expect(html).toContain("terminal");

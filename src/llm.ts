@@ -200,12 +200,21 @@ export async function scoreAudio(input: AnalyzeAudioRequest, env: Env): Promise<
       method: "POST",
       signal: controller.signal,
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ generation_config: { response_mime_type: "application/json" }, contents: [{ role: "user", parts: [{ text: buildAudioPrompt(input) }, { inline_data: { mime_type: audio.mediaType, data: audio.base64 } }] }] }),
+      body: JSON.stringify({
+        generation_config: { response_mime_type: "application/json" },
+        contents: [{
+          role: "user",
+          parts: [
+            { text: buildAudioPrompt(input) },
+            { inline_data: { mime_type: audio.mediaType, data: audio.base64 } },
+          ],
+        }],
+      }),
     });
     if (!res.ok) throw new LlmError(`Gemini returned ${res.status}: ${(await res.text()).slice(0, 240)}`);
     const data = await res.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
     const text = data.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("") || "{}";
-    return normalizeAudioScoredFields(JSON.parse(text) as Record<string, unknown>);
+    return normalizeAudioScoredFields(JSON.parse(text) as Record<string, unknown>, input.transcript);
   } catch (err) {
     if (err instanceof LlmError) throw err;
     if (err instanceof DOMException && err.name === "AbortError") throw new LlmError("Gemini audio request timed out");
@@ -250,10 +259,10 @@ function normalizeAudioMediaType(contentType: string): string {
 }
 
 function buildAudioPrompt(input: AnalyzeAudioRequest): string {
-  return `Score this short audio clip for strict synthetic-audio workflow triage. Return ONLY JSON with keys: synthetic_audio_risk, workflow_risk, confidence, evidence, recommended_fixes. Be calibrated for catching suspicious audio before it ships, not for avoiding false positives. If the clip has synthetic/TTS-like prosody, unusually smooth cadence, uncanny or performed affect, low-noise studio texture inconsistent with a casual voice note, emotionally scripted delivery, compression-clean voice texture, or transcript/audio mismatch, score it as a strong risk signal. Use synthetic_audio_risk roughly as: 0.00-0.19 clearly natural, 0.20-0.39 weak signal, 0.40-0.64 review-worthy, 0.65-0.84 likely synthetic/manipulated, 0.85-1.00 obvious or highly suspicious synthetic/TTS/voice-clone-style audio. For obvious TTS-style or AI voice-note demos, target synthetic_audio_risk around 0.90. Use workflow_risk for whether the clip should be held, revised, or provenance-checked before use; casual romantic, financial, identity, testimonial, or publication voice messages with unnatural delivery should usually be at least 0.75 workflow risk. This remains triage: not proof of AI generation, voice-clone proof, speaker identity verification, or forensic determination. Format: ${input.context.format}; intended use: ${input.context.intended_use}; domain: ${input.context.domain || "general"}; optional transcript: ${input.transcript || "none"}.`;
+  return `Score this short audio clip for strict synthetic-audio workflow triage. Return ONLY JSON with keys: transcript, synthetic_audio_risk, workflow_risk, confidence, evidence, recommended_fixes. Be calibrated for catching suspicious audio before it ships, not for avoiding false positives. If the clip has synthetic/TTS-like prosody, unusually smooth cadence, uncanny or performed affect, low-noise studio texture inconsistent with a casual voice note, emotionally scripted delivery, compression-clean voice texture, or transcript/audio mismatch, score it as a strong risk signal. Use synthetic_audio_risk roughly as: 0.00-0.19 clearly natural, 0.20-0.39 weak signal, 0.40-0.64 review-worthy, 0.65-0.84 likely synthetic/manipulated, 0.85-1.00 obvious or highly suspicious synthetic/TTS/voice-clone-style audio. For obvious TTS-style or AI voice-note demos, target synthetic_audio_risk around 0.90. Use workflow_risk for whether the clip should be held, revised, or provenance-checked before use; casual romantic, financial, identity, testimonial, or publication voice messages with unnatural delivery should usually be at least 0.75 workflow risk. Return transcript as your best-effort transcription of the spoken words. If the caller supplied an optional transcript, correct it against the audio when needed; if speech is unclear or absent, return an empty string. This remains triage: not proof of AI generation, voice-clone proof, speaker identity verification, or forensic determination. Format: ${input.context.format}; intended use: ${input.context.intended_use}; domain: ${input.context.domain || "general"}; optional transcript: ${input.transcript || "none"}.`;
 }
 
-function normalizeAudioScoredFields(raw: Record<string, unknown>): AudioScoredFields {
+function normalizeAudioScoredFields(raw: Record<string, unknown>, fallbackTranscript = ""): AudioScoredFields {
   const confidence = raw.confidence === "high" || raw.confidence === "medium" || raw.confidence === "low" ? raw.confidence : "low";
   const evidenceRaw = Array.isArray(raw.evidence) ? raw.evidence.slice(0, 5) : [];
   const evidence = evidenceRaw.map((item) => {
@@ -265,7 +274,8 @@ function normalizeAudioScoredFields(raw: Record<string, unknown>): AudioScoredFi
   const fixes = Array.isArray(raw.recommended_fixes) ? raw.recommended_fixes.slice(0, 5).map((x) => String(x).slice(0, 240)) : [];
   const syntheticAudioRisk = calibrateAudioRisk(raw.synthetic_audio_risk, confidence, evidence, "synthetic");
   const workflowRisk = calibrateAudioRisk(raw.workflow_risk, confidence, evidence, "workflow");
-  return { synthetic_audio_risk: syntheticAudioRisk, workflow_risk: workflowRisk, synthetic_risk: syntheticAudioRisk, confidence, evidence, recommended_fixes: fixes };
+  const transcript = typeof raw.transcript === "string" ? raw.transcript.slice(0, 10000) : fallbackTranscript.slice(0, 10000);
+  return { transcript, synthetic_audio_risk: syntheticAudioRisk, workflow_risk: workflowRisk, synthetic_risk: syntheticAudioRisk, confidence, evidence, recommended_fixes: fixes };
 }
 
 function calibrateAudioRisk(raw: unknown, confidence: "low" | "medium" | "high", evidence: AudioScoredFields["evidence"], kind: "synthetic" | "workflow"): number {

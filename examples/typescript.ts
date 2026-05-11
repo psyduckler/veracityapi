@@ -24,35 +24,35 @@ export async function getBalance() {
 }
 
 export async function analyzeText(text: string) {
-  return request("/v1/analyze-text", {
+  return request("/v1/analyze", {
     method: "POST",
     body: JSON.stringify({
       text,
       context: { format: "article", intended_use: "publish", domain: "content QA" },
-      privacy_mode: true,
+      store_content: false,
     }),
   });
 }
 
 export async function analyzeImage(image_url: string) {
-  return request("/v1/analyze-image", {
+  return request("/v1/analyze", {
     method: "POST",
     body: JSON.stringify({
       image_url,
       context: { format: "social_post", intended_use: "publish", domain: "image trust" },
-      privacy_mode: true,
+      store_content: false,
     }),
   });
 }
 
 export async function analyzeAudio(audio_url: string, transcript?: string) {
-  return request("/v1/analyze-audio", {
+  return request("/v1/analyze", {
     method: "POST",
     body: JSON.stringify({
       audio_url,
       transcript,
-      context: { format: "social_post", intended_use: "publish", domain: "audio workflow triage" },
-      privacy_mode: true,
+      context: { format: "social_post", intended_use: "publish", domain: "audio workflow triage with transcript return" },
+      store_content: false,
     }),
   });
 }
@@ -63,7 +63,7 @@ export async function analyzeBatch(items: Array<{ id: string; text: string }>) {
     body: JSON.stringify({
       items,
       context: { format: "article", intended_use: "publish", domain: "batch QA" },
-      privacy_mode: true,
+      store_content: false,
     }),
   });
 }

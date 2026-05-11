@@ -104,7 +104,7 @@ Content-Type: application/json
     "platform": "instagram",
     "needs_human_review_threshold": 0.7
   },
-  "privacy_mode": true,
+  "store_content": false,
   "retain_image": false,
   "execution_mode": "fast"
 }
@@ -274,7 +274,7 @@ Default:
 
 ```json
 {
-  "privacy_mode": true,
+  "store_content": false,
   "retain_image": false
 }
 ```
@@ -340,7 +340,7 @@ CREATE INDEX IF NOT EXISTS idx_image_analysis_logs_account_created
 
 Privacy rule:
 
-- If `privacy_mode=true`, store `raw_provider_json = NULL` unless sanitized.
+- If `store_content=false`, store `raw_provider_json = NULL` unless sanitized.
 - If `retain_image=false`, store `image_r2_key = NULL` after deletion or store only a temporary key that no longer exists.
 - Store `source_url_domain`, not full URL, by default.
 

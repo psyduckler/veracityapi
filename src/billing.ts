@@ -8,11 +8,12 @@ export const CREDIT_PACKS: Record<string, { amountCents: number; label: string }
   scale: { amountCents: 20000, label: "$200 credits" },
 };
 
-export function priceForChars(chars: number): { bucket: string; priceCents: number } {
-  if (chars <= 4_000) return { bucket: "up_to_4k", priceCents: 1 };
-  if (chars <= 20_000) return { bucket: "up_to_20k", priceCents: 3 };
-  if (chars <= 50_000) return { bucket: "up_to_50k", priceCents: 6 };
-  return { bucket: "up_to_100k", priceCents: 12 };
+export const TEXT_UNIT_CHARS = 1_000;
+export const TEXT_UNIT_PRICE_CENTS = 0.5; // $0.005 per 1,000 characters
+
+export function priceForChars(chars: number): { bucket: string; priceCents: number; billableUnits: number } {
+  const billableUnits = Math.max(1, Math.ceil(chars / TEXT_UNIT_CHARS));
+  return { bucket: "text_1k_units", priceCents: billableUnits * TEXT_UNIT_PRICE_CENTS, billableUnits };
 }
 
 export function priceForImage(): { bucket: string; priceCents: number } {
@@ -38,7 +39,7 @@ export async function authenticateUsageKey(request: Request, env: Env): Promise<
 
 export async function debitForRequest(env: Env, accountId: string, apiKeyId: string, analysisId: string, parsed: AnalyzeRequest): Promise<BillingMetadata> {
   const chars = parsed.text.length;
-  const { bucket, priceCents } = priceForChars(chars);
+  const { bucket, priceCents, billableUnits } = priceForChars(chars);
   const updated = await env.DB.prepare(`UPDATE accounts SET balance_cents = balance_cents - ?, updated_at = ? WHERE account_id = ? AND deleted_at IS NULL AND balance_cents >= ?`)
     .bind(priceCents, new Date().toISOString(), accountId, priceCents)
     .run();
@@ -48,15 +49,17 @@ export async function debitForRequest(env: Env, accountId: string, apiKeyId: str
   }
   const account = await getAccountBalance(env, accountId);
   const usageId = `use_${ulid()}`;
-  await env.DB.prepare(`INSERT INTO credit_ledger (ledger_id, account_id, type, amount_cents, balance_after_cents, reference_id, metadata_json, created_at) VALUES (?, ?, 'usage_debit', ?, ?, ?, ?, ?)`).bind(`led_${ulid()}`, accountId, -priceCents, account.balanceCents, analysisId, JSON.stringify({ api_key_id: apiKeyId, chars_analyzed: chars, bucket }), new Date().toISOString()).run();
+  await env.DB.prepare(`INSERT INTO credit_ledger (ledger_id, account_id, type, amount_cents, balance_after_cents, reference_id, metadata_json, created_at) VALUES (?, ?, 'usage_debit', ?, ?, ?, ?, ?)`).bind(`led_${ulid()}`, accountId, -priceCents, account.balanceCents, analysisId, JSON.stringify({ api_key_id: apiKeyId, chars_analyzed: chars, billable_units: billableUnits, unit_chars: TEXT_UNIT_CHARS, unit_price_cents: TEXT_UNIT_PRICE_CENTS, bucket }), new Date().toISOString()).run();
   await env.DB.prepare(`INSERT INTO usage_events (usage_id, account_id, api_key_id, analysis_id, chars_analyzed, bucket, price_cents, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'debited', ?)`).bind(usageId, accountId, apiKeyId, analysisId, chars, bucket, priceCents, new Date().toISOString()).run();
-  return { chars_analyzed: chars, bucket, price_cents: priceCents, remaining_balance_cents: account.balanceCents };
+  return { chars_analyzed: chars, units_analyzed: billableUnits, bucket, price_cents: priceCents, remaining_balance_cents: account.balanceCents };
 }
 
 export async function debitForBatchRequest(env: Env, accountId: string, apiKeyId: string, batchId: string, parsed: AnalyzeBatchRequest): Promise<BillingMetadata> {
   const totalChars = parsed.items.reduce((sum, item) => sum + item.text.length, 0);
-  const priceCents = parsed.items.reduce((sum, item) => sum + priceForChars(item.text.length).priceCents, 0);
-  const bucket = "batch_text_v0";
+  const itemPrices = parsed.items.map((item) => priceForChars(item.text.length));
+  const priceCents = itemPrices.reduce((sum, price) => sum + price.priceCents, 0);
+  const billableUnits = itemPrices.reduce((sum, price) => sum + price.billableUnits, 0);
+  const bucket = "batch_text_1k_units";
   const updated = await env.DB.prepare(`UPDATE accounts SET balance_cents = balance_cents - ?, updated_at = ? WHERE account_id = ? AND deleted_at IS NULL AND balance_cents >= ?`)
     .bind(priceCents, new Date().toISOString(), accountId, priceCents)
     .run();
@@ -67,12 +70,12 @@ export async function debitForBatchRequest(env: Env, accountId: string, apiKeyId
   const account = await getAccountBalance(env, accountId);
   const now = new Date().toISOString();
   await env.DB.prepare(`INSERT INTO credit_ledger (ledger_id, account_id, type, amount_cents, balance_after_cents, reference_id, metadata_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
-    .bind(`led_${ulid()}`, accountId, "batch_usage_debit", -priceCents, account.balanceCents, batchId, JSON.stringify({ api_key_id: apiKeyId, units_analyzed: parsed.items.length, chars_analyzed: totalChars, bucket }), now)
+    .bind(`led_${ulid()}`, accountId, "batch_usage_debit", -priceCents, account.balanceCents, batchId, JSON.stringify({ api_key_id: apiKeyId, units_analyzed: parsed.items.length, billable_units: billableUnits, chars_analyzed: totalChars, unit_chars: TEXT_UNIT_CHARS, unit_price_cents: TEXT_UNIT_PRICE_CENTS, bucket }), now)
     .run();
   await env.DB.prepare(`INSERT INTO usage_events (usage_id, account_id, api_key_id, analysis_id, chars_analyzed, bucket, price_cents, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'debited', ?)`)
     .bind(`use_${ulid()}`, accountId, apiKeyId, batchId, totalChars, bucket, priceCents, now)
     .run();
-  return { units_analyzed: parsed.items.length, chars_analyzed: totalChars, bucket, price_cents: priceCents, remaining_balance_cents: account.balanceCents };
+  return { units_analyzed: parsed.items.length, billable_units: billableUnits, chars_analyzed: totalChars, bucket, price_cents: priceCents, remaining_balance_cents: account.balanceCents } as BillingMetadata & { billable_units: number };
 }
 
 export async function debitForAudio(env: Env, accountId: string, apiKeyId: string, analysisId: string): Promise<BillingMetadata> {

@@ -25,15 +25,15 @@ export class VeracityClient {
   }
 
   analyzeText(input: AnalyzeTextInput): Promise<Record<string, unknown>> {
-    return this.post("/v1/analyze-text", input);
+    return this.post("/v1/analyze", { type: "text", content: input.text, context: input.context, store_content: input.store_content ?? (input.privacy_mode === undefined ? false : !input.privacy_mode) });
   }
 
   analyzeImage(input: AnalyzeImageInput): Promise<Record<string, unknown>> {
-    return this.post("/v1/analyze-image", input);
+    return this.post("/v1/analyze", { type: "image", content: input.image_url, context: input.context, store_content: input.store_content ?? (input.privacy_mode === undefined ? false : !input.privacy_mode) });
   }
 
   analyzeAudio(input: AnalyzeAudioInput): Promise<Record<string, unknown>> {
-    return this.post("/v1/analyze-audio", input);
+    return this.post("/v1/analyze", { type: "audio", content: input.audio_url, transcript: input.transcript, context: input.context, store_content: input.store_content ?? (input.privacy_mode === undefined ? false : !input.privacy_mode) });
   }
 
   getBalance(): Promise<Record<string, unknown>> {

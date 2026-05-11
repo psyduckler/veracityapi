@@ -87,7 +87,7 @@ Content-Type: application/json
     "intended_use": "moderate",
     "domain": "travel safety"
   },
-  "privacy_mode": true
+  "store_content": false
 }
 ```
 

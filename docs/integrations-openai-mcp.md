@@ -27,9 +27,9 @@ Authorization: Bearer vap_...
 
 Use these operation IDs from the OpenAPI spec:
 
-- `analyzeText` → `POST https://api.veracityapi.com/v1/analyze-text`
-- `analyzeImage` → `POST https://api.veracityapi.com/v1/analyze-image`
-- `analyzeAudio` → `POST https://api.veracityapi.com/v1/analyze-audio`
+- `analyzeText` → `POST https://api.veracityapi.com/v1/analyze`
+- `analyzeImage` → `POST https://api.veracityapi.com/v1/analyze`
+- `analyzeAudio` → `POST https://api.veracityapi.com/v1/analyze`
 - `getBalance` → `GET https://api.veracityapi.com/v1/balance`
 
 `analyzeBatch` is available in the spec, but initial Custom GPT instructions should prefer single-item calls unless the GPT is explicitly doing batch QA.
@@ -41,9 +41,9 @@ Use VeracityAPI for content trust workflow triage before publishing, citing, tra
 
 Always call getBalance before running multi-item or looped analyses.
 
-For text, call analyzeText with text, context, and privacy_mode=true unless the user explicitly asks otherwise.
+For text, call analyzeText with text, context, and store_content=false unless the user explicitly asks otherwise.
 For images, call analyzeImage only with HTTPS image URLs.
-For audio, call analyzeAudio only with short HTTPS audio URLs. You may pass an optional transcript if the user provides one, but VeracityAPI analyzes the audio directly.
+For audio, call analyzeAudio only with short HTTPS audio URLs. You may pass an optional caller transcript; VeracityAPI returns a Gemini-generated transcript if the user provides one, but VeracityAPI analyzes the audio directly.
 
 Interpret results as probabilistic workflow risk signals with evidence and recommended action. Do not describe VeracityAPI as an AI detector, truth detector, authorship proof system, voice-clone proof system, speaker identity verifier, or forensic determination tool.
 
@@ -114,7 +114,7 @@ Use this language consistently:
 - Evidence and recommended action
 - No raw audio bytes/base64/full URL storage
 - No image bytes stored
-- `privacy_mode=true` by default
+- `store_content=false` by default
 
 Avoid these claims:
 

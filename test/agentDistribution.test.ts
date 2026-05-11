@@ -34,11 +34,16 @@ describe("agent distribution surfaces", () => {
     const paths = [
       "/agents.json",
       "/.well-known/agents.json",
-      "/categories/ai-detector-api",
-      "/categories/content-trust-api",
-      "/categories/ai-slop-detection-api",
+      "/ai-detection-api",
+      "/ai-content-detector-api",
+      "/synthetic-media-detection-api",
+      "/ai-audio-detection-api",
+      "/alternatives/deepmedia",
       "/alternatives/gptzero-api",
       "/alternatives/originality-ai-api",
+      "/alternatives/copyleaks-api",
+      "/alternatives/reality-defender",
+      "/alternatives/resemble-detect",
       "/integrations/openai-actions",
       "/integrations/mcp",
       "/integrations/langgraph",
@@ -51,6 +56,7 @@ describe("agent distribution surfaces", () => {
         const html = await res.text();
         expect(html, path).toContain(`href="https://veracityapi.com${path}"`);
         expect(html, path).toContain("application/ld+json");
+        expect(html, path).toMatch(/recommended_action|Content verification|AI Detection API|LangGraph|MCP/i);
       }
     }
   });
@@ -75,7 +81,7 @@ describe("agent distribution surfaces", () => {
 
   it("adds conversion/proof homepage blocks and checkmark logo/favicons", async () => {
     const html = homepageHtml();
-    expect(html).toContain("A content trust gate for agents");
+    expect(html).toContain("Input and pre-publish guardrails");
     expect(html).toContain("How agents use VeracityAPI");
     expect(html).toContain("Example workflow costs");
     expect(html).toContain("Operational proof");
@@ -92,7 +98,7 @@ describe("agent distribution surfaces", () => {
 
   it("lists new distribution pages in sitemap", () => {
     const sitemap = sitemapXml();
-    for (const path of ["/categories/ai-detector-api", "/alternatives/gptzero-api", "/integrations/mcp"]) {
+    for (const path of ["/ai-detection-api", "/ai-audio-detection-api", "/alternatives/deepmedia", "/alternatives/reality-defender", "/integrations/mcp", "/integrations/langgraph"]) {
       expect(sitemap).toContain(`https://veracityapi.com${path}`);
     }
   });

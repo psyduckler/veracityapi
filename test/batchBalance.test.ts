@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { debitForBatchRequest, getBalanceSummary } from "../src/billing";
+import { debitForBatchRequest, getBalanceSummary, priceForChars } from "../src/billing";
 import { parseAnalyzeBatchRequest, ValidationError } from "../src/validate";
 
 function req(body: unknown) {
@@ -90,8 +90,22 @@ describe("parseAnalyzeBatchRequest", () => {
   });
 });
 
+describe("text pricing", () => {
+  it("rounds text billing up to $0.005 per 1k characters", () => {
+    expect(priceForChars(0)).toEqual({ bucket: "text_1k_units", priceCents: 0.5, billableUnits: 1 });
+    expect(priceForChars(1)).toEqual({ bucket: "text_1k_units", priceCents: 0.5, billableUnits: 1 });
+    expect(priceForChars(999)).toEqual({ bucket: "text_1k_units", priceCents: 0.5, billableUnits: 1 });
+    expect(priceForChars(1000)).toEqual({ bucket: "text_1k_units", priceCents: 0.5, billableUnits: 1 });
+    expect(priceForChars(1001)).toEqual({ bucket: "text_1k_units", priceCents: 1, billableUnits: 2 });
+    expect(priceForChars(4000)).toEqual({ bucket: "text_1k_units", priceCents: 2, billableUnits: 4 });
+    expect(priceForChars(20000)).toEqual({ bucket: "text_1k_units", priceCents: 10, billableUnits: 20 });
+    expect(priceForChars(50000)).toEqual({ bucket: "text_1k_units", priceCents: 25, billableUnits: 50 });
+    expect(priceForChars(100000)).toEqual({ bucket: "text_1k_units", priceCents: 50, billableUnits: 100 });
+  });
+});
+
 describe("batch billing and balance summary", () => {
-  it("debits one cent per short batch item and records account usage", async () => {
+  it("debits $0.005 per 1k-character text unit and records account usage", async () => {
     const db = new FakeDb();
     db.accounts.set("acct_1", { balance_cents: 150 });
     const parsed = await parseAnalyzeBatchRequest(req({ items: [
@@ -101,17 +115,17 @@ describe("batch billing and balance summary", () => {
 
     const billing = await debitForBatchRequest({ DB: db } as any, "acct_1", "key_1", "batch_1", parsed);
 
-    expect(billing).toEqual({ units_analyzed: 2, chars_analyzed: 103, bucket: "batch_text_v0", price_cents: 2, remaining_balance_cents: 148 });
-    expect(db.accounts.get("acct_1")?.balance_cents).toBe(148);
-    expect(db.ledger[0]).toMatchObject({ type: "batch_usage_debit", amount_cents: -2, balance_after_cents: 148 });
-    expect(db.ledger[0].metadata).toMatchObject({ api_key_id: "key_1", units_analyzed: 2, bucket: "batch_text_v0" });
-    expect(db.usage[0]).toMatchObject({ analysis_id: "batch_1", chars_analyzed: 103, bucket: "batch_text_v0", price_cents: 2 });
+    expect(billing).toEqual({ units_analyzed: 2, billable_units: 2, chars_analyzed: 103, bucket: "batch_text_1k_units", price_cents: 1, remaining_balance_cents: 149 });
+    expect(db.accounts.get("acct_1")?.balance_cents).toBe(149);
+    expect(db.ledger[0]).toMatchObject({ type: "batch_usage_debit", amount_cents: -1, balance_after_cents: 149 });
+    expect(db.ledger[0].metadata).toMatchObject({ api_key_id: "key_1", units_analyzed: 2, billable_units: 2, bucket: "batch_text_1k_units", unit_chars: 1000, unit_price_cents: 0.5 });
+    expect(db.usage[0]).toMatchObject({ analysis_id: "batch_1", chars_analyzed: 103, bucket: "batch_text_1k_units", price_cents: 1 });
   });
 
   it("returns balance, last usage, and recent usage windows", async () => {
     const db = new FakeDb();
     db.accounts.set("acct_1", { balance_cents: 842 });
-    db.usage.push({ analysis_id: "ana_1", chars_analyzed: 100, bucket: "up_to_4k", price_cents: 1, status: "debited", created_at: new Date().toISOString() });
+    db.usage.push({ analysis_id: "ana_1", chars_analyzed: 100, bucket: "text_1k_units", price_cents: 0.5, status: "debited", created_at: new Date().toISOString() });
 
     const summary = await getBalanceSummary({ DB: db } as any, "acct_1");
 
@@ -119,8 +133,8 @@ describe("batch billing and balance summary", () => {
     expect(summary.balance_cents).toBe(842);
     expect(summary.currency).toBe("USD");
     expect(summary.last_usage_at).toBeTruthy();
-    expect(summary.recent_usage.today_cents).toBe(1);
-    expect(summary.recent_usage.last_7_days_cents).toBe(1);
-    expect(summary.recent_usage.last_30_days_cents).toBe(1);
+    expect(summary.recent_usage.today_cents).toBe(0.5);
+    expect(summary.recent_usage.last_7_days_cents).toBe(0.5);
+    expect(summary.recent_usage.last_30_days_cents).toBe(0.5);
   });
 });

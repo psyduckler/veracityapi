@@ -38,34 +38,34 @@ def get_balance() -> dict:
 
 def analyze_text(text: str) -> dict:
     return request(
-        "/v1/analyze-text",
+        "/v1/analyze",
         payload={
-            "text": text,
+            "type": "text", "content": text,
             "context": {"format": "article", "intended_use": "publish", "domain": "content QA"},
-            "privacy_mode": True,
+            "store_content": False,
         },
     )
 
 
 def analyze_image(image_url: str) -> dict:
     return request(
-        "/v1/analyze-image",
+        "/v1/analyze",
         payload={
             "image_url": image_url,
             "context": {"format": "social_post", "intended_use": "publish", "domain": "image trust"},
-            "privacy_mode": True,
+            "store_content": False,
         },
     )
 
 
 def analyze_audio(audio_url: str, transcript: str | None = None) -> dict:
     return request(
-        "/v1/analyze-audio",
+        "/v1/analyze",
         payload={
             "audio_url": audio_url,
             "transcript": transcript,
-            "context": {"format": "social_post", "intended_use": "publish", "domain": "audio workflow triage"},
-            "privacy_mode": True,
+            "context": {"format": "social_post", "intended_use": "publish", "domain": "audio workflow triage with transcript return"},
+            "store_content": False,
         },
     )
 
@@ -76,7 +76,7 @@ def analyze_batch(items: list[dict]) -> dict:
         payload={
             "items": items,
             "context": {"format": "article", "intended_use": "publish", "domain": "batch QA"},
-            "privacy_mode": True,
+            "store_content": False,
         },
     )
 

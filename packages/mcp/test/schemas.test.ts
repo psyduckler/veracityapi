@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { analyzeAudioInputSchema, analyzeImageInputSchema, analyzeTextInputSchema } from "../src/schemas.js";
 
 describe("MCP input schemas", () => {
-  it("defaults text context and privacy mode", () => {
+  it("defaults text context and raw-content storage", () => {
     const parsed = analyzeTextInputSchema.parse({ text: "This is a sufficiently long piece of text to analyze for workflow risk." });
-    expect(parsed.privacy_mode).toBe(true);
+    expect(parsed.store_content).toBe(false);
     expect(parsed.context.format).toBe("other");
     expect(parsed.context.intended_use).toBe("other");
   });
@@ -19,7 +19,7 @@ describe("MCP input schemas", () => {
 
   it("matches the live audio contract", () => {
     const parsed = analyzeAudioInputSchema.parse({ audio_url: "https://example.com/clip.mp3", transcript: "optional context" });
-    expect(parsed.privacy_mode).toBe(true);
+    expect(parsed.store_content).toBe(false);
     expect(parsed.transcript).toBe("optional context");
     expect(parsed.context.format).toBe("other");
   });

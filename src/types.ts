@@ -24,9 +24,22 @@ export interface Env {
 export interface BillingMetadata {
   chars_analyzed?: number;
   units_analyzed?: number;
+  billable_units?: number;
+  unit_chars?: number;
+  unit_price_cents?: number;
   bucket: string;
   price_cents: number;
   remaining_balance_cents: number;
+}
+
+export type UnifiedAnalyzeType = "text" | "image" | "audio";
+
+export interface UnifiedAnalyzeRequest {
+  type: UnifiedAnalyzeType;
+  content: string;
+  transcript?: string;
+  context: AnalyzeContext;
+  privacy_mode: boolean;
 }
 
 export interface AnalyzeContext {
@@ -132,6 +145,8 @@ export interface AnalyzeAudioRequest {
 }
 
 export interface AudioScoredFields {
+  /** Best-effort transcript generated from the audio by Gemini. If the caller supplied a transcript, Gemini may correct it against the audio. */
+  transcript: string;
   synthetic_audio_risk: number;
   workflow_risk: number;
   synthetic_risk: number;
