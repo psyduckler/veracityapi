@@ -611,6 +611,7 @@ Content-Type: application/json
   "type": "text | image | audio",
   "content": "text content or HTTPS media URL",
   "transcript": "optional caller transcript; response includes Gemini-generated transcript",
+  "auto_revise": true,
   "context": {
     "format": "article | social_post | product_review | caption | other",
     "intended_use": "publish | train | cite | moderate | other",
@@ -633,6 +634,8 @@ Content-Type: application/json
 - confidence: low | medium | high
 - evidence: array of { type, severity, span, explanation }
 - recommended_fixes: array of strings
+- revised_text: returned for text when auto_revise=true and recommended_action=revise
+- revision_notes: array of concise applied-fix notes
 - model_version: model/scoring contract version
 - limitations: array of caveats
 
@@ -653,9 +656,9 @@ GET ${API_BASE_URL}/v1/balance returns account_id, balance_cents, currency, last
 ## Example curl
 
 curl ${API_BASE_URL}/v1/analyze \\
-  -H "Authorization: Bearer $VERACITYAPI_KEY" \\
+  -H "Authorization: Bearer ***" \\
   -H "Content-Type: application/json" \\
-  -d '{"type":"text","content":"Paste article, review, caption, or source text here...","context":{"format":"article","intended_use":"publish","domain":"travel safety"},"store_content":false}'
+  -d '{"type":"text","content":"Paste article, review, caption, or source text here...","auto_revise":true,"context":{"format":"article","intended_use":"publish","domain":"travel safety"},"store_content":false}'
 
 ## Human docs
 
@@ -776,7 +779,7 @@ export function agentsJson(): Record<string, unknown> {
       sample_audio_url: DEMO_AUDIO_URL,
     },
     recommended_use_cases: USE_CASES.map((u) => u.title),
-    capabilities: ["content_trust_score", "specificity_risk", "provenance_weakness", "synthetic_texture_risk", "synthetic_image_risk", "synthetic_audio_risk", "audio_transcript", "audio_workflow_triage", "ai_slop_risk", "evidence_spans", "recommended_action", "store_content_false_default", "synchronous_batch", "balance_preflight"],
+    capabilities: ["content_trust_score", "specificity_risk", "provenance_weakness", "synthetic_texture_risk", "synthetic_image_risk", "synthetic_audio_risk", "auto_revise", "revised_text", "strict_evidence_enums", "audio_transcript", "audio_workflow_triage", "ai_slop_risk", "evidence_spans", "recommended_action", "store_content_false_default", "synchronous_batch", "balance_preflight"],
     limitations: ["Workflow risk score, not proof of authorship or truth", "English-calibrated text at MVP; non-English scoring is experimental", "Image v0.1 uses visible artifact scoring only and does not inspect EXIF/C2PA metadata", "Audio v0.1 is Gemini-powered workflow triage, not proof of AI generation or voice cloning"],
   };
 }

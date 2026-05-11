@@ -63,10 +63,11 @@ Auth: send a bearer token in the `Authorization` header for `/v1/*` endpoints. C
 
 ```bash
 curl https://api.veracityapi.com/v1/analyze \
-  -H "Authorization: Bearer $VERACITYAPI_KEY" \
+  -H "Authorization: Bearer ***" \
   -H "Content-Type: application/json" \
   -d '{
-    "text": "Travelers should always be careful in tourist areas because scams can happen anywhere. Keep your belongings close and avoid strangers.",
+    "type": "text",
+    "content": "Travelers should always be careful in tourist areas because scams can happen anywhere. Keep your belongings close and avoid strangers.",
     "auto_revise": true,
     "context": {
       "format": "article",
@@ -81,10 +82,11 @@ curl https://api.veracityapi.com/v1/analyze \
 
 ```bash
 curl https://api.veracityapi.com/v1/analyze \
-  -H "Authorization: Bearer $VERACITYAPI_KEY" \
+  -H "Authorization: Bearer ***" \
   -H "Content-Type: application/json" \
   -d '{
-    "image_url": "https://veracityapi.com/demo/influencer-beauty-tonic.jpg",
+    "type": "image",
+    "content": "https://veracityapi.com/demo/influencer-beauty-tonic.jpg",
     "context": {"format": "social_post", "intended_use": "publish", "domain": "influencer product post"},
     "store_content": false
   }'
@@ -96,10 +98,11 @@ Image analysis is API-key-only at launch, costs $0.02/image, stores no image byt
 
 ```bash
 curl https://api.veracityapi.com/v1/analyze \
-  -H "Authorization: Bearer $VERACITYAPI_KEY" \
+  -H "Authorization: Bearer ***" \
   -H "Content-Type: application/json" \
   -d '{
-    "audio_url": "https://veracityapi.com/assets/demo-voice-message.mp3",
+    "type": "audio",
+    "content": "https://veracityapi.com/assets/demo-voice-message.mp3",
     "transcript": "optional caller-provided transcript",
     "context": {"format": "social_post", "intended_use": "publish", "domain": "voice-message authenticity triage"},
     "store_content": false

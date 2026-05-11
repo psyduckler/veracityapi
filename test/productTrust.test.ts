@@ -93,7 +93,7 @@ describe("OpenAPI and agent discovery", () => {
 
   it("uses precise signup credit copy in machine-readable discovery", () => {
     const combined = `${llmsTxt()} ${JSON.stringify(agentsJson())}`;
-    expect(combined).toContain("$1.50 free credit — enough for 300 1k-character text analyses");
+    expect(combined).toContain("$1.50 free credit — enough for 300 analyze-only 1k-character text requests or 150 Analyze + revise requests");
     expect(combined).not.toContain("150 free API calls");
   });
 });
@@ -124,7 +124,7 @@ describe("homepage conversion", () => {
     expect(html).toContain("Stop agents from ingesting, citing, or publishing synthetic slop and suspicious media");
     expect(html).toContain("Just write your switch statement");
     expect(html).toContain("switch (result.recommended_action)");
-    expect(html).toContain("$1.50 free credit — enough for 300 1k-character text analyses");
+    expect(html).toContain("$1.50 free credit — enough for 300 analyze-only 1k-character text requests or 150 Analyze + revise requests");
     expect(html).toContain("curl https://api.veracityapi.com/v1/analyze");
     expect(html).toContain('"recommended_action"');
     const hero = html.slice(html.indexOf("<section class=\"hero"), html.indexOf("</section>", html.indexOf("<section class=\"hero")));
@@ -179,7 +179,7 @@ describe("dashboard activation", () => {
     const html = accountHtml(account, "API key created. Copy it now: vap_secret_example");
     expect(html).toContain("Copy API key");
     expect(html).toContain("Current balance");
-    expect(html).toContain("Equivalent to ~300 1k-character text analyses");
+    expect(html).toContain("Equivalent to ~300 analyze-only 1k-character text requests or ~150 Analyze + revise requests");
     expect(html).toContain("progressbar");
     expect(html).toContain("Run this");
     expect(html).toContain("curl https://api.veracityapi.com/v1/analyze");
