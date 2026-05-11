@@ -750,6 +750,13 @@ Sitemap: ${BASE_URL}/sitemap.xml
 `;
 }
 
+export function faviconSvg(): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="14" fill="#0f1011"/>
+  <text x="32" y="43" text-anchor="middle" font-size="42" font-family="Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif">✅</text>
+</svg>`;
+}
+
 export function ogSvg(): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
   <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#7170ff"/><stop offset="1" stop-color="#38bdf8"/></linearGradient></defs>

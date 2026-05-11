@@ -5,7 +5,7 @@ import { authenticateUsageKey, BillingAuthError, creditCheckoutSession, CREDIT_P
 import { logAnalysis } from "./db";
 import { LlmError, scoreAudio, scoreImage, scoreText } from "./llm";
 import { deriveAction, deriveAudioRiskLevel, deriveAudioTrustScore, deriveImageRiskLevel, deriveImageTrustScore, deriveRiskLevel, deriveTrustSignals } from "./scoring";
-import { agentsJson, INDEXNOW_KEY, llmsTxt, ogSvg, openApiSpec, robotsTxt, sitemapXml } from "./discovery";
+import { agentsJson, faviconSvg, INDEXNOW_KEY, llmsTxt, ogSvg, openApiSpec, robotsTxt, sitemapXml } from "./discovery";
 import { DEMO_IMAGE_CONTENT_TYPE, DEMO_IMAGE_PATH, demoImageBytes } from "./demoImage";
 import { DEMO_AUDIO_CONTENT_TYPE, DEMO_AUDIO_PATH, demoAudioBytes } from "./demoAudio";
 import { docsHtml, evalsHtml, examplesHtml, howItWorksHtml, pricingHtml, privacyHtml, requestAccessHtml, useCaseHtml, useCasesIndexHtml } from "./pages";
@@ -126,6 +126,10 @@ export default {
 
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/og.svg") {
       return text(request.method === "HEAD" ? "" : ogSvg(), "image/svg+xml; charset=utf-8");
+    }
+
+    if ((request.method === "GET" || request.method === "HEAD") && (url.pathname === "/favicon.svg" || url.pathname === "/favicon.ico")) {
+      return text(request.method === "HEAD" ? "" : faviconSvg(), "image/svg+xml; charset=utf-8", { "cache-control": "public, max-age=31536000, immutable" });
     }
 
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname === DEMO_IMAGE_PATH) {
@@ -701,11 +705,12 @@ function injectGoogleAnalytics(body: string): string {
   return body;
 }
 
-function text(body: string, contentType: string): Response {
+function text(body: string, contentType: string, headers: Record<string, string> = {}): Response {
   return new Response(body, {
     headers: {
       "content-type": contentType,
       "cache-control": "public, max-age=300",
+      ...headers,
       ...corsHeaders(),
     },
   });

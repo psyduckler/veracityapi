@@ -73,12 +73,21 @@ describe("agent distribution surfaces", () => {
     expect(combined).toMatch(/forensic proof|legal proof|academic misconduct|voice-clone proof/i);
   });
 
-  it("adds conversion/proof homepage blocks", () => {
+  it("adds conversion/proof homepage blocks and checkmark logo/favicons", async () => {
     const html = homepageHtml();
     expect(html).toContain("A content trust gate for agents");
     expect(html).toContain("How agents use VeracityAPI");
     expect(html).toContain("Example workflow costs");
     expect(html).toContain("Operational proof");
+    expect(html).toContain('rel="icon"');
+    expect(html).toContain("✅");
+
+    for (const path of ["/favicon.svg", "/favicon.ico"]) {
+      const res = await worker.fetch(new Request(`https://veracityapi.com${path}`), env);
+      expect(res.status, path).toBe(200);
+      expect(res.headers.get("content-type"), path).toContain("image/svg+xml");
+      expect(await res.text(), path).toContain("✅");
+    }
   });
 
   it("lists new distribution pages in sitemap", () => {
