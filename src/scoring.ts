@@ -1,8 +1,27 @@
-import type { IntendedUse, RecommendedAction, RiskLevel } from "./types";
+import type { DerivedTrustSignals, EvidenceItem, IntendedUse, RecommendedAction, RiskLevel } from "./types";
 
 export function clamp01(value: unknown): number {
   const n = typeof value === "number" && Number.isFinite(value) ? value : 0;
   return Math.max(0, Math.min(1, n));
+}
+
+export function round2(value: number): number {
+  return Math.round(clamp01(value) * 100) / 100;
+}
+
+export function deriveTrustSignals(syntheticRisk: number, slopRisk: number, evidence: EvidenceItem[] = []): DerivedTrustSignals {
+  const slop = clamp01(slopRisk);
+  const syntheticTexture = clamp01(syntheticRisk);
+  const hasProvenanceSignal = evidence.some((item) => /provenance|source|citation|unsupported|absence|specificity|generic/i.test(`${item.type} ${item.explanation}`));
+  const provenanceWeakness = round2(Math.max(slop * 0.75, hasProvenanceSignal ? slop : slop * 0.55));
+  const specificityRisk = round2(slop);
+  const contentTrustPenalty = Math.max(specificityRisk, provenanceWeakness, syntheticTexture * 0.5);
+  return {
+    content_trust_score: round2(1 - contentTrustPenalty),
+    specificity_risk: specificityRisk,
+    provenance_weakness: provenanceWeakness,
+    synthetic_texture_risk: round2(syntheticTexture),
+  };
 }
 
 export function deriveRiskLevel(syntheticRisk: number, slopRisk: number): RiskLevel {

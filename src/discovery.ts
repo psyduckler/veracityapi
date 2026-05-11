@@ -8,7 +8,7 @@ export function openApiSpec(): Record<string, unknown> {
       title: "VeracityAPI",
       version: "0.1.0",
       summary: "Content trust scoring API for agents",
-      description: "Scores English text for synthetic-content risk, AI slop risk, evidence spans, and a recommended action. Probabilistic risk scoring only; not proof of authorship or truth.",
+      description: "Scores English text for content trust, specificity/slop risk, weak provenance, evidence spans, and a recommended action. Workflow risk scoring only; not proof of authorship or truth.",
       contact: {
         name: "VeracityAPI beta access",
         email: "bernard@tabiji.ai",
@@ -50,7 +50,7 @@ export function openApiSpec(): Record<string, unknown> {
         post: {
           tags: ["analysis"],
           summary: "Analyze text content risk",
-          description: "Requires a bearer API key. Returns synthetic-content risk, slop risk, evidence, recommended fixes, and a deterministic recommended action.",
+          description: "Requires a bearer API key. Returns content trust, specificity/slop risk, weak-provenance signals, evidence, recommended fixes, and a deterministic recommended action.",
           security: [{ bearerAuth: [] }],
           requestBody: {
             required: true,
@@ -124,7 +124,7 @@ export function openApiSpec(): Record<string, unknown> {
     },
     components: {
       securitySchemes: {
-        bearerAuth: { type: "http", scheme: "bearer", description: "VeracityAPI beta key. Send a bearer token in the Authorization header. Request access at https://veracityapi.com/." },
+        bearerAuth: { type: "http", scheme: "bearer", description: "VeracityAPI key. Send a bearer token in the Authorization header. Create account/API keys at https://veracityapi.com/account." },
       },
       schemas: {
         HealthResponse: {
@@ -140,7 +140,7 @@ export function openApiSpec(): Record<string, unknown> {
           type: "object",
           required: ["text"],
           properties: {
-            text: { type: "string", minLength: 20, maxLength: 100000, description: "English text to score. Requests are priced by character bucket up to 100k chars." },
+            text: { type: "string", minLength: 20, maxLength: 100000, description: "English-calibrated text to score. Requests are priced by character bucket up to 100k chars." },
             context: {
               type: "object",
               properties: {
@@ -157,7 +157,11 @@ export function openApiSpec(): Record<string, unknown> {
           required: ["analysis_id", "synthetic_risk", "slop_risk", "risk_level", "recommended_action", "confidence", "evidence", "recommended_fixes", "model_version", "limitations"],
           properties: {
             analysis_id: { type: "string", example: "ana_01KRA1EQPDJ7N2KHBXCQMGZYFJ" },
-            synthetic_risk: { type: "number", minimum: 0, maximum: 1, example: 0.72 },
+            content_trust_score: { type: "number", minimum: 0, maximum: 1, example: 0.22, description: "Derived workflow trust score. Higher is better." },
+            specificity_risk: { type: "number", minimum: 0, maximum: 1, example: 0.78, description: "Risk that the text is vague, generic, or low-detail." },
+            provenance_weakness: { type: "number", minimum: 0, maximum: 1, example: 0.78, description: "Risk that claims lack visible sourcing, firsthand detail, or provenance markers." },
+            synthetic_texture_risk: { type: "number", minimum: 0, maximum: 1, example: 0.72, description: "Backward-compatible authorship-texture signal; not proof of AI authorship." },
+            synthetic_risk: { type: "number", minimum: 0, maximum: 1, example: 0.72, deprecated: true, description: "Legacy alias for synthetic_texture_risk; retained for compatibility." },
             slop_risk: { type: "number", minimum: 0, maximum: 1, example: 0.78 },
             risk_level: { type: "string", enum: ["low", "medium", "high"] },
             recommended_action: { type: "string", enum: ["allow", "revise", "human_review", "reject"] },
@@ -211,6 +215,10 @@ export function openApiSpec(): Record<string, unknown> {
 export function sampleAnalyzeResponse(analysisId = "demo_01KRA1EQPDJ7N2KHBXCQMGZYFJ"): Record<string, unknown> {
   return {
     analysis_id: analysisId,
+    content_trust_score: 0.22,
+    specificity_risk: 0.78,
+    provenance_weakness: 0.78,
+    synthetic_texture_risk: 0.72,
     synthetic_risk: 0.72,
     slop_risk: 0.78,
     confidence: "medium",
@@ -227,16 +235,16 @@ export function sampleAnalyzeResponse(analysisId = "demo_01KRA1EQPDJ7N2KHBXCQMGZ
     risk_level: "high",
     recommended_action: "human_review",
     model_version: "v0.1",
-    limitations: ["Probabilistic risk score, not proof of authorship.", "English-only at MVP."],
+    limitations: ["Scores are probabilistic workflow risk signals, not proof of AI authorship or truth.", "v0.1 uses an LLM-backed structured scoring pass; treat synthetic_risk as texture risk, not ground-truth authorship detection.", "English-calibrated at MVP; non-English content should be treated as experimental."],
   };
 }
 
 export function llmsTxt(): string {
   return `# VeracityAPI
 
-VeracityAPI is a content trust scoring API for agents. It scores English text for synthetic-content risk, AI slop risk, weak provenance signals, and recommended next actions.
+VeracityAPI is a content trust scoring API for agents. It scores English-calibrated text for specificity risk, slop risk, weak provenance signals, synthetic-looking texture, and recommended next actions.
 
-VeracityAPI is not a truth oracle and does not prove authorship. Treat results as probabilistic risk signals with evidence and workflow recommendations.
+VeracityAPI is not an AI detector, truth oracle, or proof of authorship. Treat results as probabilistic workflow risk signals with evidence and recommendations.
 
 ## Human homepage
 
@@ -280,7 +288,11 @@ Content-Type: application/json
 ## Response fields
 
 - analysis_id: stable ID for the analysis
-- synthetic_risk: number 0-1
+- content_trust_score: number 0-1, higher is better
+- specificity_risk: number 0-1, vague/generic/low-detail risk
+- provenance_weakness: number 0-1, weak source/firsthand/detail risk
+- synthetic_texture_risk: number 0-1, backward-compatible authorship-texture signal; not proof
+- synthetic_risk: legacy number 0-1 retained for compatibility
 - slop_risk: number 0-1
 - risk_level: low | medium | high
 - recommended_action: allow | revise | human_review | reject
@@ -300,6 +312,7 @@ curl ${API_BASE_URL}/v1/analyze-text \\
 ## Human docs
 
 - Docs: ${BASE_URL}/docs
+- How it works: ${BASE_URL}/how-it-works
 - Evals/proof: ${BASE_URL}/evals
 - Use cases/examples: ${BASE_URL}/examples
 - Pricing: ${BASE_URL}/pricing
@@ -308,7 +321,7 @@ curl ${API_BASE_URL}/v1/analyze-text \\
 
 ## Access
 
-Public demo is open. Production API access uses prepaid credits. No subscriptions. Every request debits the account balance by character bucket. Request access through ${BASE_URL}/request-access or by email: bernard@tabiji.ai
+Public demo is open. Production API access uses prepaid credits. No subscriptions. Every request debits the account balance by character bucket. Create an account, buy credits, and create an API key at ${BASE_URL}/account.
 
 ## Pricing
 
@@ -320,15 +333,15 @@ Public demo is open. Production API access uses prepaid credits. No subscription
 
 ## Limitations
 
-- Probabilistic risk score, not proof of authorship or truth.
-- English-only at MVP.
+- Workflow risk score, not proof of authorship or truth.
+- English-calibrated at MVP; non-English is experimental.
 - Scores should be paired with evidence and workflow-specific policy.
 `;
 }
 
 export function sitemapXml(): string {
   const updated = new Date().toISOString();
-  const urls = ["/", "/docs", "/evals", "/examples", "/pricing", "/privacy", "/request-access", "/openapi.json", "/llms.txt", "/.well-known/agents.json", "/sitemap.xml"];
+  const urls = ["/", "/docs", "/how-it-works", "/evals", "/examples", "/pricing", "/privacy", "/request-access", "/openapi.json", "/llms.txt", "/.well-known/agents.json", "/sitemap.xml"];
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${urls.map((path) => `  <url><loc>${BASE_URL}${path}</loc><lastmod>${updated}</lastmod><changefreq>weekly</changefreq><priority>${path === "/" ? "1.0" : "0.7"}</priority></url>`).join("\n")}
@@ -339,7 +352,7 @@ ${urls.map((path) => `  <url><loc>${BASE_URL}${path}</loc><lastmod>${updated}</l
 export function agentsJson(): Record<string, unknown> {
   return {
     name: "VeracityAPI",
-    description: "Content trust and synthetic-risk scoring API for agents.",
+    description: "Content trust and specificity/slop scoring API for agents.",
     homepage: BASE_URL,
     api_base: API_BASE_URL,
     openapi: `${BASE_URL}/openapi.json`,
@@ -354,7 +367,7 @@ export function agentsJson(): Record<string, unknown> {
     auth: {
       type: "bearer",
       header: "Authorization header: Bearer token",
-      instructions: "Request credit-based API access from the homepage or email bernard@tabiji.ai.",
+      instructions: "Create an account at https://veracityapi.com/account, buy prepaid credits, and create an API key.",
     },
     pricing: {
       model: "prepaid_credits",
@@ -373,8 +386,8 @@ export function agentsJson(): Record<string, unknown> {
       auth_required: false,
       limits: "4000 chars, rate limited, privacy_mode=true forced server-side",
     },
-    capabilities: ["synthetic_content_risk", "ai_slop_risk", "evidence_spans", "recommended_action", "privacy_mode"],
-    limitations: ["Probabilistic risk score, not proof of authorship or truth", "English-only at MVP"],
+    capabilities: ["content_trust_score", "specificity_risk", "provenance_weakness", "synthetic_texture_risk", "ai_slop_risk", "evidence_spans", "recommended_action", "privacy_mode"],
+    limitations: ["Workflow risk score, not proof of authorship or truth", "English-calibrated at MVP; non-English scoring is experimental"],
   };
 }
 
@@ -403,7 +416,7 @@ export function ogSvg(): string {
   <text x="196" y="154" fill="#f7f8f8" font-family="Inter, Arial, sans-serif" font-size="38" font-weight="700">VeracityAPI</text>
   <text x="108" y="282" fill="#f7f8f8" font-family="Inter, Arial, sans-serif" font-size="66" font-weight="700">Content trust scoring</text>
   <text x="108" y="358" fill="#f7f8f8" font-family="Inter, Arial, sans-serif" font-size="66" font-weight="700">for agents</text>
-  <text x="110" y="438" fill="#a2a8b3" font-family="Inter, Arial, sans-serif" font-size="30">Synthetic risk · Slop risk · Evidence · Actions</text>
+  <text x="110" y="438" fill="#a2a8b3" font-family="Inter, Arial, sans-serif" font-size="30">Specificity · Provenance · Evidence · Actions</text>
   <text x="110" y="496" fill="#d0d6e0" font-family="JetBrains Mono, monospace" font-size="24">POST /v1/analyze-text → JSON</text>
 </svg>`;
 }

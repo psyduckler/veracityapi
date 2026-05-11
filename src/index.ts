@@ -4,16 +4,17 @@ import { accountHtml, buildAccountView, cleanEmail, clearSessionCookie, consumeM
 import { authenticateUsageKey, BillingAuthError, creditCheckoutSession, CREDIT_PACKS, debitForRequest, InsufficientBalanceError, refundUsage, verifyStripeWebhook } from "./billing";
 import { logAnalysis } from "./db";
 import { LlmError, scoreText } from "./llm";
-import { deriveAction, deriveRiskLevel } from "./scoring";
+import { deriveAction, deriveRiskLevel, deriveTrustSignals } from "./scoring";
 import { agentsJson, llmsTxt, ogSvg, openApiSpec, robotsTxt, sitemapXml } from "./discovery";
-import { docsHtml, evalsHtml, examplesHtml, pricingHtml, privacyHtml, requestAccessHtml } from "./pages";
+import { docsHtml, evalsHtml, examplesHtml, howItWorksHtml, pricingHtml, privacyHtml, requestAccessHtml } from "./pages";
 import { homepageHtml } from "./site";
 import type { AnalyzeResponse, Env } from "./types";
 import { parseAnalyzeRequest, ValidationError } from "./validate";
 
 const LIMITATIONS = [
-  "Probabilistic risk score, not proof of authorship.",
-  "English-only at MVP.",
+  "Scores are probabilistic workflow risk signals, not proof of AI authorship or truth.",
+  "v0.1 uses an LLM-backed structured scoring pass; treat synthetic_risk as texture risk, not ground-truth authorship detection.",
+  "English-calibrated at MVP; non-English content should be treated as experimental.",
 ];
 
 const demoHits = new Map<string, { count: number; resetAt: number }>();
@@ -34,6 +35,7 @@ export default {
 
     const pageRoutes: Record<string, () => string> = {
       "/docs": docsHtml,
+      "/how-it-works": howItWorksHtml,
       "/evals": evalsHtml,
       "/examples": examplesHtml,
       "/pricing": pricingHtml,
@@ -156,11 +158,13 @@ async function handleDemoAnalyze(request: Request, env: Env): Promise<Response> 
     };
     const parsed = await parseAnalyzeRequest(jsonRequest(request.url, sanitized));
     const scored = await scoreText(parsed, env);
+    const derived = deriveTrustSignals(scored.synthetic_risk, scored.slop_risk, scored.evidence);
     const riskLevel = deriveRiskLevel(scored.synthetic_risk, scored.slop_risk);
     const action = deriveAction(riskLevel, parsed.context.intended_use);
     const response: AnalyzeResponse = {
       analysis_id: `demo_${ulid()}`,
       ...scored,
+      ...derived,
       risk_level: riskLevel,
       recommended_action: action,
       model_version: env.MODEL_VERSION || "v0.1",
@@ -193,11 +197,13 @@ async function handleAnalyzeText(request: Request, env: Env): Promise<Response> 
     const billing = auth.legacy ? undefined : await debitForRequest(env, auth.accountId!, auth.apiKeyId!, analysisId, parsed);
     if (billing) debit = { accountId: auth.accountId!, apiKeyId: auth.apiKeyId!, billing, analysisId };
     const scored = await scoreText(parsed, env);
+    const derived = deriveTrustSignals(scored.synthetic_risk, scored.slop_risk, scored.evidence);
     const riskLevel = deriveRiskLevel(scored.synthetic_risk, scored.slop_risk);
     const action = deriveAction(riskLevel, parsed.context.intended_use);
     const response: AnalyzeResponse = {
       analysis_id: analysisId,
       ...scored,
+      ...derived,
       risk_level: riskLevel,
       recommended_action: action,
       model_version: env.MODEL_VERSION || "v0.1",

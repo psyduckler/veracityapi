@@ -1,24 +1,24 @@
 # VeracityAPI
 
-Content trust scoring for agents. VeracityAPI scores English text for synthetic-content risk, AI slop risk, weak provenance/content-quality signals, evidence spans, and a recommended action.
+Content trust and specificity scoring for agents. VeracityAPI scores English-calibrated text for generic/slop risk, weak provenance, low specificity, evidence spans, and a recommended workflow action.
 
-VeracityAPI is a probabilistic risk layer, not a truth oracle and not proof of authorship.
+VeracityAPI is **not** a binary AI detector. It does not prove whether content was written by a human or a model. It answers the agent workflow question: should this text be allowed, revised, reviewed, or rejected before publishing, citing, training, or moderation?
 
 ## Live URLs
 
 - Homepage + public demo: https://veracityapi.com
 - Production API base: https://api.veracityapi.com
+- Account / credits / API keys: https://veracityapi.com/account
 - Docs: https://veracityapi.com/docs
+- How it works: https://veracityapi.com/how-it-works
 - Evals/proof: https://veracityapi.com/evals
 - Examples/use cases: https://veracityapi.com/examples
 - Pricing: https://veracityapi.com/pricing
 - Privacy: https://veracityapi.com/privacy
-- Request API key: https://veracityapi.com/request-access
 - OpenAPI: https://veracityapi.com/openapi.json
 - Agent instructions: https://veracityapi.com/llms.txt
 - Agent discovery manifest: https://veracityapi.com/.well-known/agents.json
 - Sitemap: https://veracityapi.com/sitemap.xml
-
 
 ## Pricing
 
@@ -40,13 +40,13 @@ Public demo is free, no-key, privacy_mode=true, capped at 4,000 characters, and 
 POST /v1/analyze-text
 ```
 
-Auth: send a bearer token in the `Authorization` header. API access is private beta; the homepage has a no-key public demo.
+Auth: send a bearer token in the `Authorization` header. Create an account, buy prepaid credits, and create an API key at `/account`.
 
 ## Request
 
 ```bash
 curl https://api.veracityapi.com/v1/analyze-text \
-  -H "Authorization: Bearer $VERACITYAPI_KEY" \
+  -H "Authorization: Bearer ***" \
   -H "Content-Type: application/json" \
   -d '{
     "text": "Travelers should always be careful in tourist areas because scams can happen anywhere. Keep your belongings close and avoid strangers.",
@@ -64,6 +64,10 @@ curl https://api.veracityapi.com/v1/analyze-text \
 ```json
 {
   "analysis_id": "ana_...",
+  "content_trust_score": 0.22,
+  "specificity_risk": 0.78,
+  "provenance_weakness": 0.78,
+  "synthetic_texture_risk": 0.72,
   "synthetic_risk": 0.72,
   "slop_risk": 0.78,
   "risk_level": "high",
@@ -74,17 +78,42 @@ curl https://api.veracityapi.com/v1/analyze-text \
   ],
   "recommended_fixes": ["..."],
   "model_version": "v0.1",
-  "limitations": ["Probabilistic risk score, not proof of authorship.", "English-only at MVP."]
+  "limitations": [
+    "Scores are probabilistic workflow risk signals, not proof of AI authorship or truth.",
+    "v0.1 uses an LLM-backed structured scoring pass; treat synthetic_risk as texture risk, not ground-truth authorship detection.",
+    "English-calibrated at MVP; non-English content should be treated as experimental."
+  ]
 }
 ```
 
-## P1 conversion/distribution surface
+`synthetic_risk` is retained for compatibility. New integrations should prefer `content_trust_score`, `specificity_risk`, `provenance_weakness`, and `synthetic_texture_risk`.
+
+## Current threshold policy
+
+`risk_level = max(synthetic_risk, slop_risk)`
+
+- `< 0.40` → `low`
+- `< 0.70` → `medium`
+- `>= 0.70` → `high`
+
+Action matrix:
+
+| intended_use | low | medium | high |
+| --- | --- | --- | --- |
+| publish | allow | revise | human_review |
+| train | allow | human_review | reject |
+| cite | allow | human_review | reject |
+| moderate | allow | allow | revise |
+| other | allow | revise | human_review |
+
+## Distribution surface
 
 - `/docs` gives human-readable auth, schema, TypeScript/Python, and agent-tool integration examples.
-- `/evals` shows early dogfooding proof from Tabiji Japan scam city pages.
+- `/how-it-works` documents model/scoring method, thresholds, limitations, and roadmap.
+- `/evals` shows early dogfooding proof and states the next labeled calibration target.
 - `/examples` describes agent workflows: pre-publish QA, RAG source triage, training data filtering, and UGC moderation.
 - `/pricing` describes credit-based, no-subscription billing.
-- `/request-access` stores credit-based API access requests in D1.
+- `/account` handles email login, credit purchase, and API key management.
 - `site_events` stores lightweight page/demo/access-request analytics.
 
 ## Local development
@@ -98,6 +127,7 @@ npx wrangler dev
 
 ## Limitations
 
-- Probabilistic risk score, not proof of authorship or truth.
-- English-only at MVP.
+- Workflow risk score, not proof of authorship or truth.
+- v0.1 uses an LLM-backed structured scoring pass; not a custom fine-tuned classifier yet.
+- English-calibrated at MVP; non-English scoring is experimental.
 - Scores are only useful if evidence and recommended action are useful for the workflow.

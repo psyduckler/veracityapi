@@ -51,7 +51,18 @@ export interface LlmScoredFields {
   recommended_fixes: string[];
 }
 
-export interface AnalyzeResponse extends LlmScoredFields {
+export interface DerivedTrustSignals {
+  /** Overall allowability score derived from v0.1 observable quality/provenance signals. Higher is better. */
+  content_trust_score: number;
+  /** Risk that the text is too vague, generic, or low-detail for the intended workflow. */
+  specificity_risk: number;
+  /** Risk that claims lack visible sourcing, firsthand detail, or provenance markers. */
+  provenance_weakness: number;
+  /** Backward-compatible authorship-texture signal; probabilistic and not proof of AI authorship. */
+  synthetic_texture_risk: number;
+}
+
+export interface AnalyzeResponse extends LlmScoredFields, DerivedTrustSignals {
   analysis_id: string;
   risk_level: RiskLevel;
   recommended_action: RecommendedAction;
