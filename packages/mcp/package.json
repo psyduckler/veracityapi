@@ -28,7 +28,7 @@
   "homepage": "https://veracityapi.com/mcp",
   "repository": {
     "type": "git",
-    "url": "https://github.com/psyduckler/veracityapi.git",
+    "url": "git+https://github.com/psyduckler/veracityapi.git",
     "directory": "packages/mcp"
   },
   "bugs": {
