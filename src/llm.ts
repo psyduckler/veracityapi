@@ -1,6 +1,6 @@
 import type { AnalyzeAudioRequest, AnalyzeImageRequest, AnalyzeRequest, AudioScoredFields, Env, ImageScoredFields, LlmScoredFields } from "./types";
 import { DEMO_AUDIO_CONTENT_TYPE, DEMO_AUDIO_PATH, demoAudioBytes } from "./demoAudio";
-import { clamp01 } from "./scoring";
+import { clamp01, round2 } from "./scoring";
 
 interface AnthropicToolUse {
   type: "tool_use";
@@ -250,7 +250,7 @@ function normalizeAudioMediaType(contentType: string): string {
 }
 
 function buildAudioPrompt(input: AnalyzeAudioRequest): string {
-  return `Score this short audio clip for synthetic-audio workflow triage. Return ONLY JSON with keys: synthetic_audio_risk, workflow_risk, confidence, evidence, recommended_fixes. This is not proof of AI generation, voice-clone proof, speaker identity verification, or forensic determination. Format: ${input.context.format}; intended use: ${input.context.intended_use}; domain: ${input.context.domain || "general"}; optional transcript: ${input.transcript || "none"}.`;
+  return `Score this short audio clip for synthetic-audio workflow triage. Return ONLY JSON with keys: synthetic_audio_risk, workflow_risk, confidence, evidence, recommended_fixes. Be calibrated for pre-publication review: if the clip has synthetic/TTS-like prosody, unusually smooth cadence, affect that feels performed or uncanny, low-noise studio texture inconsistent with a casual voice note, or transcript/audio mismatch, score it as a meaningful risk signal instead of giving it the benefit of the doubt. Use synthetic_audio_risk roughly as: 0.00-0.24 clearly natural, 0.25-0.44 weak signal, 0.45-0.64 likely review-worthy, 0.65-1.00 strong synthetic/audio-manipulation concern. Use workflow_risk for whether the clip should be held, revised, or provenance-checked before use; casual romantic/financial/identity voice messages with unnatural delivery should usually be at least 0.55 workflow risk. This remains triage: not proof of AI generation, voice-clone proof, speaker identity verification, or forensic determination. Format: ${input.context.format}; intended use: ${input.context.intended_use}; domain: ${input.context.domain || "general"}; optional transcript: ${input.transcript || "none"}.`;
 }
 
 function normalizeAudioScoredFields(raw: Record<string, unknown>): AudioScoredFields {
@@ -263,8 +263,21 @@ function normalizeAudioScoredFields(raw: Record<string, unknown>): AudioScoredFi
     return { type: String(obj.type || "audio_signal").slice(0, 80), severity, span: String(obj.span || "overall clip").slice(0, 200), explanation: String(obj.explanation || "").slice(0, 240) };
   });
   const fixes = Array.isArray(raw.recommended_fixes) ? raw.recommended_fixes.slice(0, 5).map((x) => String(x).slice(0, 240)) : [];
-  const syntheticAudioRisk = clamp01(raw.synthetic_audio_risk);
-  return { synthetic_audio_risk: syntheticAudioRisk, workflow_risk: clamp01(raw.workflow_risk), synthetic_risk: syntheticAudioRisk, confidence, evidence, recommended_fixes: fixes };
+  const syntheticAudioRisk = calibrateAudioRisk(raw.synthetic_audio_risk, confidence, evidence, "synthetic");
+  const workflowRisk = calibrateAudioRisk(raw.workflow_risk, confidence, evidence, "workflow");
+  return { synthetic_audio_risk: syntheticAudioRisk, workflow_risk: workflowRisk, synthetic_risk: syntheticAudioRisk, confidence, evidence, recommended_fixes: fixes };
+}
+
+function calibrateAudioRisk(raw: unknown, confidence: "low" | "medium" | "high", evidence: AudioScoredFields["evidence"], kind: "synthetic" | "workflow"): number {
+  const risk = clamp01(raw);
+  const evidenceText = evidence.map((item) => `${item.type} ${item.severity} ${item.explanation}`).join(" ");
+  const hasSyntheticCue = /synthetic|tts|voice clone|generated|artifact|prosody|cadence|uncanny|robotic|flat|smooth|studio|noise|mismatch|performed/i.test(evidenceText);
+  const mediumOrBetter = confidence === "medium" || confidence === "high";
+  let calibrated = risk;
+  if (risk >= 0.3 && mediumOrBetter) calibrated += kind === "workflow" ? 0.14 : 0.18;
+  if (risk >= 0.25 && hasSyntheticCue) calibrated += kind === "workflow" ? 0.05 : 0.07;
+  if (risk >= 0.55 && mediumOrBetter) calibrated += 0.06;
+  return round2(calibrated);
 }
 
 async function fetchImageForAnthropic(imageUrl: string): Promise<{ mediaType: string; base64: string }> {

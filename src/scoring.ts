@@ -56,8 +56,8 @@ export function deriveAction(level: RiskLevel, intendedUse: IntendedUse): Recomm
 
 export function deriveAudioRiskLevel(syntheticAudioRisk: number, workflowRisk: number): RiskLevel {
   const combined = Math.max(clamp01(syntheticAudioRisk), clamp01(workflowRisk));
-  if (combined >= 0.72) return "high";
-  if (combined >= 0.38) return "medium";
+  if (combined >= 0.55) return "high";
+  if (combined >= 0.30) return "medium";
   return "low";
 }
 
