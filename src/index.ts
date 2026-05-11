@@ -145,7 +145,7 @@ async function handleDemoAnalyze(request: Request, env: Env): Promise<Response> 
   try {
     const ip = request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for") || "unknown";
     if (!consumeDemoQuota(ip, Number(env.DEMO_RATE_LIMIT_PER_HOUR || 12))) {
-      return json({ error: "rate_limited", message: "Public demo limit reached. Try again later or request an API key." }, 429, { "Retry-After": "3600" });
+      return json({ error: "rate_limited", message: "Public demo limit reached. Try again later or create an account for $1.50 in free API credits." }, 429, { "Retry-After": "3600" });
     }
 
     let body: Record<string, unknown>;

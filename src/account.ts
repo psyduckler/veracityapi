@@ -5,19 +5,20 @@ import type { Env } from "./types";
 
 const SESSION_DAYS = 30;
 const MAGIC_LINK_MINUTES = 20;
+export const SIGNUP_CREDIT_CENTS = 150;
 
 export function accountHtml(account: AccountView | null, message = ""): string {
   const loggedOut = !account;
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>VeracityAPI Account</title><style>${css()}</style></head><body><main class="wrap"><nav><a href="/">VeracityAPI</a><span>Prepaid API console</span></nav>${message ? `<div class="notice">${escapeHtml(message)}</div>` : ""}${loggedOut ? loginPanel() : dashboard(account)}</main></body></html>`;
 }
 
-function loginPanel(): string { return `<section class="hero"><div class="eyebrow">Account</div><h1>Email login. Prepaid credits. API keys for agents.</h1><p>Enter your email and we’ll send a magic login link. No passwords, no subscriptions.</p></section><form method="post" action="/auth/login" class="card"><label>Email<input name="email" type="email" required autocomplete="email" placeholder="hello@company.com"/></label><button>Send login link</button></form>`; }
+function loginPanel(): string { return `<section class="hero"><div class="eyebrow">Account</div><h1>Email login. $1.50 free credit. API keys for agents.</h1><p>Enter your email and we’ll send a magic login link. New accounts start with $1.50 in free VeracityAPI credits — enough to test real agent workflows. No passwords, no subscriptions.</p></section><form method="post" action="/auth/login" class="card"><label>Email<input name="email" type="email" required autocomplete="email" placeholder="hello@company.com"/></label><button>Send login link</button></form>`; }
 
 function dashboard(account: AccountView): string {
   const keyRows = account.apiKeys.length ? account.apiKeys.map((k) => `<tr><td><code>${escapeHtml(k.key_prefix)}…</code></td><td>${escapeHtml(k.label || "default")}</td><td>${escapeHtml(k.created_at.slice(0,10))}</td><td><form method="post" action="/api-keys/${k.key_id}/revoke"><button class="small">Revoke</button></form></td></tr>`).join("") : `<tr><td colspan="4">No API keys yet.</td></tr>`;
   const usageRows = account.usage.length ? account.usage.map((u) => `<tr><td>${escapeHtml(u.created_at.slice(0,19).replace("T"," "))}</td><td>${u.chars_analyzed}</td><td>${escapeHtml(u.bucket)}</td><td>$${(u.price_cents/100).toFixed(2)}</td><td>${escapeHtml(u.status)}</td></tr>`).join("") : `<tr><td colspan="5">No usage yet.</td></tr>`;
   const checkoutButtons = Object.entries(CREDIT_PACKS).map(([id, pack]) => `<form method="post" action="/billing/checkout"><input type="hidden" name="pack" value="${id}"/><button>${pack.label}</button></form>`).join("");
-  return `<section class="hero"><div class="eyebrow">Logged in as ${escapeHtml(account.email)}</div><h1>$${(account.balance_cents/100).toFixed(2)} balance</h1><p>Buy credits once. Each analysis debits by character bucket.</p></section><section class="grid"><div class="card"><h2>Buy credits</h2><div class="buttons">${checkoutButtons}</div></div><div class="card"><h2>Create API key</h2><form method="post" action="/api-keys"><label>Label<input name="label" maxlength="80" placeholder="production agent"/></label><button>Create key</button></form></div></section><section class="card"><h2>API keys</h2><table><tr><th>Prefix</th><th>Label</th><th>Created</th><th></th></tr>${keyRows}</table><p class="muted">Full API keys are shown once after creation. Store them in your agent’s secret manager.</p></section><section class="card"><h2>Recent usage</h2><table><tr><th>When</th><th>Chars</th><th>Bucket</th><th>Price</th><th>Status</th></tr>${usageRows}</table></section><section class="grid"><div class="card"><h2>Edit email</h2><form method="post" action="/account/email"><label>New email<input name="email" type="email" required/></label><button>Update email</button></form></div><div class="card"><h2>Session / account</h2><form method="post" action="/auth/logout"><button>Log out</button></form><form method="post" action="/account/delete" onsubmit="return confirm('Delete account, revoke keys, and expire sessions?')"><button class="danger">Delete account</button></form></div></section>`;
+  return `<section class="hero"><div class="eyebrow">Logged in as ${escapeHtml(account.email)}</div><h1>$${(account.balance_cents/100).toFixed(2)} balance</h1><p>New accounts include $1.50 free credit. Buy more credits once; each analysis debits by character bucket.</p></section><section class="grid"><div class="card"><h2>Buy credits</h2><div class="buttons">${checkoutButtons}</div></div><div class="card"><h2>Create API key</h2><form method="post" action="/api-keys"><label>Label<input name="label" maxlength="80" placeholder="production agent"/></label><button>Create key</button></form></div></section><section class="card"><h2>API keys</h2><table><tr><th>Prefix</th><th>Label</th><th>Created</th><th></th></tr>${keyRows}</table><p class="muted">Full API keys are shown once after creation. Store them in your agent’s secret manager.</p></section><section class="card"><h2>Recent usage</h2><table><tr><th>When</th><th>Chars</th><th>Bucket</th><th>Price</th><th>Status</th></tr>${usageRows}</table></section><section class="grid"><div class="card"><h2>Edit email</h2><form method="post" action="/account/email"><label>New email<input name="email" type="email" required/></label><button>Update email</button></form></div><div class="card"><h2>Session / account</h2><form method="post" action="/auth/logout"><button>Log out</button></form><form method="post" action="/account/delete" onsubmit="return confirm('Delete account, revoke keys, and expire sessions?')"><button class="danger">Delete account</button></form></div></section>`;
 }
 
 export async function getSessionAccount(request: Request, env: Env): Promise<{ accountId: string; email: string } | null> {
@@ -64,7 +65,11 @@ export async function consumeMagicLink(env: Env, token: string): Promise<{ sessi
   let acct = await env.DB.prepare(`SELECT account_id FROM accounts WHERE email = ? AND deleted_at IS NULL`).bind(email).first<{ account_id: string }>();
   if (!acct) {
     const accountId = `acct_${ulid()}`;
-    await env.DB.prepare(`INSERT INTO accounts (account_id, email, balance_cents, created_at, updated_at) VALUES (?, ?, 0, ?, ?)`).bind(accountId, email, now, now).run();
+    const ledgerId = `led_${ulid()}`;
+    await env.DB.batch([
+      env.DB.prepare(`INSERT INTO accounts (account_id, email, balance_cents, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`).bind(accountId, email, SIGNUP_CREDIT_CENTS, now, now),
+      env.DB.prepare(`INSERT INTO credit_ledger (ledger_id, account_id, type, amount_cents, balance_after_cents, reference_id, metadata_json, created_at) VALUES (?, ?, 'signup_credit', ?, ?, ?, ?, ?)`).bind(ledgerId, accountId, SIGNUP_CREDIT_CENTS, SIGNUP_CREDIT_CENTS, accountId, JSON.stringify({ reason: "new_account_free_credit" }), now),
+    ]);
     acct = { account_id: accountId };
   }
   const sessionToken = randomToken("sess");

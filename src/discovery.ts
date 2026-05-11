@@ -126,7 +126,7 @@ export function openApiSpec(): Record<string, unknown> {
     },
     components: {
       securitySchemes: {
-        bearerAuth: { type: "http", scheme: "bearer", description: "VeracityAPI key. Send a bearer token in the Authorization header. Create account/API keys at https://veracityapi.com/account." },
+        bearerAuth: { type: "http", scheme: "bearer", description: "VeracityAPI key. Send a bearer token in the Authorization header. New accounts get $1.50 in free credits at https://veracityapi.com/account." },
       },
       schemas: {
         HealthResponse: {
@@ -329,7 +329,7 @@ ${USE_CASES.map((u) => `- ${u.title}: ${BASE_URL}/use-cases/${u.slug}`).join("\n
 
 ## Access
 
-Public demo is open. Production API access uses prepaid credits. No subscriptions. Every request debits the account balance by character bucket. Create an account, buy credits, and create an API key at ${BASE_URL}/account.
+Public demo is open. New accounts get $1.50 in free credits to test real workflows. Production API access uses prepaid credits. No subscriptions. Every request debits the account balance by character bucket. Create an account, get $1.50 in free credits, and create an API key at ${BASE_URL}/account.
 
 ## Pricing
 
@@ -377,11 +377,11 @@ export function agentsJson(): Record<string, unknown> {
     auth: {
       type: "bearer",
       header: "Authorization header: Bearer token",
-      instructions: "Create an account at https://veracityapi.com/account, buy prepaid credits, and create an API key.",
+      instructions: "Create an account at https://veracityapi.com/account, get $1.50 in free credits, and create an API key.",
     },
     pricing: {
       model: "prepaid_credits",
-      billing: "No subscriptions. Every request debits the account balance by character bucket.",
+      billing: "New accounts get $1.50 in free credits. No subscriptions. Every request debits the account balance by character bucket.",
       buckets: [
         { max_chars: 4000, price_usd: 0.01 },
         { max_chars: 20000, price_usd: 0.03 },

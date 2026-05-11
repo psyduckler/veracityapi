@@ -8,11 +8,12 @@ VeracityAPI is **not** a binary AI detector. It does not prove whether content w
 
 - Homepage + public demo: https://veracityapi.com
 - Production API base: https://api.veracityapi.com
-- Account / credits / API keys: https://veracityapi.com/account
+- Account / $1.50 free credit / credits / API keys: https://veracityapi.com/account
 - Docs: https://veracityapi.com/docs
 - How it works: https://veracityapi.com/how-it-works
 - Evals/proof: https://veracityapi.com/evals
-- Examples/use cases: https://veracityapi.com/examples
+- Use cases: https://veracityapi.com/use-cases
+- Examples/tool wrapper: https://veracityapi.com/examples
 - Pricing: https://veracityapi.com/pricing
 - Privacy: https://veracityapi.com/privacy
 - OpenAPI: https://veracityapi.com/openapi.json
@@ -22,7 +23,7 @@ VeracityAPI is **not** a binary AI detector. It does not prove whether content w
 
 ## Pricing
 
-No subscriptions. Buy credits. Every request debits your balance.
+New accounts get $1.50 in free credits. No subscriptions. Buy credits when you need more. Every request debits your balance.
 
 | Request size | Price |
 | --- | ---: |
@@ -32,7 +33,7 @@ No subscriptions. Buy credits. Every request debits your balance.
 | ≤100k chars | $0.12 |
 | >100k chars | chunk or contact us |
 
-Public demo is free, no-key, privacy_mode=true, capped at 4,000 characters, and rate limited. Production API access is credit-based.
+Public demo is free, no-key, privacy_mode=true, capped at 4,000 characters, and rate limited. New accounts get $1.50 in free API credits for authenticated testing; production API access is credit-based after that.
 
 ## MVP endpoint
 
@@ -40,7 +41,7 @@ Public demo is free, no-key, privacy_mode=true, capped at 4,000 characters, and 
 POST /v1/analyze-text
 ```
 
-Auth: send a bearer token in the `Authorization` header. Create an account, buy prepaid credits, and create an API key at `/account`.
+Auth: send a bearer token in the `Authorization` header. Create an account, get $1.50 in free credits, and create an API key at `/account`.
 
 ## Request
 
@@ -111,8 +112,9 @@ Action matrix:
 - `/docs` gives human-readable auth, schema, TypeScript/Python, and agent-tool integration examples.
 - `/how-it-works` documents model/scoring method, thresholds, limitations, and roadmap.
 - `/evals` shows early dogfooding proof and states the next labeled calibration target.
-- `/examples` describes agent workflows: pre-publish QA, RAG source triage, training data filtering, and UGC moderation.
-- `/pricing` describes credit-based, no-subscription billing.
+- `/use-cases` gives 10 agent business-function pages with policies, request templates, KPIs, and caveats.
+- `/examples` provides a lightweight tool-wrapper example and points to the use-case library.
+- `/pricing` describes the $1.50 signup credit plus credit-based, no-subscription billing.
 - `/account` handles email login, credit purchase, and API key management.
 - `site_events` stores lightweight page/demo/access-request analytics.
 
