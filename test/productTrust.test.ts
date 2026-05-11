@@ -3,7 +3,7 @@ import worker from "../src/index";
 import { accountHtml, type AccountView } from "../src/account";
 import { authenticateUsageKey, BillingAuthError } from "../src/billing";
 import { logAnalysis } from "../src/db";
-import { openApiSpec, llmsTxt, agentsJson } from "../src/discovery";
+import { openApiSpec, llmsTxt, agentsJson, sampleAnalyzeResponse, sampleAnalyzeImageResponse, sampleAnalyzeAudioResponse } from "../src/discovery";
 import { homepageHtml } from "../src/site";
 import { EVIDENCE_TYPES, type AnalyzeRequest, type AnalyzeResponse } from "../src/types";
 
@@ -117,7 +117,7 @@ describe("OpenAPI and agent discovery", () => {
 
 describe("privacy logging", () => {
   const request: AnalyzeRequest = { text: "This is a sufficiently long private text sample for scoring.", context: { format: "article", intended_use: "publish" }, privacy_mode: true };
-  const response: AnalyzeResponse = { analysis_id: "ana_1", synthetic_risk: 0.2, slop_risk: 0.3, confidence: "medium", evidence: [], recommended_fixes: [], content_trust_score: 0.7, specificity_risk: 0.3, provenance_weakness: 0.3, synthetic_texture_risk: 0.2, risk_level: "low", recommended_action: "allow", primary_reason: "unsupported_generic_claims", model_version: "v0.1", limitations: [] };
+  const response: AnalyzeResponse = { analysis_id: "ana_1", modality: "text", synthetic_risk: 0.2, slop_risk: 0.3, confidence: "medium", evidence: [], recommended_fixes: [], content_trust_score: 0.7, specificity_risk: 0.3, provenance_weakness: 0.3, synthetic_texture_risk: 0.2, risk_level: "low", recommended_action: "allow", primary_reason: "unsupported_generic_claims", model_version: "v0.1", limitations: [] };
 
   it("does not store raw text when privacy_mode is true", async () => {
     const db = new LogDb();
@@ -174,6 +174,76 @@ describe("homepage conversion", () => {
     expect(html).toContain('/use-cases/audio-phone-snippet-triage');
     expect(html).not.toContain('/use-cases/rag-source-validation');
     expect(html).not.toContain('/use-cases/audio-voice-message-authenticity-triage');
+  });
+});
+
+describe("Batch 2 demo conversion trust", () => {
+  it("renders why-this-action panels, action matrix, and billing estimates in demos", () => {
+    const html = homepageHtml();
+    expect(html).toContain("Why this action?");
+    expect(html).toContain("Billing estimate");
+    expect(html).toContain("Action-routing matrix");
+    expect(html).toContain("Text demo: generic travel safety copy should route to human_review");
+    expect(html).toContain("Image demo: low-risk sample should route to allow with provenance caveat");
+    expect(html).toContain("Audio demo: suspicious voice fixture should route to human_review");
+    expect(html).toContain("estimatedCostCents");
+    expect(html).toContain("$0.005 / 1k text chars");
+    expect(html).toContain("$0.02 / image");
+    expect(html).toContain("$0.01 / audio request");
+  });
+});
+
+describe("Batch 3 agent policy and schema docs", () => {
+  it("upgrades /for-agents with decision policies, framework recipes, modality, and enum docs", async () => {
+    const res = await worker.fetch(new Request("https://veracityapi.com/for-agents"), { DB: new EmptyDb(), ANTHROPIC_API_KEY: "test", API_KEYS: "" } as any);
+    const html = await res.text();
+    expect(html).toContain("Agent decision policy templates");
+    expect(html).toContain("Policy: pre-publish QA");
+    expect(html).toContain("Policy: RAG/source triage");
+    expect(html).toContain("Policy: UGC/media moderation");
+    expect(html).toContain("OpenAI tool schema");
+    expect(html).toContain("Vercel AI SDK tool");
+    expect(html).toContain("LangGraph conditional edge");
+    expect(html).toContain("modality");
+    expect(html).toContain("Primary reason enum-like values");
+    expect(html).toContain("unsupported_generic_claims");
+  });
+
+  it("documents modality on response schemas and examples", () => {
+    const spec = openApiSpec() as any;
+    for (const [name, modality] of [["AnalyzeTextResponse", "text"], ["AnalyzeImageResponse", "image"], ["AnalyzeAudioResponse", "audio"]]) {
+      const schema = spec.components.schemas[name];
+      expect(schema.required).toContain("modality");
+      expect(schema.properties.modality.enum).toEqual([modality]);
+    }
+    expect(sampleAnalyzeResponse().modality).toBe("text");
+    expect(sampleAnalyzeImageResponse().modality).toBe("image");
+    expect(sampleAnalyzeAudioResponse().modality).toBe("audio");
+  });
+});
+
+describe("Batch 4 search and proof expansion", () => {
+  it("serves high-intent category pages for content verification, moderation, and deepfake terms", async () => {
+    const env = { DB: new EmptyDb(), ANTHROPIC_API_KEY: "test", API_KEYS: "" } as any;
+    for (const path of ["/content-verification-api", "/ai-content-moderation-api", "/deepfake-detection-api"]) {
+      const res = await worker.fetch(new Request(`https://veracityapi.com${path}`), env);
+      expect(res.status, path).toBe(200);
+      const html = await res.text();
+      expect(html, path).toContain("recommended_action");
+      expect(html, path).toContain("not forensic proof");
+      expect(html, path).toContain(`href="https://veracityapi.com${path}"`);
+    }
+  });
+
+  it("publishes honest benchmark comparison scaffold on evals", async () => {
+    const res = await worker.fetch(new Request("https://veracityapi.com/evals"), { DB: new EmptyDb(), ANTHROPIC_API_KEY: "test", API_KEYS: "" } as any);
+    const html = await res.text();
+    expect(html).toContain("Comparison scaffold");
+    expect(html).toContain("GPTZero");
+    expect(html).toContain("Sapling");
+    expect(html).toContain("LLM judge");
+    expect(html).toContain("routing-action F1, not detector-score accuracy");
+    expect(html).toContain("External comparison pending");
   });
 });
 

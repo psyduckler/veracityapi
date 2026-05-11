@@ -125,6 +125,7 @@ export interface DerivedTrustSignals {
 
 export interface AnalyzeResponse extends LlmScoredFields, DerivedTrustSignals {
   analysis_id: string;
+  modality: "text";
   risk_level: RiskLevel;
   recommended_action: RecommendedAction;
   primary_reason: string;
@@ -135,6 +136,7 @@ export interface AnalyzeResponse extends LlmScoredFields, DerivedTrustSignals {
 
 export interface AnalyzeImageResponse extends ImageScoredFields {
   analysis_id: string;
+  modality: "image";
   content_trust_score: number;
   risk_level: RiskLevel;
   recommended_action: RecommendedAction;
@@ -165,6 +167,7 @@ export interface AudioScoredFields {
 
 export interface AnalyzeAudioResponse extends AudioScoredFields {
   analysis_id: string;
+  modality: "audio";
   content_trust_score: number;
   risk_level: RiskLevel;
   recommended_action: RecommendedAction;

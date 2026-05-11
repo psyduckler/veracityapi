@@ -413,9 +413,10 @@ export function openApiSpec(): Record<string, unknown> {
         },
         AnalyzeTextResponse: {
           type: "object",
-          required: ["analysis_id", "synthetic_risk", "slop_risk", "risk_level", "recommended_action", "primary_reason", "confidence", "evidence", "recommended_fixes", "model_version", "limitations"],
+          required: ["analysis_id", "modality", "synthetic_risk", "slop_risk", "risk_level", "recommended_action", "primary_reason", "confidence", "evidence", "recommended_fixes", "model_version", "limitations"],
           properties: {
             analysis_id: { type: "string", example: "ana_01KRA1EQPDJ7N2KHBXCQMGZYFJ" },
+            modality: { type: "string", enum: ["text"], description: "Response modality for agent branching." },
             content_trust_score: { type: "number", minimum: 0, maximum: 1, example: 0.22, description: "Derived workflow trust score. Higher is better." },
             specificity_risk: { type: "number", minimum: 0, maximum: 1, example: 0.78, description: "Risk that the text is vague, generic, or low-detail." },
             provenance_weakness: { type: "number", minimum: 0, maximum: 1, example: 0.78, description: "Risk that claims lack visible sourcing, firsthand detail, or provenance markers." },
@@ -449,9 +450,10 @@ export function openApiSpec(): Record<string, unknown> {
 
         AnalyzeAudioResponse: {
           type: "object",
-          required: ["analysis_id", "transcript", "content_trust_score", "synthetic_audio_risk", "workflow_risk", "synthetic_risk", "risk_level", "recommended_action", "primary_reason", "confidence", "evidence", "recommended_fixes", "model_version", "limitations"],
+          required: ["analysis_id", "modality", "transcript", "content_trust_score", "synthetic_audio_risk", "workflow_risk", "synthetic_risk", "risk_level", "recommended_action", "primary_reason", "confidence", "evidence", "recommended_fixes", "model_version", "limitations"],
           properties: {
             analysis_id: { type: "string", example: "aud_01KRA1EQPDJ7N2KHBXCQMGZYFJ" },
+            modality: { type: "string", enum: ["audio"], description: "Response modality for agent branching." },
             transcript: { type: "string", example: "Hey, can you send the transfer before noon?", description: "Best-effort Gemini transcript generated from the audio; caller transcript may be corrected against the clip." },
             content_trust_score: { type: "number", minimum: 0, maximum: 1, example: 0.62 },
             synthetic_audio_risk: { type: "number", minimum: 0, maximum: 1, example: 0.9, description: "Synthetic-audio risk signal; not proof of AI generation or voice cloning." },
@@ -470,9 +472,10 @@ export function openApiSpec(): Record<string, unknown> {
         },
         AnalyzeImageResponse: {
           type: "object",
-          required: ["analysis_id", "content_trust_score", "synthetic_image_risk", "synthetic_risk", "risk_level", "recommended_action", "primary_reason", "confidence", "evidence", "recommended_fixes", "model_version", "limitations"],
+          required: ["analysis_id", "modality", "content_trust_score", "synthetic_image_risk", "synthetic_risk", "risk_level", "recommended_action", "primary_reason", "confidence", "evidence", "recommended_fixes", "model_version", "limitations"],
           properties: {
             analysis_id: { type: "string", example: "img_01KRA1EQPDJ7N2KHBXCQMGZYFJ" },
+            modality: { type: "string", enum: ["image"], description: "Response modality for agent branching." },
             content_trust_score: { type: "number", minimum: 0, maximum: 1, example: 0.28, description: "Derived image workflow trust score. Higher is better." },
             synthetic_image_risk: { type: "number", minimum: 0, maximum: 1, example: 0.72, description: "Visible synthetic-image artifact risk; not proof of AI authorship." },
             synthetic_risk: { type: "number", minimum: 0, maximum: 1, example: 0.72, description: "Alias for synthetic_image_risk for SDK consistency." },
@@ -502,6 +505,7 @@ export function openApiSpec(): Record<string, unknown> {
 export function sampleAnalyzeResponse(analysisId = "demo_01KRA1EQPDJ7N2KHBXCQMGZYFJ"): Record<string, unknown> {
   return {
     analysis_id: analysisId,
+    modality: "text",
     content_trust_score: 0.22,
     specificity_risk: 0.78,
     provenance_weakness: 0.78,
@@ -531,6 +535,7 @@ export function sampleAnalyzeResponse(analysisId = "demo_01KRA1EQPDJ7N2KHBXCQMGZ
 export function sampleAnalyzeImageResponse(analysisId = "img_01KRA1IMAGEEXAMPLE"): Record<string, unknown> {
   return {
     analysis_id: analysisId,
+    modality: "image",
     content_trust_score: 0.75,
     synthetic_image_risk: 0.25,
     synthetic_risk: 0.25,
@@ -555,6 +560,7 @@ export function sampleAnalyzeImageResponse(analysisId = "img_01KRA1IMAGEEXAMPLE"
 export function sampleAnalyzeAudioResponse(analysisId = "aud_01KRA1AUDIOEXAMPLE"): Record<string, unknown> {
   return {
     analysis_id: analysisId,
+    modality: "audio",
     transcript: "Hey, can you send the transfer before noon?",
     content_trust_score: 0.1,
     synthetic_audio_risk: 0.9,
@@ -649,11 +655,11 @@ Content-Type: application/json
 
 ## Unified media examples
 
-POST ${API_BASE_URL}/v1/analyze accepts {"type":"image","content":"https://...","context":{"format":"social_post","intended_use":"publish","domain":"influencer product post"},"store_content":false}. Demo fixture: ${DEMO_IMAGE_URL}. It returns content_trust_score, synthetic_image_risk, synthetic_risk alias, evidence, recommended_fixes, risk_level, recommended_action, limitations, and billing. VeracityAPI stores no image bytes and logs only a hash plus hostname. Price: $0.02/image.
+POST ${API_BASE_URL}/v1/analyze accepts {"type":"image","content":"https://...","context":{"format":"social_post","intended_use":"publish","domain":"influencer product post"},"store_content":false}. Demo fixture: ${DEMO_IMAGE_URL}. It returns modality=image, content_trust_score, synthetic_image_risk, synthetic_risk alias, evidence, recommended_fixes, risk_level, recommended_action, limitations, and billing. VeracityAPI stores no image bytes and logs only a hash plus hostname. Price: $0.02/image.
 
 ## Audio endpoint
 
-POST ${API_BASE_URL}/v1/analyze accepts {"type":"audio","content":"https://...","transcript":"optional caller transcript","context":{"format":"social_post","intended_use":"publish","domain":"voice-message authenticity triage"},"store_content":false}. It returns transcript, content_trust_score, synthetic_audio_risk, workflow_risk, synthetic_risk alias, evidence, recommended_fixes, risk_level, recommended_action, limitations, and billing. VeracityAPI stores no audio bytes/base64 and logs only a hash plus hostname. Price: $0.01/audio request. Billing bucket: audio_v0. This is workflow triage, not proof of AI generation or voice-clone proof.
+POST ${API_BASE_URL}/v1/analyze accepts {"type":"audio","content":"https://...","transcript":"optional caller transcript","context":{"format":"social_post","intended_use":"publish","domain":"voice-message authenticity triage"},"store_content":false}. It returns modality=audio, transcript, content_trust_score, synthetic_audio_risk, workflow_risk, synthetic_risk alias, evidence, recommended_fixes, risk_level, recommended_action, limitations, and billing. VeracityAPI stores no audio bytes/base64 and logs only a hash plus hostname. Price: $0.01/audio request. Billing bucket: audio_v0. This is workflow triage, not proof of AI generation or voice-clone proof.
 
 ## Batch and balance endpoints
 

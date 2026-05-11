@@ -152,6 +152,7 @@ describe("image billing and logging", () => {
     const request: AnalyzeImageRequest = { image_url: "https://cdn.example.com/path/photo.jpg?token=secret", context: { format: "article", intended_use: "publish" }, privacy_mode: true };
     const response: AnalyzeImageResponse = {
       analysis_id: "img_1",
+      modality: "image",
       content_trust_score: 0.28,
       synthetic_image_risk: 0.72,
       synthetic_risk: 0.72,

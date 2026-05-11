@@ -8,7 +8,7 @@ import { deriveAction, deriveAudioRiskLevel, deriveAudioTrustScore, deriveImageR
 import { agentsJson, faviconSvg, INDEXNOW_KEY, llmsTxt, ogSvg, openApiSpec, robotsTxt, sitemapXml } from "./discovery";
 import { DEMO_IMAGE_CONTENT_TYPE, DEMO_IMAGE_PATH, demoImageBytes } from "./demoImage";
 import { DEMO_AUDIO_CONTENT_TYPE, DEMO_AUDIO_PATH, demoAudioBytes } from "./demoAudio";
-import { docsHtml, evalsHtml, examplesHtml, forAgentsHtml, howItWorksHtml, mcpHtml, pricingHtml, privacyHtml, requestAccessHtml, useCaseHtml, useCasesIndexHtml } from "./pages";
+import { categoryHtml, docsHtml, evalsHtml, examplesHtml, forAgentsHtml, howItWorksHtml, mcpHtml, pricingHtml, privacyHtml, requestAccessHtml, useCaseHtml, useCasesIndexHtml } from "./pages";
 import { distributionPageHtml, distributionRedirectTarget } from "./distribution";
 import { homepageHtml } from "./site";
 import type { AnalyzeAudioResponse, AnalyzeBatchRequest, AnalyzeImageResponse, AnalyzeResponse, Env } from "./types";
@@ -75,6 +75,15 @@ export default {
       if (!useCase) return json({ error: "not_found" }, 404);
       if (request.method === "GET") await logSiteEvent(env, request, "page_view", url.pathname);
       return html(request.method === "HEAD" ? "" : useCase);
+    }
+
+
+    if ((request.method === "GET" || request.method === "HEAD")) {
+      const directCategory = categoryHtml(url.pathname.replace(/^\//, ""), url.pathname);
+      if (directCategory) {
+        if (request.method === "GET") await logSiteEvent(env, request, "page_view", url.pathname);
+        return html(request.method === "HEAD" ? "" : directCategory);
+      }
     }
 
     if (request.method === "POST" && url.pathname === "/request-access") {
@@ -263,6 +272,7 @@ async function handleDemoAnalyze(request: Request, env: Env): Promise<Response> 
     const action = deriveAction(riskLevel, parsed.context.intended_use);
     const response: AnalyzeResponse = {
       analysis_id: `demo_${ulid()}`,
+      modality: "text",
       ...scored,
       ...derived,
       risk_level: riskLevel,
@@ -310,6 +320,7 @@ async function handleDemoAnalyzeImage(request: Request, env: Env): Promise<Respo
     const action = deriveAction(riskLevel, parsed.context.intended_use);
     const response: AnalyzeImageResponse = {
       analysis_id: `demo_img_${ulid()}`,
+      modality: "image",
       ...scored,
       content_trust_score: deriveImageTrustScore(scored.synthetic_image_risk),
       risk_level: riskLevel,
@@ -349,7 +360,7 @@ async function handleDemoAnalyzeAudio(request: Request, env: Env): Promise<Respo
     const parsed = await parseAnalyzeAudioRequest(jsonRequest(request.url, { audio_url: body.audio_url, transcript: body.transcript, context: body.context, store_content: false }));
     const scored = await scoreAudio(parsed, env);
     const riskLevel = deriveAudioRiskLevel(scored.synthetic_audio_risk, scored.workflow_risk);
-    const response: AnalyzeAudioResponse = { analysis_id: `demo_aud_${ulid()}`, ...scored, content_trust_score: deriveAudioTrustScore(scored.synthetic_audio_risk, scored.workflow_risk), risk_level: riskLevel, recommended_action: deriveAction(riskLevel, parsed.context.intended_use), primary_reason: derivePrimaryReason("audio", scored), model_version: env.MODEL_VERSION || "v0.1", limitations: AUDIO_LIMITATIONS };
+    const response: AnalyzeAudioResponse = { analysis_id: `demo_aud_${ulid()}`, modality: "audio", ...scored, content_trust_score: deriveAudioTrustScore(scored.synthetic_audio_risk, scored.workflow_risk), risk_level: riskLevel, recommended_action: deriveAction(riskLevel, parsed.context.intended_use), primary_reason: derivePrimaryReason("audio", scored), model_version: env.MODEL_VERSION || "v0.1", limitations: AUDIO_LIMITATIONS };
     await logAnalysis({ env, analysisId: response.analysis_id, apiKeyHash: `demo-audio:${await sha256Hex(ip)}`, request: parsed, response, latencyMs: Date.now() - start, kind: "audio" });
     return json(response, 200, { "Set-Cookie": `veracity_demo=${cookieKey === "nocookie" ? ulid() : cookieKey}; Path=/; Max-Age=86400; SameSite=Lax; Secure` });
   } catch (err) {
@@ -408,6 +419,7 @@ async function handleAnalyzeBatch(request: Request, env: Env): Promise<Response>
         id: item.id,
         batch_id: batchId,
         analysis_id: `ana_${ulid()}`,
+        modality: "text",
         ...scored,
         ...derived,
         risk_level: riskLevel,
@@ -455,6 +467,7 @@ async function handleAnalyzeText(request: Request, env: Env): Promise<Response> 
     const action = deriveAction(riskLevel, parsed.context.intended_use);
     const response: AnalyzeResponse = {
       analysis_id: analysisId,
+      modality: "text",
       ...scored,
       ...derived,
       risk_level: riskLevel,
@@ -501,6 +514,7 @@ async function handleAnalyzeImage(request: Request, env: Env): Promise<Response>
     const action = deriveAction(riskLevel, parsed.context.intended_use);
     const response: AnalyzeImageResponse = {
       analysis_id: analysisId,
+      modality: "image",
       ...scored,
       content_trust_score: deriveImageTrustScore(scored.synthetic_image_risk),
       risk_level: riskLevel,
@@ -547,7 +561,7 @@ async function handleAnalyzeAudio(request: Request, env: Env): Promise<Response>
     debit = { accountId: auth.accountId, apiKeyId: auth.apiKeyId, billing, analysisId };
     const scored = await scoreAudio(parsed, env);
     const riskLevel = deriveAudioRiskLevel(scored.synthetic_audio_risk, scored.workflow_risk);
-    const response: AnalyzeAudioResponse = { analysis_id: analysisId, ...scored, content_trust_score: deriveAudioTrustScore(scored.synthetic_audio_risk, scored.workflow_risk), risk_level: riskLevel, recommended_action: deriveAction(riskLevel, parsed.context.intended_use), primary_reason: derivePrimaryReason("audio", scored), model_version: env.MODEL_VERSION || "v0.1", limitations: AUDIO_LIMITATIONS, billing };
+    const response: AnalyzeAudioResponse = { analysis_id: analysisId, modality: "audio", ...scored, content_trust_score: deriveAudioTrustScore(scored.synthetic_audio_risk, scored.workflow_risk), risk_level: riskLevel, recommended_action: deriveAction(riskLevel, parsed.context.intended_use), primary_reason: derivePrimaryReason("audio", scored), model_version: env.MODEL_VERSION || "v0.1", limitations: AUDIO_LIMITATIONS, billing };
     await logAnalysis({ env, analysisId, apiKeyHash: auth.apiKeyHash, request: parsed, response, latencyMs: Date.now() - start, kind: "audio" });
     await logApiCallSuccess(env, request, auth.accountId, auth.apiKeyId, "audio", response.analysis_id);
     return json(response);
