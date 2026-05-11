@@ -17,6 +17,8 @@ interface UseCase {
   kpis: string[];
   caveats: string[];
   sampleText: string;
+  modality?: "text" | "image" | "audio_planned";
+  sampleImageUrl?: string;
 }
 
 export const USE_CASES: UseCase[] = [
@@ -189,6 +191,376 @@ export const USE_CASES: UseCase[] = [
     kpis: ["moderator queue reduction", "false positive/negative moderation audit", "spam campaign detection", "published UGC trust quality", "user report rate"],
     caveats: ["VeracityAPI is not a complete moderation classifier.", "Do not auto-reject serious victim reports only because they are poorly written.", "Pair with abuse signals, duplicate detection, user reputation, and human escalation."],
     sampleText: "This company is amazing and everyone should use it. Best service ever and totally safe. I had a perfect experience and recommend it to all travelers."
+  },
+  {
+    slug: "image-social-media-authenticity-check",
+    title: "Image detector for social media posts",
+    eyebrow: "Image \u00b7 social media",
+    summary: "Preflight influencer photos, travel images, carousel covers, and brand visuals for visible synthetic-image risk before social accounts publish them.",
+    businessValue: ["Protects trust in social media image workflows before automated agents take irreversible action.", "Creates a concrete QA policy agents can apply consistently.", "Turns risk evidence into review, revision, or provenance requests."],
+    agentJob: "Act as the social media image trust triage layer. Score or prepare the asset, inspect evidence, and choose allow, revise, human_review, or reject based on workflow stakes.",
+    trigger: "Run after asset intake/export and before publish, moderation, citation, training, payment, or account-impacting decisions.",
+    input: "Public HTTPS image URL for the exact asset the agent will publish, moderate, cite, or use as evidence.",
+    context: { format: "social_post", intended_use: "publish", domain: "social media image authenticity" },
+    policy: ["allow: low risk and low-stakes use with no conflicting local signals.", "revise: medium risk or evidence that can be fixed by replacement, disclosure, or better provenance.", "human_review: high risk, sensitive claims, identity/fraud implications, or evidentiary use.", "reject: repeated high-risk assets combined with policy violations or missing provenance."],
+    automation: ["Agent receives final image URL and local workflow metadata.", "Agent calls POST /v1/analyze-image with privacy_mode=true.", "Store score, recommended_action, and evidence categories in the workflow record.", "Allow low-risk assets; queue medium/high-risk assets for review or replacement.", "Rescore replacement images before publication or use."],
+    evidence: ["synthetic-looking texture or cadence", "geometry, text, label, transcript, or continuity mismatch", "weak or missing provenance", "signals that conflict with local metadata"],
+    kpis: ["assets triaged", "human-review precision", "bad publishes or decisions prevented", "false-positive appeal rate", "average review latency"],
+    caveats: ["Not proof that an image is AI-generated; use evidence with provenance/source checks.", "Do not use a single score as forensic proof.", "Combine VeracityAPI with local metadata, source reputation, and human escalation."],
+    sampleText: "Influencer/social post image before scheduling.",
+    sampleImageUrl: "https://veracityapi.com/demo/influencer-beauty-tonic.jpg",
+    modality: "image"
+  },
+  {
+    slug: "image-ecommerce-product-listing-qa",
+    title: "Image detector for ecommerce product listings",
+    eyebrow: "Image \u00b7 ecommerce",
+    summary: "Screen storefront product images for synthetic artifacts, misleading composites, or weak visual provenance before a SKU goes live.",
+    businessValue: ["Protects trust in ecommerce image workflows before automated agents take irreversible action.", "Creates a concrete QA policy agents can apply consistently.", "Turns risk evidence into review, revision, or provenance requests."],
+    agentJob: "Act as the ecommerce image trust triage layer. Score or prepare the asset, inspect evidence, and choose allow, revise, human_review, or reject based on workflow stakes.",
+    trigger: "Run after asset intake/export and before publish, moderation, citation, training, payment, or account-impacting decisions.",
+    input: "Public HTTPS image URL for the exact asset the agent will publish, moderate, cite, or use as evidence.",
+    context: { format: "product_review", intended_use: "publish", domain: "ecommerce product listing image" },
+    policy: ["allow: low risk and low-stakes use with no conflicting local signals.", "revise: medium risk or evidence that can be fixed by replacement, disclosure, or better provenance.", "human_review: high risk, sensitive claims, identity/fraud implications, or evidentiary use.", "reject: repeated high-risk assets combined with policy violations or missing provenance."],
+    automation: ["Agent receives final image URL and local workflow metadata.", "Agent calls POST /v1/analyze-image with privacy_mode=true.", "Store score, recommended_action, and evidence categories in the workflow record.", "Allow low-risk assets; queue medium/high-risk assets for review or replacement.", "Rescore replacement images before publication or use."],
+    evidence: ["synthetic-looking texture or cadence", "geometry, text, label, transcript, or continuity mismatch", "weak or missing provenance", "signals that conflict with local metadata"],
+    kpis: ["assets triaged", "human-review precision", "bad publishes or decisions prevented", "false-positive appeal rate", "average review latency"],
+    caveats: ["Not proof that an image is AI-generated; use evidence with provenance/source checks.", "Do not use a single score as forensic proof.", "Combine VeracityAPI with local metadata, source reputation, and human escalation."],
+    sampleText: "Hero image for a product listing before marketplace publish.",
+    sampleImageUrl: "https://veracityapi.com/demo/influencer-beauty-tonic.jpg",
+    modality: "image"
+  },
+  {
+    slug: "image-dating-profile-risk-triage",
+    title: "Image detector for dating profile photos",
+    eyebrow: "Image \u00b7 dating trust",
+    summary: "Help trust-and-safety agents flag suspicious dating profile photos for review when visual artifacts suggest synthetic identity risk.",
+    businessValue: ["Protects trust in dating profile image workflows before automated agents take irreversible action.", "Creates a concrete QA policy agents can apply consistently.", "Turns risk evidence into review, revision, or provenance requests."],
+    agentJob: "Act as the dating profile image trust triage layer. Score or prepare the asset, inspect evidence, and choose allow, revise, human_review, or reject based on workflow stakes.",
+    trigger: "Run after asset intake/export and before publish, moderation, citation, training, payment, or account-impacting decisions.",
+    input: "Public HTTPS image URL for the exact asset the agent will publish, moderate, cite, or use as evidence.",
+    context: { format: "social_post", intended_use: "moderate", domain: "dating profile photo trust" },
+    policy: ["allow: low risk and low-stakes use with no conflicting local signals.", "revise: medium risk or evidence that can be fixed by replacement, disclosure, or better provenance.", "human_review: high risk, sensitive claims, identity/fraud implications, or evidentiary use.", "reject: repeated high-risk assets combined with policy violations or missing provenance."],
+    automation: ["Agent receives final image URL and local workflow metadata.", "Agent calls POST /v1/analyze-image with privacy_mode=true.", "Store score, recommended_action, and evidence categories in the workflow record.", "Allow low-risk assets; queue medium/high-risk assets for review or replacement.", "Rescore replacement images before publication or use."],
+    evidence: ["synthetic-looking texture or cadence", "geometry, text, label, transcript, or continuity mismatch", "weak or missing provenance", "signals that conflict with local metadata"],
+    kpis: ["assets triaged", "human-review precision", "bad publishes or decisions prevented", "false-positive appeal rate", "average review latency"],
+    caveats: ["Not proof that an image is AI-generated; use evidence with provenance/source checks.", "Do not use a single score as forensic proof.", "Combine VeracityAPI with local metadata, source reputation, and human escalation."],
+    sampleText: "New dating profile photo before profile visibility.",
+    sampleImageUrl: "https://veracityapi.com/demo/influencer-beauty-tonic.jpg",
+    modality: "image"
+  },
+  {
+    slug: "image-marketplace-seller-verification",
+    title: "Image detector for marketplace seller verification",
+    eyebrow: "Image \u00b7 marketplace trust",
+    summary: "Triage seller storefront photos, proof-of-inventory shots, and listing visuals before trust badges or high-risk listings go live.",
+    businessValue: ["Protects trust in marketplace seller image workflows before automated agents take irreversible action.", "Creates a concrete QA policy agents can apply consistently.", "Turns risk evidence into review, revision, or provenance requests."],
+    agentJob: "Act as the marketplace seller image trust triage layer. Score or prepare the asset, inspect evidence, and choose allow, revise, human_review, or reject based on workflow stakes.",
+    trigger: "Run after asset intake/export and before publish, moderation, citation, training, payment, or account-impacting decisions.",
+    input: "Public HTTPS image URL for the exact asset the agent will publish, moderate, cite, or use as evidence.",
+    context: { format: "other", intended_use: "moderate", domain: "marketplace seller verification image" },
+    policy: ["allow: low risk and low-stakes use with no conflicting local signals.", "revise: medium risk or evidence that can be fixed by replacement, disclosure, or better provenance.", "human_review: high risk, sensitive claims, identity/fraud implications, or evidentiary use.", "reject: repeated high-risk assets combined with policy violations or missing provenance."],
+    automation: ["Agent receives final image URL and local workflow metadata.", "Agent calls POST /v1/analyze-image with privacy_mode=true.", "Store score, recommended_action, and evidence categories in the workflow record.", "Allow low-risk assets; queue medium/high-risk assets for review or replacement.", "Rescore replacement images before publication or use."],
+    evidence: ["synthetic-looking texture or cadence", "geometry, text, label, transcript, or continuity mismatch", "weak or missing provenance", "signals that conflict with local metadata"],
+    kpis: ["assets triaged", "human-review precision", "bad publishes or decisions prevented", "false-positive appeal rate", "average review latency"],
+    caveats: ["Not proof that an image is AI-generated; use evidence with provenance/source checks.", "Do not use a single score as forensic proof.", "Combine VeracityAPI with local metadata, source reputation, and human escalation."],
+    sampleText: "Seller verification image for high-value inventory.",
+    sampleImageUrl: "https://veracityapi.com/demo/influencer-beauty-tonic.jpg",
+    modality: "image"
+  },
+  {
+    slug: "image-newsroom-wire-photo-triage",
+    title: "Image detector for newsroom wire-photo triage",
+    eyebrow: "Image \u00b7 newsroom",
+    summary: "Score wire, social, and reader-submitted images for visible synthetic artifacts before editors rely on them in breaking-news workflows.",
+    businessValue: ["Protects trust in newsroom image workflows before automated agents take irreversible action.", "Creates a concrete QA policy agents can apply consistently.", "Turns risk evidence into review, revision, or provenance requests."],
+    agentJob: "Act as the newsroom image trust triage layer. Score or prepare the asset, inspect evidence, and choose allow, revise, human_review, or reject based on workflow stakes.",
+    trigger: "Run after asset intake/export and before publish, moderation, citation, training, payment, or account-impacting decisions.",
+    input: "Public HTTPS image URL for the exact asset the agent will publish, moderate, cite, or use as evidence.",
+    context: { format: "article", intended_use: "cite", domain: "newsroom wire photo triage" },
+    policy: ["allow: low risk and low-stakes use with no conflicting local signals.", "revise: medium risk or evidence that can be fixed by replacement, disclosure, or better provenance.", "human_review: high risk, sensitive claims, identity/fraud implications, or evidentiary use.", "reject: repeated high-risk assets combined with policy violations or missing provenance."],
+    automation: ["Agent receives final image URL and local workflow metadata.", "Agent calls POST /v1/analyze-image with privacy_mode=true.", "Store score, recommended_action, and evidence categories in the workflow record.", "Allow low-risk assets; queue medium/high-risk assets for review or replacement.", "Rescore replacement images before publication or use."],
+    evidence: ["synthetic-looking texture or cadence", "geometry, text, label, transcript, or continuity mismatch", "weak or missing provenance", "signals that conflict with local metadata"],
+    kpis: ["assets triaged", "human-review precision", "bad publishes or decisions prevented", "false-positive appeal rate", "average review latency"],
+    caveats: ["Not proof that an image is AI-generated; use evidence with provenance/source checks.", "Do not use a single score as forensic proof.", "Combine VeracityAPI with local metadata, source reputation, and human escalation."],
+    sampleText: "Reader-submitted breaking-news image before article publication.",
+    sampleImageUrl: "https://veracityapi.com/demo/influencer-beauty-tonic.jpg",
+    modality: "image"
+  },
+  {
+    slug: "image-ad-creative-compliance-gate",
+    title: "Image detector for ad creative compliance",
+    eyebrow: "Image \u00b7 paid acquisition",
+    summary: "Preflight AI-generated or heavily edited ad creatives before spending budget or submitting to platform review.",
+    businessValue: ["Protects trust in ad creative image workflows before automated agents take irreversible action.", "Creates a concrete QA policy agents can apply consistently.", "Turns risk evidence into review, revision, or provenance requests."],
+    agentJob: "Act as the ad creative image trust triage layer. Score or prepare the asset, inspect evidence, and choose allow, revise, human_review, or reject based on workflow stakes.",
+    trigger: "Run after asset intake/export and before publish, moderation, citation, training, payment, or account-impacting decisions.",
+    input: "Public HTTPS image URL for the exact asset the agent will publish, moderate, cite, or use as evidence.",
+    context: { format: "social_post", intended_use: "publish", domain: "ad creative compliance image" },
+    policy: ["allow: low risk and low-stakes use with no conflicting local signals.", "revise: medium risk or evidence that can be fixed by replacement, disclosure, or better provenance.", "human_review: high risk, sensitive claims, identity/fraud implications, or evidentiary use.", "reject: repeated high-risk assets combined with policy violations or missing provenance."],
+    automation: ["Agent receives final image URL and local workflow metadata.", "Agent calls POST /v1/analyze-image with privacy_mode=true.", "Store score, recommended_action, and evidence categories in the workflow record.", "Allow low-risk assets; queue medium/high-risk assets for review or replacement.", "Rescore replacement images before publication or use."],
+    evidence: ["synthetic-looking texture or cadence", "geometry, text, label, transcript, or continuity mismatch", "weak or missing provenance", "signals that conflict with local metadata"],
+    kpis: ["assets triaged", "human-review precision", "bad publishes or decisions prevented", "false-positive appeal rate", "average review latency"],
+    caveats: ["Not proof that an image is AI-generated; use evidence with provenance/source checks.", "Do not use a single score as forensic proof.", "Combine VeracityAPI with local metadata, source reputation, and human escalation."],
+    sampleText: "Paid social ad image before campaign submission.",
+    sampleImageUrl: "https://veracityapi.com/demo/influencer-beauty-tonic.jpg",
+    modality: "image"
+  },
+  {
+    slug: "image-insurance-claim-photo-triage",
+    title: "Image detector for insurance claim photo triage",
+    eyebrow: "Image \u00b7 claims operations",
+    summary: "Triage submitted damage photos for visible manipulation risk and route suspicious cases to adjuster review without treating scores as fraud proof.",
+    businessValue: ["Protects trust in insurance claim image workflows before automated agents take irreversible action.", "Creates a concrete QA policy agents can apply consistently.", "Turns risk evidence into review, revision, or provenance requests."],
+    agentJob: "Act as the insurance claim image trust triage layer. Score or prepare the asset, inspect evidence, and choose allow, revise, human_review, or reject based on workflow stakes.",
+    trigger: "Run after asset intake/export and before publish, moderation, citation, training, payment, or account-impacting decisions.",
+    input: "Public HTTPS image URL for the exact asset the agent will publish, moderate, cite, or use as evidence.",
+    context: { format: "other", intended_use: "cite", domain: "insurance claim photo triage" },
+    policy: ["allow: low risk and low-stakes use with no conflicting local signals.", "revise: medium risk or evidence that can be fixed by replacement, disclosure, or better provenance.", "human_review: high risk, sensitive claims, identity/fraud implications, or evidentiary use.", "reject: repeated high-risk assets combined with policy violations or missing provenance."],
+    automation: ["Agent receives final image URL and local workflow metadata.", "Agent calls POST /v1/analyze-image with privacy_mode=true.", "Store score, recommended_action, and evidence categories in the workflow record.", "Allow low-risk assets; queue medium/high-risk assets for review or replacement.", "Rescore replacement images before publication or use."],
+    evidence: ["synthetic-looking texture or cadence", "geometry, text, label, transcript, or continuity mismatch", "weak or missing provenance", "signals that conflict with local metadata"],
+    kpis: ["assets triaged", "human-review precision", "bad publishes or decisions prevented", "false-positive appeal rate", "average review latency"],
+    caveats: ["Not proof that an image is AI-generated; use evidence with provenance/source checks.", "Do not use a single score as forensic proof.", "Combine VeracityAPI with local metadata, source reputation, and human escalation."],
+    sampleText: "Claim photo used as supporting evidence before automated payout.",
+    sampleImageUrl: "https://veracityapi.com/demo/influencer-beauty-tonic.jpg",
+    modality: "image"
+  },
+  {
+    slug: "image-real-estate-listing-photo-qa",
+    title: "Image detector for real-estate listing photos",
+    eyebrow: "Image \u00b7 real estate",
+    summary: "Screen property photos for synthetic-looking staging, impossible fixtures, or misleading visual edits before publishing or syndication.",
+    businessValue: ["Protects trust in real estate image workflows before automated agents take irreversible action.", "Creates a concrete QA policy agents can apply consistently.", "Turns risk evidence into review, revision, or provenance requests."],
+    agentJob: "Act as the real estate image trust triage layer. Score or prepare the asset, inspect evidence, and choose allow, revise, human_review, or reject based on workflow stakes.",
+    trigger: "Run after asset intake/export and before publish, moderation, citation, training, payment, or account-impacting decisions.",
+    input: "Public HTTPS image URL for the exact asset the agent will publish, moderate, cite, or use as evidence.",
+    context: { format: "other", intended_use: "publish", domain: "real estate listing photo QA" },
+    policy: ["allow: low risk and low-stakes use with no conflicting local signals.", "revise: medium risk or evidence that can be fixed by replacement, disclosure, or better provenance.", "human_review: high risk, sensitive claims, identity/fraud implications, or evidentiary use.", "reject: repeated high-risk assets combined with policy violations or missing provenance."],
+    automation: ["Agent receives final image URL and local workflow metadata.", "Agent calls POST /v1/analyze-image with privacy_mode=true.", "Store score, recommended_action, and evidence categories in the workflow record.", "Allow low-risk assets; queue medium/high-risk assets for review or replacement.", "Rescore replacement images before publication or use."],
+    evidence: ["synthetic-looking texture or cadence", "geometry, text, label, transcript, or continuity mismatch", "weak or missing provenance", "signals that conflict with local metadata"],
+    kpis: ["assets triaged", "human-review precision", "bad publishes or decisions prevented", "false-positive appeal rate", "average review latency"],
+    caveats: ["Not proof that an image is AI-generated; use evidence with provenance/source checks.", "Do not use a single score as forensic proof.", "Combine VeracityAPI with local metadata, source reputation, and human escalation."],
+    sampleText: "Hero photo for a new apartment listing before marketplace syndication.",
+    sampleImageUrl: "https://veracityapi.com/demo/influencer-beauty-tonic.jpg",
+    modality: "image"
+  },
+  {
+    slug: "image-travel-scam-evidence-review",
+    title: "Image detector for travel scam evidence review",
+    eyebrow: "Image \u00b7 travel safety",
+    summary: "Triage photos submitted as scam evidence\u2014street signs, tickets, receipts, storefronts, or screenshots\u2014before citing them in guides or social posts.",
+    businessValue: ["Protects trust in travel-scam evidence image workflows before automated agents take irreversible action.", "Creates a concrete QA policy agents can apply consistently.", "Turns risk evidence into review, revision, or provenance requests."],
+    agentJob: "Act as the travel-scam evidence image trust triage layer. Score or prepare the asset, inspect evidence, and choose allow, revise, human_review, or reject based on workflow stakes.",
+    trigger: "Run after asset intake/export and before publish, moderation, citation, training, payment, or account-impacting decisions.",
+    input: "Public HTTPS image URL for the exact asset the agent will publish, moderate, cite, or use as evidence.",
+    context: { format: "article", intended_use: "cite", domain: "travel scam visual evidence" },
+    policy: ["allow: low risk and low-stakes use with no conflicting local signals.", "revise: medium risk or evidence that can be fixed by replacement, disclosure, or better provenance.", "human_review: high risk, sensitive claims, identity/fraud implications, or evidentiary use.", "reject: repeated high-risk assets combined with policy violations or missing provenance."],
+    automation: ["Agent receives final image URL and local workflow metadata.", "Agent calls POST /v1/analyze-image with privacy_mode=true.", "Store score, recommended_action, and evidence categories in the workflow record.", "Allow low-risk assets; queue medium/high-risk assets for review or replacement.", "Rescore replacement images before publication or use."],
+    evidence: ["synthetic-looking texture or cadence", "geometry, text, label, transcript, or continuity mismatch", "weak or missing provenance", "signals that conflict with local metadata"],
+    kpis: ["assets triaged", "human-review precision", "bad publishes or decisions prevented", "false-positive appeal rate", "average review latency"],
+    caveats: ["Not proof that an image is AI-generated; use evidence with provenance/source checks.", "Do not use a single score as forensic proof.", "Combine VeracityAPI with local metadata, source reputation, and human escalation."],
+    sampleText: "Photo submitted as evidence for a travel scam guide.",
+    sampleImageUrl: "https://veracityapi.com/demo/influencer-beauty-tonic.jpg",
+    modality: "image"
+  },
+  {
+    slug: "image-ugc-review-photo-moderation",
+    title: "Image detector for UGC review photo moderation",
+    eyebrow: "Image \u00b7 UGC moderation",
+    summary: "Score uploaded customer photos for visible synthetic artifacts before using them to support ratings, complaints, or product/place claims.",
+    businessValue: ["Protects trust in UGC review image workflows before automated agents take irreversible action.", "Creates a concrete QA policy agents can apply consistently.", "Turns risk evidence into review, revision, or provenance requests."],
+    agentJob: "Act as the UGC review image trust triage layer. Score or prepare the asset, inspect evidence, and choose allow, revise, human_review, or reject based on workflow stakes.",
+    trigger: "Run after asset intake/export and before publish, moderation, citation, training, payment, or account-impacting decisions.",
+    input: "Public HTTPS image URL for the exact asset the agent will publish, moderate, cite, or use as evidence.",
+    context: { format: "product_review", intended_use: "moderate", domain: "UGC review photo moderation" },
+    policy: ["allow: low risk and low-stakes use with no conflicting local signals.", "revise: medium risk or evidence that can be fixed by replacement, disclosure, or better provenance.", "human_review: high risk, sensitive claims, identity/fraud implications, or evidentiary use.", "reject: repeated high-risk assets combined with policy violations or missing provenance."],
+    automation: ["Agent receives final image URL and local workflow metadata.", "Agent calls POST /v1/analyze-image with privacy_mode=true.", "Store score, recommended_action, and evidence categories in the workflow record.", "Allow low-risk assets; queue medium/high-risk assets for review or replacement.", "Rescore replacement images before publication or use."],
+    evidence: ["synthetic-looking texture or cadence", "geometry, text, label, transcript, or continuity mismatch", "weak or missing provenance", "signals that conflict with local metadata"],
+    kpis: ["assets triaged", "human-review precision", "bad publishes or decisions prevented", "false-positive appeal rate", "average review latency"],
+    caveats: ["Not proof that an image is AI-generated; use evidence with provenance/source checks.", "Do not use a single score as forensic proof.", "Combine VeracityAPI with local metadata, source reputation, and human escalation."],
+    sampleText: "Customer-uploaded product review image before public display.",
+    sampleImageUrl: "https://veracityapi.com/demo/influencer-beauty-tonic.jpg",
+    modality: "image"
+  },
+  {
+    slug: "audio-phone-snippet-triage",
+    title: "Audio detector for phone snippet triage",
+    eyebrow: "Audio \u00b7 planned workflow",
+    summary: "Plan how support, fraud, or newsroom agents should triage short phone snippets for synthetic-audio risk once audio scoring is shipped.",
+    businessValue: ["Protects trust in phone snippet audio workflows before automated agents take irreversible action.", "Creates a concrete QA policy agents can apply consistently.", "Turns risk evidence into review, revision, or provenance requests."],
+    agentJob: "Act as the phone snippet audio trust triage layer. Score or prepare the asset, inspect evidence, and choose allow, revise, human_review, or reject based on workflow stakes.",
+    trigger: "Run after asset intake/export and before publish, moderation, citation, training, payment, or account-impacting decisions.",
+    input: "HTTPS audio URL, optional transcript, and local metadata prepared for a future audio trust workflow; no public audio endpoint is shipped yet.",
+    context: { format: "other", intended_use: "cite", domain: "phone snippet audio triage" },
+    policy: ["allow: low risk and low-stakes use with no conflicting local signals.", "revise: medium risk or evidence that can be fixed by replacement, disclosure, or better provenance.", "human_review: high risk, sensitive claims, identity/fraud implications, or evidentiary use.", "reject: repeated high-risk assets combined with policy violations or missing provenance."],
+    automation: ["Store consented audio in your own controlled storage.", "Prepare transcript and case metadata for future scoring.", "Route high-stakes or suspicious clips to human review while audio support is unavailable.", "Record reviewer outcomes for future calibration.", "Do not call a nonexistent VeracityAPI audio route."],
+    evidence: ["synthetic-looking texture or cadence", "geometry, text, label, transcript, or continuity mismatch", "weak or missing provenance", "signals that conflict with local metadata"],
+    kpis: ["assets triaged", "human-review precision", "bad publishes or decisions prevented", "false-positive appeal rate", "average review latency"],
+    caveats: ["No public VeracityAPI audio endpoint is shipped yet; this is a workflow/discovery page, not API documentation.", "Do not use a single score as forensic proof.", "Combine VeracityAPI with local metadata, source reputation, and human escalation."],
+    sampleText: "Planned manifest: phone snippet URL, transcript, case ID, intended evidence use.",
+    modality: "audio_planned"
+  },
+  {
+    slug: "audio-impersonator-call-review",
+    title: "Audio detector for impersonator call review",
+    eyebrow: "Audio \u00b7 planned workflow",
+    summary: "Define how agents should handle suspected executive, family, vendor, or support impersonation clips when audio trust scoring becomes available.",
+    businessValue: ["Protects trust in impersonator audio workflows before automated agents take irreversible action.", "Creates a concrete QA policy agents can apply consistently.", "Turns risk evidence into review, revision, or provenance requests."],
+    agentJob: "Act as the impersonator audio trust triage layer. Score or prepare the asset, inspect evidence, and choose allow, revise, human_review, or reject based on workflow stakes.",
+    trigger: "Run after asset intake/export and before publish, moderation, citation, training, payment, or account-impacting decisions.",
+    input: "HTTPS audio URL, optional transcript, and local metadata prepared for a future audio trust workflow; no public audio endpoint is shipped yet.",
+    context: { format: "other", intended_use: "moderate", domain: "impersonator call review" },
+    policy: ["allow: low risk and low-stakes use with no conflicting local signals.", "revise: medium risk or evidence that can be fixed by replacement, disclosure, or better provenance.", "human_review: high risk, sensitive claims, identity/fraud implications, or evidentiary use.", "reject: repeated high-risk assets combined with policy violations or missing provenance."],
+    automation: ["Store consented audio in your own controlled storage.", "Prepare transcript and case metadata for future scoring.", "Route high-stakes or suspicious clips to human review while audio support is unavailable.", "Record reviewer outcomes for future calibration.", "Do not call a nonexistent VeracityAPI audio route."],
+    evidence: ["synthetic-looking texture or cadence", "geometry, text, label, transcript, or continuity mismatch", "weak or missing provenance", "signals that conflict with local metadata"],
+    kpis: ["assets triaged", "human-review precision", "bad publishes or decisions prevented", "false-positive appeal rate", "average review latency"],
+    caveats: ["No public VeracityAPI audio endpoint is shipped yet; this is a workflow/discovery page, not API documentation.", "Do not use a single score as forensic proof.", "Combine VeracityAPI with local metadata, source reputation, and human escalation."],
+    sampleText: "Suspicious vendor voicemail requesting payment-route change.",
+    modality: "audio_planned"
+  },
+  {
+    slug: "audio-voicemail-scam-inbox-filter",
+    title: "Audio detector for voicemail scam inbox filtering",
+    eyebrow: "Audio \u00b7 planned workflow",
+    summary: "Design a conservative triage layer for voicemail inboxes where suspicious clips are ranked for review instead of automatically trusted or deleted.",
+    businessValue: ["Protects trust in voicemail audio workflows before automated agents take irreversible action.", "Creates a concrete QA policy agents can apply consistently.", "Turns risk evidence into review, revision, or provenance requests."],
+    agentJob: "Act as the voicemail audio trust triage layer. Score or prepare the asset, inspect evidence, and choose allow, revise, human_review, or reject based on workflow stakes.",
+    trigger: "Run after asset intake/export and before publish, moderation, citation, training, payment, or account-impacting decisions.",
+    input: "HTTPS audio URL, optional transcript, and local metadata prepared for a future audio trust workflow; no public audio endpoint is shipped yet.",
+    context: { format: "other", intended_use: "moderate", domain: "voicemail scam inbox" },
+    policy: ["allow: low risk and low-stakes use with no conflicting local signals.", "revise: medium risk or evidence that can be fixed by replacement, disclosure, or better provenance.", "human_review: high risk, sensitive claims, identity/fraud implications, or evidentiary use.", "reject: repeated high-risk assets combined with policy violations or missing provenance."],
+    automation: ["Store consented audio in your own controlled storage.", "Prepare transcript and case metadata for future scoring.", "Route high-stakes or suspicious clips to human review while audio support is unavailable.", "Record reviewer outcomes for future calibration.", "Do not call a nonexistent VeracityAPI audio route."],
+    evidence: ["synthetic-looking texture or cadence", "geometry, text, label, transcript, or continuity mismatch", "weak or missing provenance", "signals that conflict with local metadata"],
+    kpis: ["assets triaged", "human-review precision", "bad publishes or decisions prevented", "false-positive appeal rate", "average review latency"],
+    caveats: ["No public VeracityAPI audio endpoint is shipped yet; this is a workflow/discovery page, not API documentation.", "Do not use a single score as forensic proof.", "Combine VeracityAPI with local metadata, source reputation, and human escalation."],
+    sampleText: "Voicemail requesting account unlock or payment change.",
+    modality: "audio_planned"
+  },
+  {
+    slug: "audio-podcast-guest-provenance-check",
+    title: "Audio detector for podcast guest provenance checks",
+    eyebrow: "Audio \u00b7 planned workflow",
+    summary: "Prepare a triage workflow for guest-submitted clips, remote interviews, or promotional audio that might need provenance review.",
+    businessValue: ["Protects trust in podcast audio workflows before automated agents take irreversible action.", "Creates a concrete QA policy agents can apply consistently.", "Turns risk evidence into review, revision, or provenance requests."],
+    agentJob: "Act as the podcast audio trust triage layer. Score or prepare the asset, inspect evidence, and choose allow, revise, human_review, or reject based on workflow stakes.",
+    trigger: "Run after asset intake/export and before publish, moderation, citation, training, payment, or account-impacting decisions.",
+    input: "HTTPS audio URL, optional transcript, and local metadata prepared for a future audio trust workflow; no public audio endpoint is shipped yet.",
+    context: { format: "other", intended_use: "publish", domain: "podcast guest audio provenance" },
+    policy: ["allow: low risk and low-stakes use with no conflicting local signals.", "revise: medium risk or evidence that can be fixed by replacement, disclosure, or better provenance.", "human_review: high risk, sensitive claims, identity/fraud implications, or evidentiary use.", "reject: repeated high-risk assets combined with policy violations or missing provenance."],
+    automation: ["Store consented audio in your own controlled storage.", "Prepare transcript and case metadata for future scoring.", "Route high-stakes or suspicious clips to human review while audio support is unavailable.", "Record reviewer outcomes for future calibration.", "Do not call a nonexistent VeracityAPI audio route."],
+    evidence: ["synthetic-looking texture or cadence", "geometry, text, label, transcript, or continuity mismatch", "weak or missing provenance", "signals that conflict with local metadata"],
+    kpis: ["assets triaged", "human-review precision", "bad publishes or decisions prevented", "false-positive appeal rate", "average review latency"],
+    caveats: ["No public VeracityAPI audio endpoint is shipped yet; this is a workflow/discovery page, not API documentation.", "Do not use a single score as forensic proof.", "Combine VeracityAPI with local metadata, source reputation, and human escalation."],
+    sampleText: "Guest-uploaded audio clip before podcast publication.",
+    modality: "audio_planned"
+  },
+  {
+    slug: "audio-customer-support-call-qa",
+    title: "Audio detector for customer support call QA",
+    eyebrow: "Audio \u00b7 planned workflow",
+    summary: "Define how future audio trust signals would route call recordings used for disputes, training, or escalation QA.",
+    businessValue: ["Protects trust in support-call audio workflows before automated agents take irreversible action.", "Creates a concrete QA policy agents can apply consistently.", "Turns risk evidence into review, revision, or provenance requests."],
+    agentJob: "Act as the support-call audio trust triage layer. Score or prepare the asset, inspect evidence, and choose allow, revise, human_review, or reject based on workflow stakes.",
+    trigger: "Run after asset intake/export and before publish, moderation, citation, training, payment, or account-impacting decisions.",
+    input: "HTTPS audio URL, optional transcript, and local metadata prepared for a future audio trust workflow; no public audio endpoint is shipped yet.",
+    context: { format: "other", intended_use: "train", domain: "customer support call QA" },
+    policy: ["allow: low risk and low-stakes use with no conflicting local signals.", "revise: medium risk or evidence that can be fixed by replacement, disclosure, or better provenance.", "human_review: high risk, sensitive claims, identity/fraud implications, or evidentiary use.", "reject: repeated high-risk assets combined with policy violations or missing provenance."],
+    automation: ["Store consented audio in your own controlled storage.", "Prepare transcript and case metadata for future scoring.", "Route high-stakes or suspicious clips to human review while audio support is unavailable.", "Record reviewer outcomes for future calibration.", "Do not call a nonexistent VeracityAPI audio route."],
+    evidence: ["synthetic-looking texture or cadence", "geometry, text, label, transcript, or continuity mismatch", "weak or missing provenance", "signals that conflict with local metadata"],
+    kpis: ["assets triaged", "human-review precision", "bad publishes or decisions prevented", "false-positive appeal rate", "average review latency"],
+    caveats: ["No public VeracityAPI audio endpoint is shipped yet; this is a workflow/discovery page, not API documentation.", "Do not use a single score as forensic proof.", "Combine VeracityAPI with local metadata, source reputation, and human escalation."],
+    sampleText: "Support call clip considered for QA training set.",
+    modality: "audio_planned"
+  },
+  {
+    slug: "audio-user-generated-testimonial-review",
+    title: "Audio detector for user-generated testimonial review",
+    eyebrow: "Audio \u00b7 planned workflow",
+    summary: "Prepare review rules for customer-submitted voice testimonials before publishing or turning them into ads.",
+    businessValue: ["Protects trust in testimonial audio workflows before automated agents take irreversible action.", "Creates a concrete QA policy agents can apply consistently.", "Turns risk evidence into review, revision, or provenance requests."],
+    agentJob: "Act as the testimonial audio trust triage layer. Score or prepare the asset, inspect evidence, and choose allow, revise, human_review, or reject based on workflow stakes.",
+    trigger: "Run after asset intake/export and before publish, moderation, citation, training, payment, or account-impacting decisions.",
+    input: "HTTPS audio URL, optional transcript, and local metadata prepared for a future audio trust workflow; no public audio endpoint is shipped yet.",
+    context: { format: "other", intended_use: "publish", domain: "voice testimonial review" },
+    policy: ["allow: low risk and low-stakes use with no conflicting local signals.", "revise: medium risk or evidence that can be fixed by replacement, disclosure, or better provenance.", "human_review: high risk, sensitive claims, identity/fraud implications, or evidentiary use.", "reject: repeated high-risk assets combined with policy violations or missing provenance."],
+    automation: ["Store consented audio in your own controlled storage.", "Prepare transcript and case metadata for future scoring.", "Route high-stakes or suspicious clips to human review while audio support is unavailable.", "Record reviewer outcomes for future calibration.", "Do not call a nonexistent VeracityAPI audio route."],
+    evidence: ["synthetic-looking texture or cadence", "geometry, text, label, transcript, or continuity mismatch", "weak or missing provenance", "signals that conflict with local metadata"],
+    kpis: ["assets triaged", "human-review precision", "bad publishes or decisions prevented", "false-positive appeal rate", "average review latency"],
+    caveats: ["No public VeracityAPI audio endpoint is shipped yet; this is a workflow/discovery page, not API documentation.", "Do not use a single score as forensic proof.", "Combine VeracityAPI with local metadata, source reputation, and human escalation."],
+    sampleText: "Customer voice testimonial submitted for website or ad use.",
+    modality: "audio_planned"
+  },
+  {
+    slug: "audio-training-data-cleanroom",
+    title: "Audio detector for training-data cleanrooms",
+    eyebrow: "Audio \u00b7 planned workflow",
+    summary: "Plan a conservative gate for excluding suspicious, poorly provenanced, or synthetic-looking audio from speech datasets.",
+    businessValue: ["Protects trust in training-data audio workflows before automated agents take irreversible action.", "Creates a concrete QA policy agents can apply consistently.", "Turns risk evidence into review, revision, or provenance requests."],
+    agentJob: "Act as the training-data audio trust triage layer. Score or prepare the asset, inspect evidence, and choose allow, revise, human_review, or reject based on workflow stakes.",
+    trigger: "Run after asset intake/export and before publish, moderation, citation, training, payment, or account-impacting decisions.",
+    input: "HTTPS audio URL, optional transcript, and local metadata prepared for a future audio trust workflow; no public audio endpoint is shipped yet.",
+    context: { format: "other", intended_use: "train", domain: "audio training data curation" },
+    policy: ["allow: low risk and low-stakes use with no conflicting local signals.", "revise: medium risk or evidence that can be fixed by replacement, disclosure, or better provenance.", "human_review: high risk, sensitive claims, identity/fraud implications, or evidentiary use.", "reject: repeated high-risk assets combined with policy violations or missing provenance."],
+    automation: ["Store consented audio in your own controlled storage.", "Prepare transcript and case metadata for future scoring.", "Route high-stakes or suspicious clips to human review while audio support is unavailable.", "Record reviewer outcomes for future calibration.", "Do not call a nonexistent VeracityAPI audio route."],
+    evidence: ["synthetic-looking texture or cadence", "geometry, text, label, transcript, or continuity mismatch", "weak or missing provenance", "signals that conflict with local metadata"],
+    kpis: ["assets triaged", "human-review precision", "bad publishes or decisions prevented", "false-positive appeal rate", "average review latency"],
+    caveats: ["No public VeracityAPI audio endpoint is shipped yet; this is a workflow/discovery page, not API documentation.", "Do not use a single score as forensic proof.", "Combine VeracityAPI with local metadata, source reputation, and human escalation."],
+    sampleText: "Audio dataset manifest before speech model training.",
+    modality: "audio_planned"
+  },
+  {
+    slug: "audio-news-tip-hotline-triage",
+    title: "Audio detector for news tip hotline triage",
+    eyebrow: "Audio \u00b7 planned workflow",
+    summary: "Prepare conservative triage for voice tips, leaked clips, and hotline recordings before journalists treat them as evidence.",
+    businessValue: ["Protects trust in news-tip audio workflows before automated agents take irreversible action.", "Creates a concrete QA policy agents can apply consistently.", "Turns risk evidence into review, revision, or provenance requests."],
+    agentJob: "Act as the news-tip audio trust triage layer. Score or prepare the asset, inspect evidence, and choose allow, revise, human_review, or reject based on workflow stakes.",
+    trigger: "Run after asset intake/export and before publish, moderation, citation, training, payment, or account-impacting decisions.",
+    input: "HTTPS audio URL, optional transcript, and local metadata prepared for a future audio trust workflow; no public audio endpoint is shipped yet.",
+    context: { format: "other", intended_use: "cite", domain: "news tip audio triage" },
+    policy: ["allow: low risk and low-stakes use with no conflicting local signals.", "revise: medium risk or evidence that can be fixed by replacement, disclosure, or better provenance.", "human_review: high risk, sensitive claims, identity/fraud implications, or evidentiary use.", "reject: repeated high-risk assets combined with policy violations or missing provenance."],
+    automation: ["Store consented audio in your own controlled storage.", "Prepare transcript and case metadata for future scoring.", "Route high-stakes or suspicious clips to human review while audio support is unavailable.", "Record reviewer outcomes for future calibration.", "Do not call a nonexistent VeracityAPI audio route."],
+    evidence: ["synthetic-looking texture or cadence", "geometry, text, label, transcript, or continuity mismatch", "weak or missing provenance", "signals that conflict with local metadata"],
+    kpis: ["assets triaged", "human-review precision", "bad publishes or decisions prevented", "false-positive appeal rate", "average review latency"],
+    caveats: ["No public VeracityAPI audio endpoint is shipped yet; this is a workflow/discovery page, not API documentation.", "Do not use a single score as forensic proof.", "Combine VeracityAPI with local metadata, source reputation, and human escalation."],
+    sampleText: "Hotline audio tip used as possible source material.",
+    modality: "audio_planned"
+  },
+  {
+    slug: "audio-financial-fraud-dispute-review",
+    title: "Audio detector for financial fraud dispute review",
+    eyebrow: "Audio \u00b7 planned workflow",
+    summary: "Define how voice recordings should be triaged when used in chargeback, account-takeover, or wire-transfer disputes.",
+    businessValue: ["Protects trust in financial-fraud audio workflows before automated agents take irreversible action.", "Creates a concrete QA policy agents can apply consistently.", "Turns risk evidence into review, revision, or provenance requests."],
+    agentJob: "Act as the financial-fraud audio trust triage layer. Score or prepare the asset, inspect evidence, and choose allow, revise, human_review, or reject based on workflow stakes.",
+    trigger: "Run after asset intake/export and before publish, moderation, citation, training, payment, or account-impacting decisions.",
+    input: "HTTPS audio URL, optional transcript, and local metadata prepared for a future audio trust workflow; no public audio endpoint is shipped yet.",
+    context: { format: "other", intended_use: "moderate", domain: "financial fraud audio dispute review" },
+    policy: ["allow: low risk and low-stakes use with no conflicting local signals.", "revise: medium risk or evidence that can be fixed by replacement, disclosure, or better provenance.", "human_review: high risk, sensitive claims, identity/fraud implications, or evidentiary use.", "reject: repeated high-risk assets combined with policy violations or missing provenance."],
+    automation: ["Store consented audio in your own controlled storage.", "Prepare transcript and case metadata for future scoring.", "Route high-stakes or suspicious clips to human review while audio support is unavailable.", "Record reviewer outcomes for future calibration.", "Do not call a nonexistent VeracityAPI audio route."],
+    evidence: ["synthetic-looking texture or cadence", "geometry, text, label, transcript, or continuity mismatch", "weak or missing provenance", "signals that conflict with local metadata"],
+    kpis: ["assets triaged", "human-review precision", "bad publishes or decisions prevented", "false-positive appeal rate", "average review latency"],
+    caveats: ["No public VeracityAPI audio endpoint is shipped yet; this is a workflow/discovery page, not API documentation.", "Do not use a single score as forensic proof.", "Combine VeracityAPI with local metadata, source reputation, and human escalation."],
+    sampleText: "Call recording submitted in a wire-transfer dispute.",
+    modality: "audio_planned"
+  },
+  {
+    slug: "audio-creator-marketplace-submission-qa",
+    title: "Audio detector for creator marketplace submission QA",
+    eyebrow: "Audio \u00b7 planned workflow",
+    summary: "Prepare rules for screening voiceover, jingle, testimonial, and ad-read submissions before brands accept or pay for them.",
+    businessValue: ["Protects trust in creator-marketplace audio workflows before automated agents take irreversible action.", "Creates a concrete QA policy agents can apply consistently.", "Turns risk evidence into review, revision, or provenance requests."],
+    agentJob: "Act as the creator-marketplace audio trust triage layer. Score or prepare the asset, inspect evidence, and choose allow, revise, human_review, or reject based on workflow stakes.",
+    trigger: "Run after asset intake/export and before publish, moderation, citation, training, payment, or account-impacting decisions.",
+    input: "HTTPS audio URL, optional transcript, and local metadata prepared for a future audio trust workflow; no public audio endpoint is shipped yet.",
+    context: { format: "other", intended_use: "publish", domain: "creator marketplace audio QA" },
+    policy: ["allow: low risk and low-stakes use with no conflicting local signals.", "revise: medium risk or evidence that can be fixed by replacement, disclosure, or better provenance.", "human_review: high risk, sensitive claims, identity/fraud implications, or evidentiary use.", "reject: repeated high-risk assets combined with policy violations or missing provenance."],
+    automation: ["Store consented audio in your own controlled storage.", "Prepare transcript and case metadata for future scoring.", "Route high-stakes or suspicious clips to human review while audio support is unavailable.", "Record reviewer outcomes for future calibration.", "Do not call a nonexistent VeracityAPI audio route."],
+    evidence: ["synthetic-looking texture or cadence", "geometry, text, label, transcript, or continuity mismatch", "weak or missing provenance", "signals that conflict with local metadata"],
+    kpis: ["assets triaged", "human-review precision", "bad publishes or decisions prevented", "false-positive appeal rate", "average review latency"],
+    caveats: ["No public VeracityAPI audio endpoint is shipped yet; this is a workflow/discovery page, not API documentation.", "Do not use a single score as forensic proof.", "Combine VeracityAPI with local metadata, source reputation, and human escalation."],
+    sampleText: "Creator voiceover submission before brand acceptance.",
+    modality: "audio_planned"
   }
 ];
 
@@ -213,16 +585,35 @@ export function useCasesIndexHtml(): string {
 export function useCaseHtml(slug: string): string | null {
   const u = USE_CASES.find((item) => item.slug === slug);
   if (!u) return null;
-  const request = JSON.stringify({ text: u.sampleText, context: u.context, privacy_mode: true }, null, 2);
+  const modality = u.modality ?? "text";
+  const request = modality === "image"
+    ? JSON.stringify({ image_url: u.sampleImageUrl ?? "https://example.com/image.jpg", context: u.context, privacy_mode: true }, null, 2)
+    : JSON.stringify({ text: u.sampleText, context: u.context, privacy_mode: true }, null, 2);
+  const requestBlock = modality === "image"
+    ? `<section class="card"><h3>Request template</h3><pre>curl ${API_BASE_URL}/v1/analyze-image \\n  -H "Authorization: Bearer ***" \\n  -H "Content-Type: application/json" \\n  -d '${esc(request)}'</pre></section>`
+    : modality === "audio_planned"
+      ? `<section class="card"><h3>Agent workflow template</h3><p><b>Status:</b> no public VeracityAPI audio endpoint is shipped yet. This page is a discoverable workflow plan for agents; do not call a nonexistent audio route. When audio support ships, use this manifest shape and conservative policy.</p><pre>${esc(JSON.stringify({ audio_url: "https://your-secure-storage.example/clip.mp3", transcript: "optional caller-supplied transcript", context: u.context, privacy_mode: true }, null, 2))}</pre></section>`
+      : `<section class="card"><h3>Request template</h3><pre>curl ${API_BASE_URL}/v1/analyze-text \\n  -H "Authorization: Bearer ***" \\n  -H "Content-Type: application/json" \\n  -d '${esc(request)}'</pre></section>`;
+  const inputLabel = modality === "image" ? "What image URL to submit" : modality === "audio_planned" ? "What audio manifest to prepare" : "What text to submit";
+  const costNotes = modality === "image"
+    ? "Image analysis is a flat $0.02 per image. The endpoint accepts HTTPS image URLs, stores no image bytes, and logs only a URL hash plus hostname. Current v0.1 latency is vision-model-bound, so preflight balance and retry carefully."
+    : modality === "audio_planned"
+      ? "Audio pricing and latency are not published because no public audio endpoint is shipped yet. Treat these pages as workflow and discoverability preparation; use text/image APIs for live integrations today."
+      : "Pricing is character-bucketed: ≤4k chars $0.01, ≤20k $0.03, ≤50k $0.06, ≤100k $0.12. Most short captions/emails cost $0.01; longer pages or chapters should be scored by section. Current v0.1 latency is LLM-bound, so batch/concurrent orchestration is recommended for high-volume pipelines.";
+  const checklist = modality === "image"
+    ? ["Does this workflow have a costly failure mode from manipulated or synthetic-looking visuals?", "Can the agent store evidence categories without storing raw image bytes or full URLs?", "Should this workflow fail open, fail closed, or queue human review if image scoring is unavailable?", "Which field drives policy: recommended_action, risk_level, content_trust_score, or synthetic_image_risk?", "What local provenance check should complement the API score?"]
+    : modality === "audio_planned"
+      ? ["Is the page clearly marked as a planned workflow, not a shipped endpoint?", "What consent, retention, and privacy rules govern the audio clips?", "What independent verification is required before consequential decisions?", "How will the agent behave while audio scoring is unavailable?", "Which reviewer outcome should be captured for future calibration?"]
+      : ["Does this workflow have a costly failure mode from generic or weak-provenance text?", "Can the agent map evidence spans back to editable source locations?", "Should this workflow fail open, fail closed, or queue human review if VeracityAPI is unavailable?", "Which field drives policy: recommended_action, risk_level, content_trust_score, specificity_risk, or provenance_weakness?", "What local rule should complement the API score?"];
   const policyCode = `if (result.recommended_action === "allow") continueWorkflow();\nif (result.recommended_action === "revise") rewriteWith(result.evidence, result.recommended_fixes);\nif (result.recommended_action === "human_review") queueForHumanReview(result);\nif (result.recommended_action === "reject") discardOrRebuild();`;
   return layout(`${u.title} | VeracityAPI use case`, u.summary, `<section class="hero"><div class="eyebrow">${esc(u.eyebrow)}</div><h1>${esc(u.title)}</h1><p class="lead">${esc(u.summary)}</p><p><a class="btn primary" href="/account">Get API key</a> <a class="btn" href="/use-cases">All use cases</a> <a class="btn" href="/docs">Docs</a></p></section>
 <section class="grid"><div class="card"><h3>Business value</h3>${list(u.businessValue)}</div><div class="card"><h3>Agent job to be done</h3><p>${esc(u.agentJob)}</p><p><span class="pill">format: ${esc(u.context.format)}</span><span class="pill">intended_use: ${esc(u.context.intended_use)}</span><span class="pill">domain: ${esc(u.context.domain)}</span></p></div></section>
-<section class="grid"><div class="card"><h3>When to call VeracityAPI</h3><p>${esc(u.trigger)}</p><h3>What text to submit</h3><p>${esc(u.input)}</p></div><div class="card"><h3>Decision policy</h3>${list(u.policy)}</div></section>
-<section class="card"><h3>Request template</h3><pre>curl ${API_BASE_URL}/v1/analyze-text \\\n  -H "Authorization: Bearer $VERACITYAPI_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d '${esc(request)}'</pre></section>
+<section class="grid"><div class="card"><h3>When to call VeracityAPI</h3><p>${esc(u.trigger)}</p><h3>${inputLabel}</h3><p>${esc(u.input)}</p></div><div class="card"><h3>Decision policy</h3>${list(u.policy)}</div></section>
+${requestBlock}
 <section class="grid"><div class="card"><h3>Automation recipe</h3>${list(u.automation)}</div><div class="card"><h3>Evidence spans agents should inspect</h3>${list(u.evidence)}</div></section>
 <section class="grid"><div class="card"><h3>Policy pseudocode</h3><pre>${policyCode}</pre></div><div class="card"><h3>KPIs to track</h3>${list(u.kpis)}</div></section>
-<section class="grid"><div class="card"><h3>What can go wrong</h3>${list(u.caveats)}</div><div class="card"><h3>Cost and latency notes</h3><p>Pricing is character-bucketed: ≤4k chars $0.01, ≤20k $0.03, ≤50k $0.06, ≤100k $0.12. Most short captions/emails cost $0.01; longer pages or chapters should be scored by section. Current v0.1 latency is LLM-bound, so batch/concurrent orchestration is recommended for high-volume pipelines.</p></div></section>
-<section class="card"><h3>Agent evaluation checklist</h3><ul><li>Does this workflow have a costly failure mode from generic or weak-provenance text?</li><li>Can the agent map evidence spans back to editable source locations?</li><li>Should this workflow fail open, fail closed, or queue human review if VeracityAPI is unavailable?</li><li>Which field drives policy: recommended_action, risk_level, content_trust_score, specificity_risk, or provenance_weakness?</li><li>What local rule should complement the API score?</li></ul></section>`);
+<section class="grid"><div class="card"><h3>What can go wrong</h3>${list(u.caveats)}</div><div class="card"><h3>Cost and latency notes</h3><p>${costNotes}</p></div></section>
+<section class="card"><h3>Agent evaluation checklist</h3><ul>${checklist.map((item) => `<li>${esc(item)}</li>`).join("")}</ul></section>`);
 }
 
 export function docsHtml(): string { return layout("VeracityAPI Docs", "API docs for VeracityAPI content trust scoring.", `<section class="hero"><div class="eyebrow">Developer docs</div><h1>Integrate a content trust gate in one API call.</h1><p class="lead">Call VeracityAPI before an agent publishes, cites, trains on, or moderates text or images. The text API scores specificity gaps, generic slop, weak evidence, and synthetic-looking texture; the image API scores visible synthetic-image artifacts. Both return evidence and a recommended workflow action.</p><p><a class="btn primary" href="/account">Get API key</a> <a class="btn" href="/use-cases">Agent use cases</a> <a class="btn" href="/how-it-works">How it works</a> <a class="btn" href="/openapi.json">OpenAPI JSON</a> <a class="btn" href="/llms.txt">llms.txt</a></p></section>
@@ -244,4 +635,4 @@ export function privacyHtml(): string { return layout("VeracityAPI Privacy", "Pr
 
 export function requestAccessHtml(): string { return layout("Request VeracityAPI Access", "Request a VeracityAPI private beta key.", `<section class="hero"><div class="eyebrow">Legacy request form</div><h1>Prefer self-serve account setup.</h1><p class="lead">VeracityAPI now supports email login, prepaid credits, and API key management at /account. Use this request form only for custom volume or partnership requests.</p><p><a class="btn primary" href="/account">Get API key</a> <a class="btn" href="/pricing">View pricing</a></p></section><section class="card"><div id="notice" class="notice">Request received. We’ll follow up with details.</div><form id="access"><div class="formgrid"><label>Name<input name="name" required maxlength="120"/></label><label>Email<input type="email" name="email" required maxlength="180"/></label></div><div class="formgrid"><label>Company / project<input name="company" maxlength="160"/></label><label>Expected monthly volume<select name="volume"><option>under 1k</option><option>1k-10k</option><option>10k-100k</option><option>100k+</option></select></label></div><label>Agent use case<textarea name="use_case" required maxlength="1200" placeholder="e.g. pre-publish QA, RAG source triage, review moderation..."></textarea></label><p><button class="btn primary" type="submit">Submit request</button></p></form></section><script>const form=document.getElementById('access'),notice=document.getElementById('notice');form.onsubmit=async(e)=>{e.preventDefault();const data=Object.fromEntries(new FormData(form).entries());const r=await fetch('/request-access',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(data)});if(r.ok){form.reset();notice.style.display='block'}else{const j=await r.json().catch(()=>({message:'Request failed'}));alert(j.message||j.error||'Request failed')}};</script>`); }
 
-export function pricingHtml(): string { return layout("VeracityAPI Pricing", "Credit-based VeracityAPI pricing for API and agent usage.", `<section class="hero"><div class="eyebrow">Pricing</div><h1>New accounts get $1.50 free credit — enough for 150 short text analyses credit — enough for 150 short text analyses. No subscriptions. Buy credits when you need more. Every request debits your balance.</h1><p class="lead">VeracityAPI is priced for API-first and agent-first workflows: start with $1.50 free credit — enough for 150 short text analyses, call the API, and pay a fixed amount based on request size after that.</p><p><a class="btn primary" href="/account">Get API key</a> <a class="btn" href="/use-cases">Use cases</a> <a class="btn" href="/docs">Read docs</a> <a class="btn" href="/openapi.json">OpenAPI JSON</a></p></section><section class="card"><h3>Canonical analysis pricing</h3><table class="table"><tr><th>Request size</th><th>Price</th><th>Billing rule</th></tr><tr><td>≤4k characters</td><td><b>$0.01</b></td><td>Debited from prepaid balance per analysis</td></tr><tr><td>≤20k characters</td><td><b>$0.03</b></td><td>Debited from prepaid balance per analysis</td></tr><tr><td>≤50k characters</td><td><b>$0.06</b></td><td>Debited from prepaid balance per analysis</td></tr><tr><td>≤100k characters</td><td><b>$0.12</b></td><td>Debited from prepaid balance per analysis</td></tr><tr><td>&gt;100k characters</td><td>Chunk or contact us</td><td>Use multiple calls or request custom access</td></tr><tr><td>Synchronous text batch</td><td>Sum of item prices</td><td>1-25 items; ≤4k chars/item; ≤50k chars total</td></tr><tr><td>Image URL analysis</td><td><b>$0.02</b></td><td>Flat debit per image analysis; vision calls cost more than text</td></tr></table></section><section class="grid"><div class="card"><h3>How credits work</h3><p>Users load a VeracityAPI balance. Each authenticated text request is measured by input characters and assigned to a pricing bucket. Batch text requests are billed as the sum of per-item prices. Image analysis is a flat $0.02/image debit from the same balance. Agents can call GET /v1/balance before a run to check remaining credits and recent usage.</p></div><div class="card"><h3>Public demo</h3><p>The website demos remain free, no-key, privacy_mode=true, and rate limited. Text demo input is capped at 4,000 characters; image demo accepts an HTTPS image URL and logs no image bytes or full URL. New accounts also get $1.50 in API credits for authenticated workflow testing.</p></div></section>`); }
+export function pricingHtml(): string { return layout("VeracityAPI Pricing", "Credit-based VeracityAPI pricing for API and agent usage.", `<section class="hero"><div class="eyebrow">Pricing</div><h1>New accounts get $1.50 free credit — enough for 150 short text analyses. No subscriptions. Buy credits when you need more. Every request debits your balance.</h1><p class="lead">VeracityAPI is priced for API-first and agent-first workflows: start with $1.50 free credit — enough for 150 short text analyses, call the API, and pay a fixed amount based on request size after that.</p><p><a class="btn primary" href="/account">Get API key</a> <a class="btn" href="/use-cases">Use cases</a> <a class="btn" href="/docs">Read docs</a> <a class="btn" href="/openapi.json">OpenAPI JSON</a></p></section><section class="card"><h3>Canonical analysis pricing</h3><table class="table"><tr><th>Request size</th><th>Price</th><th>Billing rule</th></tr><tr><td>≤4k characters</td><td><b>$0.01</b></td><td>Debited from prepaid balance per analysis</td></tr><tr><td>≤20k characters</td><td><b>$0.03</b></td><td>Debited from prepaid balance per analysis</td></tr><tr><td>≤50k characters</td><td><b>$0.06</b></td><td>Debited from prepaid balance per analysis</td></tr><tr><td>≤100k characters</td><td><b>$0.12</b></td><td>Debited from prepaid balance per analysis</td></tr><tr><td>&gt;100k characters</td><td>Chunk or contact us</td><td>Use multiple calls or request custom access</td></tr><tr><td>Synchronous text batch</td><td>Sum of item prices</td><td>1-25 items; ≤4k chars/item; ≤50k chars total</td></tr><tr><td>Image URL analysis</td><td><b>$0.02</b></td><td>Flat debit per image analysis; vision calls cost more than text</td></tr></table></section><section class="grid"><div class="card"><h3>How credits work</h3><p>Users load a VeracityAPI balance. Each authenticated text request is measured by input characters and assigned to a pricing bucket. Batch text requests are billed as the sum of per-item prices. Image analysis is a flat $0.02/image debit from the same balance. Agents can call GET /v1/balance before a run to check remaining credits and recent usage.</p></div><div class="card"><h3>Public demo</h3><p>The website demos remain free, no-key, privacy_mode=true, and rate limited. Text demo input is capped at 4,000 characters; image demo accepts an HTTPS image URL and logs no image bytes or full URL. New accounts also get $1.50 in API credits for authenticated workflow testing.</p></div></section>`); }

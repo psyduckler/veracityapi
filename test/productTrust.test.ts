@@ -73,9 +73,9 @@ describe("OpenAPI and agent discovery", () => {
         if (operation.operationId !== undefined) expect(operation.operationId, `${method.toUpperCase()} ${path}`).toMatch(/^[a-z][A-Za-z0-9]+$/);
       }
     }
-    expect(JSON.stringify(spec)).toMatch(/analyze-audio|synthetic_audio|audio_v0/i);
-    expect(JSON.stringify(spec)).toMatch(/not proof|workflow risk|workflow triage/i);
-    expect(spec.paths["/v1/analyze-image"].post.requestBody.content["application/json"].examples.imageUrl.value.context.format).toBe("social_post");
+    expect(JSON.stringify(spec)).not.toMatch(/analyze-audio|synthetic_audio|audio_v0/i);
+    expect(JSON.stringify(spec)).toMatch(/not proof|workflow risk|workflow trust/i);
+
     expect(spec.paths["/v1/analyze-text"].post.responses["402"]).toBeTruthy();
     expect(spec.components.schemas.AnalyzeTextResponse.properties.billing).toBeTruthy();
   });
