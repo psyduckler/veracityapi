@@ -5,10 +5,11 @@ import { authenticateUsageKey, BillingAuthError, creditCheckoutSession, CREDIT_P
 import { logAnalysis } from "./db";
 import { LlmError, scoreAudio, scoreImage, scoreText } from "./llm";
 import { deriveAction, deriveAudioRiskLevel, deriveAudioTrustScore, deriveImageRiskLevel, deriveImageTrustScore, deriveRiskLevel, deriveTrustSignals } from "./scoring";
-import { agentsJson, llmsTxt, ogSvg, openApiSpec, robotsTxt, sitemapXml } from "./discovery";
+import { agentsJson, INDEXNOW_KEY, llmsTxt, ogSvg, openApiSpec, robotsTxt, sitemapXml } from "./discovery";
 import { DEMO_IMAGE_CONTENT_TYPE, DEMO_IMAGE_PATH, demoImageBytes } from "./demoImage";
 import { DEMO_AUDIO_CONTENT_TYPE, DEMO_AUDIO_PATH, demoAudioBytes } from "./demoAudio";
 import { docsHtml, evalsHtml, examplesHtml, howItWorksHtml, pricingHtml, privacyHtml, requestAccessHtml, useCaseHtml, useCasesIndexHtml } from "./pages";
+import { distributionPageHtml } from "./distribution";
 import { homepageHtml } from "./site";
 import type { AnalyzeAudioResponse, AnalyzeBatchRequest, AnalyzeImageResponse, AnalyzeResponse, Env } from "./types";
 import { parseAnalyzeAudioRequest, parseAnalyzeBatchRequest, parseAnalyzeImageRequest, parseAnalyzeRequest, ValidationError } from "./validate";
@@ -98,8 +99,17 @@ export default {
       return json(request.method === "HEAD" ? null : openApiSpec(), 200, { "cache-control": "public, max-age=300" });
     }
 
-    if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/.well-known/agents.json") {
+    if ((request.method === "GET" || request.method === "HEAD") && (url.pathname === "/.well-known/agents.json" || url.pathname === "/agents.json")) {
       return json(request.method === "HEAD" ? null : agentsJson(), 200, { "cache-control": "public, max-age=300" });
+    }
+
+    if ((request.method === "GET" || request.method === "HEAD")) {
+      const distribution = distributionPageHtml(url.pathname);
+      if (distribution) return html(request.method === "HEAD" ? "" : distribution);
+    }
+
+    if ((request.method === "GET" || request.method === "HEAD") && url.pathname === `/${INDEXNOW_KEY}.txt`) {
+      return text(request.method === "HEAD" ? "" : INDEXNOW_KEY, "text/plain; charset=utf-8");
     }
 
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/llms.txt") {
