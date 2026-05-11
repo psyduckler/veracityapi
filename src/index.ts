@@ -8,7 +8,7 @@ import { deriveAction, deriveAudioRiskLevel, deriveAudioTrustScore, deriveImageR
 import { agentsJson, faviconSvg, INDEXNOW_KEY, llmsTxt, ogSvg, openApiSpec, robotsTxt, sitemapXml } from "./discovery";
 import { DEMO_IMAGE_CONTENT_TYPE, DEMO_IMAGE_PATH, demoImageBytes } from "./demoImage";
 import { DEMO_AUDIO_CONTENT_TYPE, DEMO_AUDIO_PATH, demoAudioBytes } from "./demoAudio";
-import { categoryHtml, docsHtml, evalsHtml, examplesHtml, forAgentsHtml, howItWorksHtml, mcpHtml, pricingHtml, privacyHtml, requestAccessHtml, useCaseHtml, useCasesIndexHtml } from "./pages";
+import { categoryHtml, changelogHtml, docsHtml, evalsHtml, examplesHtml, forAgentsHtml, howItWorksHtml, mcpHtml, pricingHtml, privacyHtml, termsHtml, requestAccessHtml, statusHtml, useCaseHtml, useCasesIndexHtml } from "./pages";
 import { distributionPageHtml, distributionRedirectTarget } from "./distribution";
 import { homepageHtml } from "./site";
 import type { AnalyzeAudioResponse, AnalyzeBatchRequest, AnalyzeImageResponse, AnalyzeResponse, Env } from "./types";
@@ -52,6 +52,12 @@ export default {
       return html(request.method === "HEAD" ? "" : homepageHtml());
     }
 
+    // On the API hostname, /mcp is the machine-readable remote MCP endpoint.
+    // Keep https://veracityapi.com/mcp as the human docs page below.
+    if ((request.method === "GET" || request.method === "HEAD") && url.hostname === "api.veracityapi.com" && url.pathname === "/mcp") {
+      return handleRemoteMcp(request, env);
+    }
+
     const pageRoutes: Record<string, () => string> = {
       "/docs": docsHtml,
       "/how-it-works": howItWorksHtml,
@@ -61,7 +67,10 @@ export default {
       "/mcp": mcpHtml,
       "/use-cases": useCasesIndexHtml,
       "/pricing": pricingHtml,
+      "/status": statusHtml,
+      "/changelog": changelogHtml,
       "/privacy": privacyHtml,
+      "/terms": termsHtml,
       "/request-access": requestAccessHtml,
     };
     const pageRenderer = pageRoutes[url.pathname];
@@ -393,9 +402,14 @@ async function handleUnifiedAnalyze(request: Request, env: Env): Promise<Respons
       return handleAnalyzeText(jsonRequestFrom(request, { text: parsed.content, context: parsed.context, privacy_mode: parsed.privacy_mode, auto_revise: parsed.auto_revise }), env);
     }
     if (parsed.type === "image") {
-      return handleAnalyzeImage(jsonRequestFrom(request, { image_url: parsed.content, context: parsed.context, privacy_mode: parsed.privacy_mode }), env);
+      const imageUrl = parsed.source?.kind === "url" ? parsed.source.url : typeof parsed.content === "string" ? parsed.content : undefined;
+      return handleAnalyzeImage(jsonRequestFrom(request, { image_url: imageUrl, source: parsed.source, context: parsed.context, privacy_mode: parsed.privacy_mode }), env);
     }
-    return handleAnalyzeAudio(jsonRequestFrom(request, { audio_url: parsed.content, transcript: parsed.transcript, context: parsed.context, privacy_mode: parsed.privacy_mode }), env);
+    if (parsed.type === "audio") {
+      const audioUrl = parsed.source?.kind === "url" ? parsed.source.url : typeof parsed.content === "string" ? parsed.content : undefined;
+      return handleAnalyzeAudio(jsonRequestFrom(request, { audio_url: audioUrl, source: parsed.source, transcript: parsed.transcript, context: parsed.context, privacy_mode: parsed.privacy_mode }), env);
+    }
+    return json({ error: "bad_request", message: "asset input is validated and documented; production mixed-asset scoring is staged behind the async/multimodal implementation path" }, 400);
   } catch (err) {
     if (err instanceof ValidationError) return json({ error: "bad_request", message: err.message }, 400);
     console.error(err);
@@ -412,38 +426,54 @@ async function handleAnalyzeBatch(request: Request, env: Env): Promise<Response>
     const batchId = `bat_${ulid()}`;
     const billing = await debitForBatchRequest(env, auth.accountId, auth.apiKeyId, batchId, parsed);
     debit = { accountId: auth.accountId, apiKeyId: auth.apiKeyId, billing, batchId };
-    const results: AnalyzeResponse[] = [];
-    for (const item of parsed.items) {
-      const itemRequest = { text: item.text, context: parsed.context, privacy_mode: parsed.privacy_mode };
-      const scored = await scoreText(itemRequest, env);
-      const derived = deriveTrustSignals(scored.synthetic_risk, scored.slop_risk, scored.evidence);
-      const riskLevel = deriveRiskLevel(scored.synthetic_risk, scored.slop_risk);
-      const action = deriveAction(riskLevel, parsed.context.intended_use);
-      const response: AnalyzeResponse & { id?: string; batch_id?: string } = {
-        id: item.id,
-        batch_id: batchId,
-        analysis_id: `ana_${ulid()}`,
-        modality: "text",
-        ...scored,
-        ...derived,
-        risk_level: riskLevel,
-        recommended_action: action,
-        primary_reason: derivePrimaryReason("text", scored),
-        model_version: env.MODEL_VERSION || "v0.1",
-        limitations: LIMITATIONS,
-      };
-      await logAnalysis({
-        env,
-        analysisId: response.analysis_id,
-        apiKeyHash: auth.apiKeyHash,
-        request: itemRequest,
-        response,
-        latencyMs: Date.now() - start,
-        kind: "text",
-      });
-      results.push(response);
+    const results: Array<{ index: number; id: string; status: "succeeded"; analysis: AnalyzeResponse & { id?: string; batch_id?: string } } | { index: number; id: string; status: "failed"; error: { code: string; message: string; retryable: boolean } }> = [];
+    for (const [index, item] of parsed.items.entries()) {
+      try {
+        const itemRequest = { text: item.text, context: parsed.context, privacy_mode: parsed.privacy_mode };
+        const scored = await scoreText(itemRequest, env);
+        const derived = deriveTrustSignals(scored.synthetic_risk, scored.slop_risk, scored.evidence);
+        const riskLevel = deriveRiskLevel(scored.synthetic_risk, scored.slop_risk);
+        const action = deriveAction(riskLevel, parsed.context.intended_use);
+        const response: AnalyzeResponse & { id?: string; batch_id?: string } = {
+          id: item.id,
+          batch_id: batchId,
+          analysis_id: `ana_${ulid()}`,
+          modality: "text",
+          ...scored,
+          ...derived,
+          risk_level: riskLevel,
+          recommended_action: action,
+          primary_reason: derivePrimaryReason("text", scored),
+          model_version: env.MODEL_VERSION || "v0.1",
+          limitations: LIMITATIONS,
+        };
+        await logAnalysis({
+          env,
+          analysisId: response.analysis_id,
+          apiKeyHash: auth.apiKeyHash,
+          request: itemRequest,
+          response,
+          latencyMs: Date.now() - start,
+          kind: "text",
+        });
+        results.push({ index, id: item.id, status: "succeeded", analysis: response });
+      } catch (err) {
+        results.push({
+          index,
+          id: item.id,
+          status: "failed",
+          error: {
+            code: err instanceof LlmError ? "model_unavailable" : "item_failed",
+            message: err instanceof Error ? err.message : "Item analysis failed",
+            retryable: err instanceof LlmError,
+          },
+        });
+      }
     }
-    return json({ batch_id: batchId, results, ...(billing ? { billing } : {}) });
+    const failedCount = results.filter((item) => item.status === "failed").length;
+    const succeededCount = results.length - failedCount;
+    const status = failedCount === 0 ? "completed" : succeededCount === 0 ? "failed" : "completed_with_errors";
+    return json({ batch_id: batchId, status, partial_failure: failedCount > 0, results, ...(billing ? { billing } : {}) });
   } catch (err) {
     if (debit && (err instanceof LlmError)) await refundUsage(env, debit.accountId, debit.apiKeyId, debit.batchId, debit.billing, "llm_unavailable");
     if (err instanceof BillingAuthError) return json({ error: "unauthorized" }, 401);
@@ -767,6 +797,7 @@ const MCP_TOOLS = [
   {
     name: "analyze_text",
     description: "Analyze text for content trust, specificity risk, weak provenance, slop risk, evidence, and recommended workflow action. Workflow triage only; not proof of AI authorship or truth.",
+    annotations: { readOnlyHint: false, openWorldHint: false, destructiveHint: false },
     inputSchema: {
       type: "object",
       required: ["text"],
@@ -782,6 +813,7 @@ const MCP_TOOLS = [
   {
     name: "analyze_image",
     description: "Analyze an HTTPS image URL for visible synthetic-image artifact risk, content trust score, evidence, and recommended workflow action. Not forensic proof of AI authorship, provenance, identity, or truth.",
+    annotations: { readOnlyHint: false, openWorldHint: false, destructiveHint: false },
     inputSchema: {
       type: "object",
       required: ["image_url"],
@@ -796,6 +828,7 @@ const MCP_TOOLS = [
   {
     name: "analyze_audio",
     description: "Analyze a short HTTPS audio URL for synthetic-audio workflow triage. Stores no audio bytes/base64/full URL. Not proof of AI generation, voice cloning, speaker identity, or truth.",
+    annotations: { readOnlyHint: false, openWorldHint: false, destructiveHint: false },
     inputSchema: {
       type: "object",
       required: ["audio_url"],
@@ -811,6 +844,7 @@ const MCP_TOOLS = [
   {
     name: "analyze_batch",
     description: "Analyze 1-25 short text items in one bounded synchronous batch. Use before autonomous publishing/moderation loops.",
+    annotations: { readOnlyHint: false, openWorldHint: false, destructiveHint: false },
     inputSchema: {
       type: "object",
       required: ["items"],
@@ -822,8 +856,8 @@ const MCP_TOOLS = [
       },
     },
   },
-  { name: "check_balance", description: "Get VeracityAPI account credit balance and recent usage before running agent analysis loops.", inputSchema: { type: "object", properties: {} } },
-  { name: "get_balance", description: "Compatibility alias for check_balance.", inputSchema: { type: "object", properties: {} } },
+  { name: "check_balance", description: "Get VeracityAPI account credit balance and recent usage before running agent analysis loops.", annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false }, inputSchema: { type: "object", properties: {} } },
+  { name: "get_balance", description: "Compatibility alias for check_balance.", annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false }, inputSchema: { type: "object", properties: {} } },
 ] as const;
 
 function mcpContextSchema() {
@@ -912,10 +946,28 @@ async function callMcpTool(id: unknown, name: string, args: Record<string, unkno
 function mcpApiRequest(source: Request, path: string, body: unknown, method: "GET" | "POST" = "POST"): Request {
   const url = new URL(source.url);
   const headers = new Headers();
-  const authorization = source.headers.get("authorization");
+  const authorization = mcpAuthorization(source);
   if (authorization) headers.set("authorization", authorization);
   if (method === "POST") headers.set("content-type", "application/json");
   return new Request(`${url.origin}${path}`, { method, headers, ...(method === "POST" ? { body: JSON.stringify(body) } : {}) });
+}
+
+function mcpAuthorization(source: Request): string | null {
+  const header = source.headers.get("authorization");
+  if (header) return header;
+
+  // Claude.ai custom connectors currently do not expose a UI field for custom
+  // Authorization headers. Accepting a token in the connector URL is a pragmatic
+  // fallback for hosted MCP clients that cannot send headers. Prefer headers or
+  // the local stdio MCP package when the client supports them.
+  const url = new URL(source.url);
+  const queryToken = url.searchParams.get("api_key") || url.searchParams.get("key") || url.searchParams.get("token");
+  if (queryToken && /^vap_[A-Za-z0-9]+$/.test(queryToken)) return `Bearer ${queryToken}`;
+
+  const apiKeyHeader = source.headers.get("x-veracity-api-key");
+  if (apiKeyHeader && /^vap_[A-Za-z0-9]+$/.test(apiKeyHeader)) return `Bearer ${apiKeyHeader}`;
+
+  return null;
 }
 
 function summarizeMcpResult(name: string, result: any): string {
@@ -987,6 +1039,7 @@ function corsHeaders(): Record<string, string> {
   return {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-    "Access-Control-Allow-Headers": "Authorization,Content-Type",
+    "Access-Control-Allow-Headers": "Authorization,Content-Type,Mcp-Session-Id,MCP-Protocol-Version,X-Veracity-API-Key,X-Requested-With,Accept",
+    "Access-Control-Max-Age": "86400",
   };
 }

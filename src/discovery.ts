@@ -1,3 +1,4 @@
+import { apiCubeLogoSvg } from "./brand";
 import { DEMO_IMAGE_URL } from "./demoImage";
 import { DEMO_AUDIO_TRANSCRIPT, DEMO_AUDIO_URL } from "./demoAudio";
 import { USE_CASES } from "./pages";
@@ -325,12 +326,19 @@ export function openApiSpec(): Record<string, unknown> {
             explanation: { type: "string" },
           },
         },
+        MediaSource: {
+          oneOf: [
+            { type: "object", required: ["kind", "url"], properties: { kind: { const: "url" }, url: { type: "string", format: "uri", maxLength: 2000 } } },
+            { type: "object", required: ["kind", "media_type", "data"], properties: { kind: { const: "base64" }, media_type: { type: "string", enum: ["image/png", "image/jpeg", "image/webp", "audio/mpeg", "audio/wav", "audio/x-wav", "audio/mp4", "audio/m4a", "audio/webm", "audio/ogg"] }, data: { type: "string", description: "Base64 media payload. VeracityAPI validates size and never stores raw base64." } } },
+          ],
+        },
         UnifiedAnalyzeRequest: {
           type: "object",
           required: ["type", "content"],
           properties: {
-            type: { type: "string", enum: ["text", "image", "audio"], description: "Content modality. text=raw text; image/audio=HTTPS media URL." },
-            content: { type: "string", minLength: 1, maxLength: 100000, description: "Text content for type=text, or an HTTPS URL for type=image/type=audio." },
+            type: { type: "string", enum: ["text", "image", "audio", "asset"], description: "Content modality. text=raw text; image/audio=HTTPS media URL or explicit source object; asset=mixed content blocks (validated contract; production holistic scoring is staged)." },
+            content: { oneOf: [{ type: "string", minLength: 1, maxLength: 100000 }, { type: "array", items: { type: "object" } }], description: "Text content for type=text, HTTPS URL for URL media, or asset blocks for type=asset." },
+            source: { "$ref": "#/components/schemas/MediaSource" },
             transcript: { type: "string", maxLength: 10000, description: "Optional caller-supplied transcript/context for type=audio. Gemini transcribes the audio directly and returns transcript in the response." },
             context: { "$ref": "#/components/schemas/AnalyzeTextRequest/properties/context" },
             store_content: { type: "boolean", default: false, description: "Explicit default: raw content is not stored. Set true only for text retention workflows." },
@@ -350,6 +358,7 @@ export function openApiSpec(): Record<string, unknown> {
                 format: { type: "string", enum: ["article", "social_post", "product_review", "caption", "other"], default: "other" },
                 intended_use: { type: "string", enum: ["publish", "train", "cite", "moderate", "other"], default: "other" },
                 domain: { type: "string", maxLength: 100, description: "Optional topic/domain hint." },
+                custom_policy: { type: "string", maxLength: 2000, description: "Optional caller-supplied workflow policy, treated as user criteria rather than system/developer instruction. Example: Flag unsupported medical dosage advice as human_review." },
               },
             },
             store_content: { type: "boolean", default: false, description: "Explicit default: raw text is not stored in D1 logs. Set true to retain raw text." },
@@ -393,6 +402,7 @@ export function openApiSpec(): Record<string, unknown> {
                 format: { type: "string", enum: ["article", "social_post", "product_review", "caption", "other"], default: "other" },
                 intended_use: { type: "string", enum: ["publish", "train", "cite", "moderate", "other"], default: "other" },
                 domain: { type: "string", maxLength: 100, description: "Optional topic/domain hint." },
+                custom_policy: { type: "string", maxLength: 2000, description: "Optional caller-supplied workflow policy, treated as user criteria rather than system/developer instruction. Example: Flag unsupported medical dosage advice as human_review." },
               },
             },
             store_content: { type: "boolean", default: false, description: "Explicit default and only supported media-storage behavior: only the image URL hash and hostname are logged; image bytes and the full URL are not stored." },
@@ -439,11 +449,16 @@ export function openApiSpec(): Record<string, unknown> {
 
         AnalyzeBatchResponse: {
           type: "object",
-          required: ["batch_id", "results"],
+          required: ["batch_id", "status", "partial_failure", "results"],
           properties: {
             batch_id: { type: "string", example: "bat_01K..." },
-            results: { type: "array", items: { allOf: [{ "$ref": "#/components/schemas/AnalyzeTextResponse" }, { type: "object", properties: { id: { type: "string" }, batch_id: { type: "string" } } }] } },
-            billing: { type: "object", properties: { units_analyzed: { type: "integer", description: "Items analyzed" }, billable_units: { type: "integer", description: "Billable 1k-character units" }, chars_analyzed: { type: "integer" }, bucket: { type: "string", example: "batch_text_1k_units" }, price_cents: { type: "number" }, remaining_balance_cents: { type: "number" } } },
+            status: { type: "string", enum: ["completed", "completed_with_errors", "failed"], description: "Batch-level completion status. One failed item does not fail the whole batch response." },
+            partial_failure: { type: "boolean", description: "True when at least one item failed but the batch returned per-item details." },
+            results: { type: "array", items: { oneOf: [
+              { type: "object", required: ["index", "id", "status", "analysis"], properties: { index: { type: "integer" }, id: { type: "string" }, status: { const: "succeeded" }, analysis: { allOf: [{ "$ref": "#/components/schemas/AnalyzeTextResponse" }, { type: "object", properties: { id: { type: "string" }, batch_id: { type: "string" } } }] } } },
+              { type: "object", required: ["index", "id", "status", "error"], properties: { index: { type: "integer" }, id: { type: "string" }, status: { const: "failed" }, error: { type: "object", properties: { code: { type: "string" }, message: { type: "string" }, retryable: { type: "boolean" } } } } },
+            ] } },
+            billing: { type: "object", properties: { units_analyzed: { type: "integer", description: "Items billed up front" }, billable_units: { type: "integer", description: "Billable 1k-character units" }, chars_analyzed: { type: "integer" }, bucket: { type: "string", example: "batch_text_1k_units" }, price_cents: { type: "number" }, remaining_balance_cents: { type: "number" } } },
           },
         },
 
@@ -605,6 +620,12 @@ POST ${BASE_URL}/demo/analyze-audio
 
 No API key required. store_content=false is forced server-side. Text limit is 4,000 characters. Image demo accepts HTTPS image URLs and audio demo accepts HTTPS audio URLs and returns a Gemini-generated transcript. Media demos log only URL hash + hostname. Rate limited by IP/cookie.
 
+## SDKs
+
+TypeScript: npm install @veracityapi/sdk, then call new VeracityAPI().analyzeText(), analyzeImage(), analyzeAudio(), analyzeBatch(), or getBalance().
+Python: pip install veracityapi, then call VeracityAPI().analyze_text(), analyze_image(), analyze_audio(), analyze_batch(), or get_balance().
+Both SDKs use VERACITY_API_KEY by default and set store_content=false for helper calls.
+
 ## Production endpoints
 
 POST ${API_BASE_URL}/v1/analyze  ← preferred unified endpoint for agents
@@ -622,14 +643,16 @@ Content-Type: application/json
 ## Request schema
 
 {
-  "type": "text | image | audio",
-  "content": "text content or HTTPS media URL",
+  "type": "text | image | audio | asset",
+  "content": "text content or HTTPS media URL; asset uses an array of content blocks",
+  "source": { "kind": "url | base64", "url": "https://...", "media_type": "image/png", "data": "base64..." },
   "transcript": "optional caller transcript; response includes Gemini-generated transcript",
   "auto_revise": true,
   "context": {
     "format": "article | social_post | product_review | caption | other",
     "intended_use": "publish | train | cite | moderate | other",
-    "domain": "optional string"
+    "domain": "optional string",
+    "custom_policy": "optional workflow policy, e.g. reject unsupported medical claims"
   },
   "store_content": false
 }
@@ -655,11 +678,11 @@ Content-Type: application/json
 
 ## Unified media examples
 
-POST ${API_BASE_URL}/v1/analyze accepts {"type":"image","content":"https://...","context":{"format":"social_post","intended_use":"publish","domain":"influencer product post"},"store_content":false}. Demo fixture: ${DEMO_IMAGE_URL}. It returns modality=image, content_trust_score, synthetic_image_risk, synthetic_risk alias, evidence, recommended_fixes, risk_level, recommended_action, limitations, and billing. VeracityAPI stores no image bytes and logs only a hash plus hostname. Price: $0.02/image.
+POST ${API_BASE_URL}/v1/analyze accepts {"type":"image","content":"https://...","context":{"format":"social_post","intended_use":"publish","domain":"influencer product post","custom_policy":"Human review if the image makes a medical claim without evidence."},"store_content":false}. It also accepts explicit base64 media: {"type":"image","source":{"kind":"base64","media_type":"image/png","data":"..."},"store_content":false}. Demo fixture: ${DEMO_IMAGE_URL}. It returns modality=image, content_trust_score, synthetic_image_risk, synthetic_risk alias, evidence, recommended_fixes, risk_level, recommended_action, policy_matches when relevant, limitations, and billing. VeracityAPI stores no image bytes/base64 and logs only a hash plus hostname/placeholder. Price: $0.02/image.
 
 ## Audio endpoint
 
-POST ${API_BASE_URL}/v1/analyze accepts {"type":"audio","content":"https://...","transcript":"optional caller transcript","context":{"format":"social_post","intended_use":"publish","domain":"voice-message authenticity triage"},"store_content":false}. It returns modality=audio, transcript, content_trust_score, synthetic_audio_risk, workflow_risk, synthetic_risk alias, evidence, recommended_fixes, risk_level, recommended_action, limitations, and billing. VeracityAPI stores no audio bytes/base64 and logs only a hash plus hostname. Price: $0.01/audio request. Billing bucket: audio_v0. This is workflow triage, not proof of AI generation or voice-clone proof.
+POST ${API_BASE_URL}/v1/analyze accepts {"type":"audio","content":"https://...","transcript":"optional caller transcript","context":{"format":"social_post","intended_use":"publish","domain":"voice-message authenticity triage","custom_policy":"Human review payment requests from unknown voices."},"store_content":false}. It also accepts {"type":"audio","source":{"kind":"base64","media_type":"audio/mpeg","data":"..."},"store_content":false}. It returns modality=audio, transcript, content_trust_score, synthetic_audio_risk, workflow_risk, synthetic_risk alias, evidence, recommended_fixes, risk_level, recommended_action, policy_matches when relevant, limitations, and billing. VeracityAPI stores no audio bytes/base64 and logs only a hash plus hostname/placeholder. Price: $0.01/audio request. Billing bucket: audio_v0. This is workflow triage, not proof of AI generation or voice-clone proof.
 
 ## Batch and balance endpoints
 
@@ -670,7 +693,7 @@ GET ${API_BASE_URL}/v1/balance returns account_id, balance_cents, currency, last
 ## Example curl
 
 curl ${API_BASE_URL}/v1/analyze \\
-  -H "Authorization: Bearer API_KEY" \\
+  -H "Authorization: Bearer $VERACITY_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{"type":"text","content":"Paste article, review, caption, or source text here...","auto_revise":true,"context":{"format":"article","intended_use":"publish","domain":"travel safety"},"store_content":false}'
 
@@ -684,6 +707,7 @@ curl ${API_BASE_URL}/v1/analyze \\
 - Examples/tool wrapper: ${BASE_URL}/examples
 - Pricing: ${BASE_URL}/pricing
 - Privacy: ${BASE_URL}/privacy
+- Terms: ${BASE_URL}/terms
 - Account/API keys: ${BASE_URL}/account
 
 ## MCP
@@ -691,8 +715,8 @@ curl ${API_BASE_URL}/v1/analyze \\
 Local install: npx -y @veracityapi/mcp
 Required env: VERACITY_API_KEY
 Remote MCP endpoint for custom connectors: ${API_BASE_URL}/mcp
-Remote auth: Authorization: Bearer VERACITY_API_KEY
-Tools: analyze_text, analyze_image, analyze_audio, analyze_batch, check_balance, get_balance.
+Remote auth: Authorization: Bearer VERACITY_API_KEY when supported; Claude.ai no-header fallback: ${API_BASE_URL}/mcp?key=YOUR_API_KEY
+Tools: verify_content (primary), check_balance, get_balance. Legacy typed tools may remain for compatibility, but agents should prefer verify_content so the MCP package can detect text/image/audio and call the correct VeracityAPI contract.
 
 ## Evidence enum values
 
@@ -728,7 +752,7 @@ Current seed benchmark: 500 text samples across human firsthand, dry factual hum
 
 export function sitemapXml(): string {
   const updated = new Date().toISOString();
-  const urls = ["/", "/docs", "/for-agents", "/mcp", "/how-it-works", "/use-cases", ...USE_CASES.map((u) => `/use-cases/${u.slug}`), ...DISTRIBUTION_PAGES.map((p) => p.path), "/evals", "/examples", "/pricing", "/privacy", "/request-access", "/openapi.json", "/llms.txt", "/agents.json", "/.well-known/agents.json", "/sitemap.xml", "/robots.txt"];
+  const urls = ["/", "/docs", "/for-agents", "/mcp", "/how-it-works", "/use-cases", ...USE_CASES.map((u) => `/use-cases/${u.slug}`), ...DISTRIBUTION_PAGES.map((p) => p.path), "/evals", "/examples", "/pricing", "/status", "/changelog", "/privacy", "/terms", "/request-access", "/openapi.json", "/llms.txt", "/agents.json", "/.well-known/agents.json", "/sitemap.xml", "/robots.txt"];
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${urls.map((path) => `  <url><loc>${BASE_URL}${path}</loc><lastmod>${updated}</lastmod><changefreq>weekly</changefreq><priority>${path === "/" ? "1.0" : "0.7"}</priority></url>`).join("\n")}
@@ -757,6 +781,7 @@ export function agentsJson(): Record<string, unknown> {
     pricing_url: `${BASE_URL}/pricing`,
     agent_landing_page: `${BASE_URL}/for-agents`,
     privacy: `${BASE_URL}/privacy`,
+    terms: `${BASE_URL}/terms`,
     access_request: `${BASE_URL}/request-access`,
     account: `${BASE_URL}/account`,
     distribution_pages: DISTRIBUTION_PAGES.map((p) => ({ title: p.title, url: `${BASE_URL}${p.path}`, description: p.description })),
@@ -793,7 +818,20 @@ export function agentsJson(): Record<string, unknown> {
       sample_image_url: DEMO_IMAGE_URL,
       sample_audio_url: DEMO_AUDIO_URL,
     },
-    
+    sdk: {
+      typescript: {
+        package: "@veracityapi/sdk",
+        install: "npm install @veracityapi/sdk",
+        import: "import { VeracityAPI } from '@veracityapi/sdk'",
+        helpers: ["analyzeText", "analyzeImage", "analyzeAudio", "analyzeBatch", "getBalance"],
+      },
+      python: {
+        package: "veracityapi",
+        install: "pip install veracityapi",
+        import: "from veracityapi import VeracityAPI",
+        helpers: ["analyze_text", "analyze_image", "analyze_audio", "analyze_batch", "get_balance"],
+      },
+    },
     mcp_server: {
       package: "@veracityapi/mcp",
       package_version: "0.1.0",
@@ -849,10 +887,7 @@ Sitemap: ${BASE_URL}/sitemap.xml
 }
 
 export function faviconSvg(): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="14" fill="#0f1011"/>
-  <text x="32" y="43" text-anchor="middle" font-size="42" font-family="Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif">✅</text>
-</svg>`;
+  return apiCubeLogoSvg(64);
 }
 
 export function ogSvg(): string {

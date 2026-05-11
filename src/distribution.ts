@@ -62,7 +62,7 @@ const mcpConfig = `{
     "veracityapi": {
       "command": "npx",
       "args": ["-y", "@veracityapi/mcp"],
-      "env": { "VERACITY_API_KEY": "vap_..." }
+      "env": { "VERACITY_API_KEY": "YOUR_API_KEY" }
     }
   }
 }`;
@@ -71,7 +71,7 @@ const remoteMcpConfig = `{
   "mcpServers": {
     "veracityapi": {
       "url": "https://api.veracityapi.com/mcp",
-      "headers": { "Authorization": "Bearer vap_..." }
+      "headers": { "Authorization": "Bearer $VERACITY_API_KEY" }
     }
   }
 }`;
@@ -277,7 +277,7 @@ export const DISTRIBUTION_PAGES: DistributionPage[] = [
     cta: "Use the MCP wrapper when your agent already speaks tools and needs stable JSON outputs. Public package: @veracityapi/mcp@0.1.0 at https://www.npmjs.com/package/@veracityapi/mcp. Remote MCP: https://api.veracityapi.com/mcp.",
     sections: [
       { title: "Local Claude Desktop/Cursor config", body: "Install @veracityapi/mcp@0.1.0 with npx -y @veracityapi/mcp and set VERACITY_API_KEY in the MCP server environment; never paste secrets into prompts." },
-      { title: "Hosted remote MCP", body: "Connect remote-MCP clients to https://api.veracityapi.com/mcp and send Authorization: Bearer VERACITY_API_KEY. The server exposes analyze_text, analyze_image, analyze_audio, analyze_batch, check_balance, and get_balance." },
+      { title: "Hosted remote MCP", body: "Connect remote-MCP clients to https://api.veracityapi.com/mcp and send Authorization: Bearer VERACITY_API_KEY. The primary tool is verify_content; legacy typed tools may remain for compatibility." }
     ],
     code: `${mcpConfig}
 
@@ -295,8 +295,8 @@ ${remoteMcpConfig}`,
     avoid: ["Forensic authorship claims", "Voice-clone or speaker-identity verdicts", "Running large autonomous batches without check_balance", "Putting API keys in chat messages"],
     cta: "Add a Claude custom connector pointed at https://api.veracityapi.com/mcp, authorize with a VeracityAPI bearer key, then call check_balance before analyze_text/analyze_image/analyze_audio/analyze_batch.",
     sections: [
-      { title: "Claude.ai custom connector", body: "In Claude settings, add a custom connector using the remote MCP URL https://api.veracityapi.com/mcp. Configure Authorization: Bearer VERACITY_API_KEY if your workspace supports bearer/API-key headers for custom connectors." },
-      { title: "Claude Desktop", body: "Use the local npm MCP package with npx -y @veracityapi/mcp and env VERACITY_API_KEY=vap_... . This remains the most reliable desktop setup." },
+      { title: "Claude.ai custom connector", body: "In Claude settings, add a custom connector using the remote MCP URL https://api.veracityapi.com/mcp. Configure Authorization: Bearer VERACITY_API_KEY if your workspace supports bearer/API-key headers." },
+      { title: "Claude Desktop", body: "Use the local npm MCP package with npx -y @veracityapi/mcp and env VERACITY_API_KEY. This remains the most reliable desktop setup." },
       { title: "Tool policy", body: "Call check_balance before autonomous loops. Treat every result as a workflow-risk signal and route by recommended_action: allow, revise, human_review, or reject." },
     ],
     code: remoteMcpConfig,
@@ -345,6 +345,62 @@ function renderDemo(page: DistributionPage): string {
   return "";
 }
 
+
+function renderComparison(page: DistributionPage): string {
+  const rows: Record<string, Array<[string, string, string]>> = {
+    "/alternatives/gptzero-api": [
+      ["Primary buyer", "Developers shipping content workflows, agents, and trust gates", "Education and authorship-detection workflows"],
+      ["Core output", "`recommended_action`: allow, revise, human_review, reject", "AI-likelihood / authorship-oriented scores"],
+      ["Modalities", "Text, image URLs, audio URLs, text batch", "Primarily text-oriented AI detection"],
+      ["Agent support", "MCP, OpenAPI, llms.txt, agents.json, examples", "API/docs, less agent-native by default"],
+      ["Privacy posture", "`store_content=false`; no raw media bytes or full media URLs stored", "Vendor-specific retention policy; verify before production use"],
+      ["Best fit", "Pre-publish QA, RAG/source triage, UGC moderation, training-data hygiene", "Classroom or authorship-likelihood checks"],
+    ],
+    "/alternatives/originality-ai-api": [
+      ["Primary buyer", "AI product teams and agents needing routing actions", "SEO/editorial teams needing originality/plagiarism-style checks"],
+      ["Core output", "Action + evidence + recommended fixes + limitations", "Detection/originality/plagiarism-oriented scores"],
+      ["Modalities", "Text, image URLs, audio URLs", "Primarily text/content authenticity workflows"],
+      ["Automation", "Switch directly on `recommended_action`", "Teams define their own thresholds/policies"],
+      ["Agent support", "MCP, OpenAPI, llms.txt, agents.json", "Traditional API/docs orientation"],
+      ["Best fit", "Agents deciding publish/cite/train/moderate outcomes", "Editorial originality and SEO content checks"],
+    ],
+    "/alternatives/copyleaks-api": [
+      ["Primary buyer", "Builders needing lightweight content trust actions", "Enterprise/education authenticity and plagiarism programs"],
+      ["Core output", "Workflow route: allow/revise/human_review/reject", "Broad authenticity/plagiarism/AI-detection suite"],
+      ["Procurement", "Self-serve usage-based + Team/Pro signal", "Enterprise-oriented procurement options"],
+      ["Modalities", "Text, image URL, audio URL", "Vendor suite varies by product/module"],
+      ["Agent support", "MCP and machine-readable discovery first-class", "API integration, less MCP-centric"],
+      ["Best fit", "Pre-publish gates and autonomous pipelines", "Institutional compliance and plagiarism workflows"],
+    ],
+    "/alternatives/reality-defender": [
+      ["Primary buyer", "Developers needing async media/content triage", "Enterprise threat, fraud, and media-forensics teams"],
+      ["Core output", "Action-first workflow risk with explicit limitations", "Deepfake/media-threat detection platform outputs"],
+      ["Modalities", "Text, image URLs, audio URLs", "Media/deepfake-focused platform"],
+      ["Pricing posture", "Usage-based + $99/mo Team/Pro signal", "Sales-led enterprise pricing"],
+      ["Best fit", "Builder experiments, UGC review queues, agent preflight", "High-stakes investigations and enterprise programs"],
+      ["Not a fit", "Forensic proof, identity verification, real-time fraud", "When you only need a simple content workflow gate"],
+    ],
+    "/alternatives/deepmedia": [
+      ["Primary buyer", "Builder/product teams implementing a narrow trust gate", "Teams buying agentic threat/media intelligence"],
+      ["Core output", "Evidence-backed recommended action", "Threat/media intelligence outputs"],
+      ["Scope", "Pre-publish, ingestion, moderation, dataset hygiene", "Broader media intelligence/investigation workflows"],
+      ["Agent support", "MCP + OpenAPI + llms.txt", "Depends on platform integration"],
+      ["Best fit", "Simple API decision layer", "Analyst-assisted threat-intel workflows"],
+    ],
+    "/alternatives/resemble-detect": [
+      ["Primary buyer", "Teams needing one action contract across content types", "Audio/deepfake detection buyers"],
+      ["Core output", "allow/revise/human_review/reject across text/image/audio", "Audio/deepfake-specific detection output"],
+      ["Audio stance", "Beta async workflow triage, not speaker identity", "Audio/deepfake specialized"],
+      ["Best fit", "Mixed media and content workflows", "Voice/audio-specific checks"],
+      ["Agent support", "MCP tools and balance preflight", "Traditional API integration"],
+    ],
+  };
+  const data = rows[page.path];
+  if (!data) return "";
+  const competitor = page.eyebrow.replace("Alternative · ", "");
+  return `<section class="card"><h2>Side-by-side comparison</h2><table><tr><th>Dimension</th><th>VeracityAPI</th><th>${esc(competitor)}</th></tr>${data.map(([dimension, veracity, other]) => `<tr><td>${esc(dimension)}</td><td>${esc(veracity)}</td><td>${esc(other)}</td></tr>`).join("")}</table><p class="lead">Fair caveat: choose the incumbent when you need its specialized workflow. Choose VeracityAPI when your product or agent needs a privacy-conscious routing action it can execute immediately.</p></section>`;
+}
+
 function renderSections(page: DistributionPage): string {
   const sections = page.sections?.length
     ? `<section class="grid">${page.sections.map((section) => `<div class="card"><h2>${esc(section.title)}</h2><p>${esc(section.body)}</p></div>`).join("")}</section>`
@@ -353,7 +409,7 @@ function renderSections(page: DistributionPage): string {
     ? `<section class="card"><h2>FAQ</h2>${page.faq.map((item) => `<h3>${esc(item.q)}</h3><p>${esc(item.a)}</p>`).join("")}</section>`
     : "";
   const code = page.code ? `<section class="card"><h2>Copy-paste routing example</h2><pre>${esc(page.code)}</pre></section>` : "";
-  return `${renderDemo(page)}${sections}${faq}${code}`;
+  return `${renderDemo(page)}${renderComparison(page)}${sections}${faq}${code}`;
 }
 
 export function distributionPageHtml(path: string): string | null {
@@ -373,5 +429,5 @@ export function distributionPageHtml(path: string): string | null {
 }
 
 function css(): string {
-  return `:root{color-scheme:dark;--bg:#08090a;--panel:#0f1011;--text:#f7f8f8;--muted:#a2a8b3;--line:rgba(255,255,255,.1);--accent:#7170ff;--mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;--sans:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 20% -10%,rgba(113,112,255,.2),transparent 34rem),var(--bg);color:var(--text);font-family:var(--sans)}a{color:inherit}nav{height:68px;display:flex;justify-content:space-between;align-items:center;gap:20px;max-width:1120px;margin:auto;padding:0 22px;border-bottom:1px solid var(--line)}nav div{display:flex;gap:14px;align-items:center}.brand{text-decoration:none;font-weight:700;display:flex;gap:8px;align-items:center}.mark{width:28px;height:28px;border:1px solid var(--line);border-radius:8px;background:#0f1011;display:inline-grid;place-items:center;font-size:18px;line-height:1}main{max-width:1120px;margin:auto;padding:60px 22px 80px}.eyebrow{font:600 12px var(--mono);color:#d0d6e0;text-transform:uppercase;letter-spacing:.08em}h1{font-size:clamp(40px,6vw,70px);line-height:.96;letter-spacing:-.055em;margin:16px 0}h2{margin-top:0}h3{margin:18px 0 6px}.lead{font-size:20px;line-height:1.65;color:var(--muted);max-width:900px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:24px 0}.card{border:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.025));border-radius:18px;padding:22px;text-decoration:none}.btn{border:1px solid var(--line);border-radius:9px;padding:10px 13px;text-decoration:none;display:inline-flex;background:rgba(255,255,255,.04)}.btn.primary{background:linear-gradient(135deg,#5e6ad2,#7170ff)}li{margin:8px 0;color:#d0d6e0}p{color:#c8ced8;line-height:1.65}pre{overflow:auto;background:#050607;border:1px solid var(--line);border-radius:12px;padding:16px;font-family:var(--mono);color:#d8e2ff}footer{max-width:1120px;margin:auto;padding:24px 22px 48px;color:var(--muted)}@media(max-width:760px){.grid{grid-template-columns:1fr}nav{align-items:flex-start;height:auto;padding:16px 22px}nav div{flex-wrap:wrap}}`;
+  return `:root{color-scheme:dark;--bg:#08090a;--panel:#0f1011;--text:#f7f8f8;--muted:#a2a8b3;--line:rgba(255,255,255,.1);--accent:#7170ff;--mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;--sans:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 20% -10%,rgba(113,112,255,.2),transparent 34rem),var(--bg);color:var(--text);font-family:var(--sans)}a{color:inherit}nav{height:68px;display:flex;justify-content:space-between;align-items:center;gap:20px;max-width:1120px;margin:auto;padding:0 22px;border-bottom:1px solid var(--line)}nav div{display:flex;gap:14px;align-items:center}.brand{text-decoration:none;font-weight:700;display:flex;gap:8px;align-items:center}.mark{width:28px;height:28px;border:1px solid var(--line);border-radius:8px;background:#0f1011;display:inline-grid;place-items:center;font-size:18px;line-height:1}main{max-width:1120px;margin:auto;padding:60px 22px 80px}.eyebrow{font:600 12px var(--mono);color:#d0d6e0;text-transform:uppercase;letter-spacing:.08em}h1{font-size:clamp(40px,6vw,70px);line-height:.96;letter-spacing:-.055em;margin:16px 0}h2{margin-top:0}h3{margin:18px 0 6px}.lead{font-size:20px;line-height:1.65;color:var(--muted);max-width:900px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:24px 0}.card{border:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.025));border-radius:18px;padding:22px;text-decoration:none}.btn{border:1px solid var(--line);border-radius:9px;padding:10px 13px;text-decoration:none;display:inline-flex;background:rgba(255,255,255,.04)}.btn.primary{background:linear-gradient(135deg,#5e6ad2,#7170ff)}li{margin:8px 0;color:#d0d6e0}p{color:#c8ced8;line-height:1.65}pre{overflow:auto;background:#050607;border:1px solid var(--line);border-radius:12px;padding:16px;font-family:var(--mono);color:#d8e2ff}table{width:100%;border-collapse:collapse;margin:12px 0}th,td{border:1px solid var(--line);padding:10px;text-align:left;vertical-align:top}th{color:#fff;background:rgba(255,255,255,.04)}footer{max-width:1120px;margin:auto;padding:24px 22px 48px;color:var(--muted)}@media(max-width:760px){.grid{grid-template-columns:1fr}nav{align-items:flex-start;height:auto;padding:16px 22px}nav div{flex-wrap:wrap}}`;
 }

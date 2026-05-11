@@ -78,7 +78,10 @@ describe("OpenAPI and agent discovery", () => {
 
     expect(spec.paths["/v1/analyze"].post.operationId).toBe("analyze");
     expect(spec.paths["/v1/analyze"].post.responses["402"]).toBeTruthy();
-    expect(spec.components.schemas.UnifiedAnalyzeRequest.properties.type.enum).toEqual(["text", "image", "audio"]);
+    expect(spec.components.schemas.UnifiedAnalyzeRequest.properties.type.enum).toEqual(["text", "image", "audio", "asset"]);
+    expect(spec.components.schemas.UnifiedAnalyzeRequest.properties.source).toBeTruthy();
+    expect(spec.components.schemas.MediaSource).toBeTruthy();
+    expect(spec.components.schemas.AnalyzeTextRequest.properties.context.properties.custom_policy.description).toMatch(/workflow policy/i);
     expect(spec.paths["/v1/analyze-text"].post.responses["402"]).toBeTruthy();
     expect(spec.paths["/v1/analyze-image"].post.operationId).toBe("analyzeImage");
     expect(spec.paths["/v1/analyze-audio"].post.operationId).toBe("analyzeAudio");
@@ -135,10 +138,10 @@ describe("privacy logging", () => {
 });
 
 describe("homepage conversion", () => {
-  it("leads with content verification, action-first routing, and developer switch-statement value", () => {
+  it("leads with content trust infrastructure, action-first routing, and developer switch-statement value", () => {
     const html = homepageHtml();
-    expect(html).toContain("Content Verification API for AI Agents");
-    expect(html).toContain("Stop agents from ingesting, citing, or publishing synthetic slop and suspicious media");
+    expect(html).toContain("Content trust infrastructure for AI products that ship");
+    expect(html).toContain("Give your app, agent, or publishing pipeline one evidence-backed decision before it trusts content");
     expect(html).toContain("Just write your switch statement");
     expect(html).toContain("switch (result.recommended_action)");
     expect(html).toContain("$1.50 free credit — enough for 300 analyze-only 1k-character text requests or 150 Analyze + revise requests");
@@ -160,7 +163,7 @@ describe("homepage conversion", () => {
     expect(html).toContain("<code>reject</code>");
     expect(html).toContain("Agent-ready by default");
     expect(html).toContain("Claude Desktop / MCP ready");
-    expect(html).toContain("Claude.ai connector requires remote MCP later");
+    expect(html).toContain("hosted remote MCP is live for compatible custom connectors");
     expect(html).toContain("veracityapi.com/llms.txt");
     expect(html).toContain("Pre-publish QA");
     expect(html).toContain("RAG / training-data ingestion");
@@ -269,19 +272,53 @@ describe("developer examples and dashboard conversion", () => {
     expect(html).toContain("auto_revise:true");
     expect(html).toContain("$0.010 / 1k characters");
     expect(html).toContain("$0.01/request");
+    expect(html).toContain("Team / Pro");
+    expect(html).toContain("$99/mo");
+    expect(html).toContain("Enterprise");
+    expect(html).toContain("Contact sales");
     expect(html).not.toContain("Audio URL analysis</td><td><b>$0.005");
     expect(html).not.toContain("chars characters");
     expect(html).not.toContain("chars chars");
   });
 
+  it("renders public status and changelog pages", async () => {
+    const env = { DB: new EmptyDb(), ANTHROPIC_API_KEY: "test", API_KEYS: "" } as any;
+    const status = await (await worker.fetch(new Request("https://veracityapi.com/status"), env)).text();
+    const changelog = await (await worker.fetch(new Request("https://veracityapi.com/changelog"), env)).text();
+    expect(status).toContain("VeracityAPI is live");
+    expect(status).toContain("/health");
+    expect(status).toContain("Operational");
+    expect(changelog).toContain("VeracityAPI is shipping");
+    expect(changelog).toContain("2026-05-11");
+    expect(changelog).toContain("@veracityapi/mcp");
+  });
+
+  it("renders fair comparison tables on high-intent alternatives pages", async () => {
+    const env = { DB: new EmptyDb(), ANTHROPIC_API_KEY: "test", API_KEYS: "" } as any;
+    const html = await (await worker.fetch(new Request("https://veracityapi.com/alternatives/gptzero-api"), env)).text();
+    expect(html).toContain("Side-by-side comparison");
+    expect(html).toContain("recommended_action");
+    expect(html).toContain("MCP, OpenAPI, llms.txt, agents.json");
+    expect(html).toContain("Classroom or authorship-likelihood checks");
+  });
+
   it("keeps unified endpoint examples in docs and framework pages on {type, content}", async () => {
     const docs = await (await worker.fetch(new Request("https://veracityapi.com/docs"), { DB: new EmptyDb(), ANTHROPIC_API_KEY: "test", API_KEYS: "" } as any)).text();
     const examples = await (await worker.fetch(new Request("https://veracityapi.com/examples"), { DB: new EmptyDb(), ANTHROPIC_API_KEY: "test", API_KEYS: "" } as any)).text();
+    const homepage = homepageHtml();
     expect(`${docs} ${examples}`).toContain('type: "text"');
-    expect(`${docs} ${examples}`).toContain("content: text");
+    expect(`${docs} ${examples}`).toContain("analyzeText");
+    expect(`${docs} ${examples}`).toContain("analyze_text");
     expect(`${docs} ${examples}`).toContain("auto_revise");
+    expect(`${docs} ${examples} ${homepage}`).toContain("npm install @veracityapi/sdk");
+    expect(`${docs} ${examples} ${homepage}`).toContain("pip install veracityapi");
+    expect(`${docs} ${examples}`).toContain('from veracityapi import VeracityAPI');
+    expect(`${docs} ${examples}`).toContain('import { VeracityAPI } from "@veracityapi/sdk"');
     expect(`${docs} ${examples}`).not.toContain("JSON.stringify({ text,");
     expect(`${docs} ${examples}`).not.toContain("store_content:true");
+    expect(`${docs} ${examples} ${homepage}`).not.toContain("$VERAC...KEY");
+    expect(`${docs} ${examples} ${homepage}`).not.toContain(["Authorization: Bearer", "***"].join(" "));
+    expect(docs).toContain('context={"format": "article", "intended_use": "publish"},\n)');
   });
 
   it("renders corrected privacy/storage copy", async () => {

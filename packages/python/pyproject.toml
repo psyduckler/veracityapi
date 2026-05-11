@@ -1,0 +1,37 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "veracityapi"
+version = "0.1.0"
+description = "Python client SDK for VeracityAPI content trust scoring"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+authors = [{ name = "VeracityAPI" }]
+keywords = ["veracityapi", "content-trust", "ai-detection", "moderation", "sdk"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Internet :: WWW/HTTP",
+  "Typing :: Typed",
+]
+
+dependencies = []
+
+[project.urls]
+Homepage = "https://veracityapi.com"
+Documentation = "https://veracityapi.com/docs"
+Repository = "https://github.com/psyduckler/veracityapi"
+Issues = "https://github.com/psyduckler/veracityapi/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/veracityapi"]
