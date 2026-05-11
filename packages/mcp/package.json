@@ -16,7 +16,7 @@
     "dev": "tsx src/index.ts",
     "smoke": "tsx scripts/smoke.mts",
     "prepack": "npm run build",
-    "prepublishOnly": "npm test"
+    "prepublishOnly": "npm run build && npm test"
   },
   "keywords": [
     "mcp",

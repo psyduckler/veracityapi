@@ -44,7 +44,7 @@ describe("MCP input schemas", () => {
     const pkg = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, "..", "package.json"), "utf8"));
     expect(pkg.publishConfig).toEqual({ access: "public" });
     expect(pkg.scripts.prepack).toBe("npm run build");
-    expect(pkg.scripts.prepublishOnly).toBe("npm test");
+    expect(pkg.scripts.prepublishOnly).toBe("npm run build && npm test");
     expect(pkg.main).toBe("dist/index.js");
     expect(pkg.types).toBe("dist/index.d.ts");
     expect(pkg.exports).toEqual({ ".": "./dist/index.js" });
