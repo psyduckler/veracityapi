@@ -302,7 +302,11 @@ describe("developer examples and dashboard conversion", () => {
     expect(forAgents).toContain("recommended_action");
     expect(forAgents).toContain("routing-action quality, not authorship proof");
     expect(mcp).toContain("Content verification tools for MCP agents");
-    expect(mcp).toContain("@veracityapi/mcp");
+    expect(mcp).toContain("@veracityapi/mcp@0.1.0");
+    expect(mcp).toContain("https://www.npmjs.com/package/@veracityapi/mcp");
+    expect(mcp).toContain("npx -y @veracityapi/mcp");
+    expect(mcp).not.toContain("npm auth is completed");
+    expect(mcp).not.toContain("package is not yet visible");
     expect(mcp).toContain("VERACITY_API_KEY");
     expect(mcp).toContain("check_balance");
     expect(mcp).toContain("get_balance");

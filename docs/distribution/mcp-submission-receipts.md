@@ -7,16 +7,17 @@ Last updated: 2026-05-11
 - Package source: `packages/mcp`
 - Package name: `@veracityapi/mcp`
 - Version: `0.1.0`
-- Intended install: `npx -y @veracityapi/mcp`
-- Local build/test/pack verification: pending final ship command in this branch
-- NPM registry status before this shipment: `npm view @veracityapi/mcp` returned `404 Not Found`
-- NPM publish blocker: local machine is not authenticated to npm (`npm whoami` returned `ENEEDAUTH`)
+- Install: `npx -y @veracityapi/mcp`
+- NPM package URL: https://www.npmjs.com/package/@veracityapi/mcp
+- Local build/test/pack verification: passed (`npm test`, `npm run build`, `npm pack --dry-run`)
+- Registry verification: `npm view @veracityapi/mcp name version dist-tags.latest --json` returned `0.1.0`
+- Install smoke: `npm install @veracityapi/mcp@0.1.0` succeeded and `dist/index.js` was present
 
 ## Registry submission status
 
 | Registry | Status | Receipt / URL | Notes |
 | --- | --- | --- | --- |
-| npm | Blocked | `npm whoami` → `ENEEDAUTH` | Needs npm login or automation token for `@veracityapi` scope before publish. |
+| npm | Published | https://www.npmjs.com/package/@veracityapi/mcp | `@veracityapi/mcp@0.1.0` is live with `latest` dist-tag. |
 | Smithery | Prepared | https://smithery.ai/ | Manual/account submission required; use `/mcp`, OpenAPI, repo URL, and package metadata. |
 | Glama | Prepared | https://glama.ai/mcp/servers | Manual/account submission required. |
 | PulseMCP | Prepared | https://www.pulsemcp.com/ | Manual/account submission required. |
@@ -37,14 +38,4 @@ Last updated: 2026-05-11
 
 ## Next manual action
 
-After npm login or token setup, run from `packages/mcp`:
-
-```bash
-npm test -- --run
-npm run build
-npm pack --dry-run
-npm publish --access public
-npm view @veracityapi/mcp name version dist-tags.latest --json
-```
-
-Then replace the `Prepared` rows above with actual receipt URLs/screenshots/IDs.
+Submit the live npm package and `/mcp` page to MCP directories that require manual/account submission. Keep npm publish tokens out of Slack; if a token is pasted into chat, revoke it after use.
