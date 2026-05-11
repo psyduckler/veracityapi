@@ -27,9 +27,10 @@ Authorization: Bearer vap_...
 
 Use these operation IDs from the OpenAPI spec:
 
-- `analyzeText` → `POST https://api.veracityapi.com/v1/analyze`
-- `analyzeImage` → `POST https://api.veracityapi.com/v1/analyze`
-- `analyzeAudio` → `POST https://api.veracityapi.com/v1/analyze`
+- `analyze` → `POST https://api.veracityapi.com/v1/analyze` (preferred unified endpoint)
+- `analyzeText` → `POST https://api.veracityapi.com/v1/analyze-text` (legacy typed endpoint)
+- `analyzeImage` → `POST https://api.veracityapi.com/v1/analyze-image` (legacy typed endpoint)
+- `analyzeAudio` → `POST https://api.veracityapi.com/v1/analyze-audio` (legacy typed endpoint)
 - `getBalance` → `GET https://api.veracityapi.com/v1/balance`
 
 `analyzeBatch` is available in the spec, but initial Custom GPT instructions should prefer single-item calls unless the GPT is explicitly doing batch QA.
@@ -43,7 +44,7 @@ Always call getBalance before running multi-item or looped analyses.
 
 For text, call analyzeText with text, context, and store_content=false unless the user explicitly asks otherwise.
 For images, call analyzeImage only with HTTPS image URLs.
-For audio, call analyzeAudio only with short HTTPS audio URLs. You may pass an optional caller transcript; VeracityAPI returns a Gemini-generated transcript if the user provides one, but VeracityAPI analyzes the audio directly.
+For audio, call analyzeAudio only with short HTTPS audio URLs. You may pass an optional caller transcript; VeracityAPI returns a Gemini-generated transcript even when the user does not provide one; caller transcripts are optional context/correction because VeracityAPI analyzes the audio directly.
 
 Interpret results as probabilistic workflow risk signals with evidence and recommended action. Do not describe VeracityAPI as an AI detector, truth detector, authorship proof system, voice-clone proof system, speaker identity verifier, or forensic determination tool.
 

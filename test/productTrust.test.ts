@@ -5,7 +5,7 @@ import { authenticateUsageKey, BillingAuthError } from "../src/billing";
 import { logAnalysis } from "../src/db";
 import { openApiSpec, llmsTxt, agentsJson } from "../src/discovery";
 import { homepageHtml } from "../src/site";
-import type { AnalyzeRequest, AnalyzeResponse } from "../src/types";
+import { EVIDENCE_TYPES, type AnalyzeRequest, type AnalyzeResponse } from "../src/types";
 
 class EmptyStatement {
   private values: unknown[] = [];
@@ -91,6 +91,17 @@ describe("OpenAPI and agent discovery", () => {
     expect(JSON.stringify(spec.components.schemas.AnalyzeAudioRequest)).not.toMatch(/metadata/i);
   });
 
+  it("keeps OpenAPI examples valid against strict evidence and audio transcript contracts", () => {
+    const spec = openApiSpec() as any;
+    const imageExample = spec.paths["/v1/analyze-image"].post.responses["200"].content["application/json"].examples.highRisk.value;
+    const audioExample = spec.paths["/v1/analyze-audio"].post.responses["200"].content["application/json"].examples.sample.value;
+    for (const item of imageExample.evidence) {
+      expect(EVIDENCE_TYPES).toContain(item.type);
+    }
+    expect(audioExample.transcript).toEqual(expect.any(String));
+    expect(audioExample.transcript.length).toBeGreaterThan(0);
+  });
+
   it("uses precise signup credit copy in machine-readable discovery", () => {
     const combined = `${llmsTxt()} ${JSON.stringify(agentsJson())}`;
     expect(combined).toContain("$1.50 free credit — enough for 300 analyze-only 1k-character text requests or 150 Analyze + revise requests");
@@ -150,6 +161,14 @@ describe("homepage conversion", () => {
     expect(html).toContain("Async UGC moderation");
     expect(html).toContain("Demo audio is a generated fixture");
   });
+
+  it("uses live homepage use-case links instead of stale slugs", () => {
+    const html = homepageHtml();
+    expect(html).toContain('/use-cases/training-data-curation');
+    expect(html).toContain('/use-cases/audio-phone-snippet-triage');
+    expect(html).not.toContain('/use-cases/rag-source-validation');
+    expect(html).not.toContain('/use-cases/audio-voice-message-authenticity-triage');
+  });
 });
 
 describe("developer examples and dashboard conversion", () => {
@@ -170,6 +189,32 @@ describe("developer examples and dashboard conversion", () => {
     expect(html).toContain("imageChecks");
     expect(html).toContain("audioChecks");
     expect(html).toContain("estimateCost");
+    expect(html).toContain("Analyze + revise");
+    expect(html).toContain("auto_revise:true");
+    expect(html).toContain("$0.010 / 1k characters");
+    expect(html).toContain("$0.01/request");
+    expect(html).not.toContain("Audio URL analysis</td><td><b>$0.005");
+    expect(html).not.toContain("chars characters");
+    expect(html).not.toContain("chars chars");
+  });
+
+  it("keeps unified endpoint examples in docs and framework pages on {type, content}", async () => {
+    const docs = await (await worker.fetch(new Request("https://veracityapi.com/docs"), { DB: new EmptyDb(), ANTHROPIC_API_KEY: "test", API_KEYS: "" } as any)).text();
+    const examples = await (await worker.fetch(new Request("https://veracityapi.com/examples"), { DB: new EmptyDb(), ANTHROPIC_API_KEY: "test", API_KEYS: "" } as any)).text();
+    expect(`${docs} ${examples}`).toContain('type: "text"');
+    expect(`${docs} ${examples}`).toContain("content: text");
+    expect(`${docs} ${examples}`).toContain("auto_revise");
+    expect(`${docs} ${examples}`).not.toContain("JSON.stringify({ text,");
+    expect(`${docs} ${examples}`).not.toContain("store_content:true");
+  });
+
+  it("renders corrected privacy/storage copy", async () => {
+    const html = await (await worker.fetch(new Request("https://veracityapi.com/privacy"), { DB: new EmptyDb(), ANTHROPIC_API_KEY: "test", API_KEYS: "" } as any)).text();
+    expect(html).toContain("Raw text, image bytes, audio bytes, base64, and full media URLs are off by default");
+    expect(html).toContain("Audio privacy");
+    expect(html).toContain("store_content=true");
+    expect(html).toContain("text-only client opt-in");
+    expect(html).not.toContain("<h3>store_content=false</h3><p>Reserved for explicit client opt-in");
   });
 });
 

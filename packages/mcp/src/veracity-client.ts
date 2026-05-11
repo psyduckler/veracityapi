@@ -29,11 +29,11 @@ export class VeracityClient {
   }
 
   analyzeImage(input: AnalyzeImageInput): Promise<Record<string, unknown>> {
-    return this.post("/v1/analyze", { type: "image", content: input.image_url, context: input.context, store_content: input.store_content ?? (input.privacy_mode === undefined ? false : !input.privacy_mode) });
+    return this.post("/v1/analyze", { type: "image", content: input.image_url, context: input.context, store_content: false });
   }
 
   analyzeAudio(input: AnalyzeAudioInput): Promise<Record<string, unknown>> {
-    return this.post("/v1/analyze", { type: "audio", content: input.audio_url, transcript: input.transcript, context: input.context, store_content: input.store_content ?? (input.privacy_mode === undefined ? false : !input.privacy_mode) });
+    return this.post("/v1/analyze", { type: "audio", content: input.audio_url, transcript: input.transcript, context: input.context, store_content: false });
   }
 
   getBalance(): Promise<Record<string, unknown>> {

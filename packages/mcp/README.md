@@ -87,7 +87,7 @@ VERACITY_API_KEY=vap_...
 
 ```json
 {
-  "audio_url": "https://veracityapi.com/demo/synthetic-voice-message.wav",
+  "audio_url": "https://veracityapi.com/assets/demo-voice-message.mp3",
   "transcript": "Optional caller-supplied transcript or context.",
   "context": { "format": "social_post", "intended_use": "moderate", "domain": "voice-message authenticity triage" },
   "store_content": false
@@ -97,6 +97,7 @@ VERACITY_API_KEY=vap_...
 ## Privacy notes
 
 - Text: when `store_content=false`, raw text is not stored in D1 analysis logs.
+- Image/audio media storage: the MCP client sends `store_content=false`; VeracityAPI stores no media bytes, base64 payloads, or full media URLs, only URL hash plus hostname.
 - Image: VeracityAPI stores no image bytes and logs only URL hash + hostname.
 - Audio: VeracityAPI fetches capped HTTPS audio transiently, stores no audio bytes/base64/full URL, and logs only URL hash + hostname.
 - Local MCP server only proxies JSON to VeracityAPI and returns JSON responses to the calling agent.

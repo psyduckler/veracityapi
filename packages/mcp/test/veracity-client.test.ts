@@ -6,13 +6,25 @@ describe("VeracityClient", () => {
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({ analysis_id: "aud_1", risk_level: "low" }), { status: 200, headers: { "content-type": "application/json" } }));
     const client = new VeracityClient({ apiKey: "vapi_secret", baseUrl: "https://api.example.test", fetchImpl: fetchMock as typeof fetch });
 
-    const result = await client.analyzeAudio({ audio_url: "https://example.com/clip.mp3", store_content: false, context: { format: "other", intended_use: "other" } });
+    const result = await client.analyzeAudio({ audio_url: "https://example.com/clip.mp3", store_content: true, privacy_mode: false, context: { format: "other", intended_use: "other" } });
 
     expect(result).toMatchObject({ analysis_id: "aud_1" });
     expect(fetchMock).toHaveBeenCalledWith("https://api.example.test/v1/analyze", expect.objectContaining({
       method: "POST",
       headers: expect.objectContaining({ Authorization: "Bearer vapi_secret" }),
       body: JSON.stringify({ type: "audio", content: "https://example.com/clip.mp3", context: { format: "other", intended_use: "other" }, store_content: false })
+    }));
+  });
+
+  it("forces image media storage off even if legacy privacy flags request opt-in", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ analysis_id: "img_1", risk_level: "low" }), { status: 200, headers: { "content-type": "application/json" } }));
+    const client = new VeracityClient({ apiKey: "vapi_secret", baseUrl: "https://api.example.test", fetchImpl: fetchMock as typeof fetch });
+
+    await client.analyzeImage({ image_url: "https://example.com/image.jpg", store_content: true, privacy_mode: false, context: { format: "other", intended_use: "other" } });
+
+    expect(fetchMock).toHaveBeenCalledWith("https://api.example.test/v1/analyze", expect.objectContaining({
+      method: "POST",
+      body: JSON.stringify({ type: "image", content: "https://example.com/image.jpg", context: { format: "other", intended_use: "other" }, store_content: false })
     }));
   });
 

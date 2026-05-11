@@ -66,8 +66,8 @@ export const toolInputSchemas = {
     properties: {
       image_url: { type: "string", format: "uri", maxLength: 2000, description: "HTTPS image URL to analyze." },
       context: contextJsonSchema(),
-      store_content: { type: "boolean", default: false, description: "Explicit default: do not store raw content. Set true only if you want raw text retained for debugging/audit workflows." },
-      privacy_mode: { type: "boolean", default: true, deprecated: true, description: "Legacy alias. Prefer store_content:false." },
+      store_content: { type: "boolean", default: false, description: "Explicit default and only supported media-storage behavior: do not store image bytes or full image URLs; only URL hash and hostname are logged." },
+      privacy_mode: { type: "boolean", default: true, deprecated: true, description: "Legacy alias. Prefer store_content:false; media raw-byte/full-URL storage is not supported." },
     },
   },
   analyze_audio: {
@@ -77,8 +77,8 @@ export const toolInputSchemas = {
       audio_url: { type: "string", format: "uri", maxLength: 2000, description: "HTTPS audio URL. VeracityAPI supports common short audio formats up to 4 MB." },
       transcript: { type: "string", maxLength: 10000, description: "Optional caller-supplied transcript/context. VeracityAPI transcribes audio with Gemini and returns a transcript in the response." },
       context: contextJsonSchema(),
-      store_content: { type: "boolean", default: false, description: "Explicit default: do not store raw content. Set true only if you want raw text retained for debugging/audit workflows." },
-      privacy_mode: { type: "boolean", default: true, deprecated: true, description: "Legacy alias. Prefer store_content:false." },
+      store_content: { type: "boolean", default: false, description: "Explicit default and only supported media-storage behavior: do not store audio bytes, base64, or full audio URLs; only URL hash and hostname are logged." },
+      privacy_mode: { type: "boolean", default: true, deprecated: true, description: "Legacy alias. Prefer store_content:false; media raw-byte/full-URL storage is not supported." },
     },
   },
   check_balance: {

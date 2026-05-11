@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { analyzeAudioInputSchema, analyzeImageInputSchema, analyzeTextInputSchema } from "../src/schemas.js";
+import { analyzeAudioInputSchema, analyzeImageInputSchema, analyzeTextInputSchema, toolInputSchemas } from "../src/schemas.js";
 
 describe("MCP input schemas", () => {
   it("defaults text context and raw-content storage", () => {
@@ -22,6 +22,16 @@ describe("MCP input schemas", () => {
     expect(parsed.store_content).toBe(false);
     expect(parsed.transcript).toBe("optional context");
     expect(parsed.context.format).toBe("other");
+  });
+
+  it("documents media privacy as no raw-byte or full-URL storage", () => {
+    const imageStore = String(toolInputSchemas.analyze_image.properties.store_content.description);
+    const audioStore = String(toolInputSchemas.analyze_audio.properties.store_content.description);
+    const mediaCopy = `${imageStore} ${audioStore}`;
+    expect(mediaCopy).toContain("only supported media-storage behavior");
+    expect(mediaCopy).toContain("do not store image bytes or full image URLs");
+    expect(mediaCopy).toContain("do not store audio bytes, base64, or full audio URLs");
+    expect(mediaCopy).not.toContain("raw text retained");
   });
 
   it("rejects non-HTTPS audio URLs", () => {
