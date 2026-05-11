@@ -31,6 +31,17 @@ export function deriveRiskLevel(syntheticRisk: number, slopRisk: number): RiskLe
   return "high";
 }
 
+export function deriveImageRiskLevel(syntheticImageRisk: number): RiskLevel {
+  const risk = clamp01(syntheticImageRisk);
+  if (risk < 0.4) return "low";
+  if (risk < 0.7) return "medium";
+  return "high";
+}
+
+export function deriveImageTrustScore(syntheticImageRisk: number): number {
+  return round2(1 - clamp01(syntheticImageRisk));
+}
+
 export function deriveAction(level: RiskLevel, intendedUse: IntendedUse): RecommendedAction {
   const matrix: Record<IntendedUse, Record<RiskLevel, RecommendedAction>> = {
     publish: { low: "allow", medium: "revise", high: "human_review" },

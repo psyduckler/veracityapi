@@ -18,7 +18,8 @@ export interface Env {
 }
 
 export interface BillingMetadata {
-  chars_analyzed: number;
+  chars_analyzed?: number;
+  units_analyzed?: number;
   bucket: string;
   price_cents: number;
   remaining_balance_cents: number;
@@ -32,6 +33,12 @@ export interface AnalyzeContext {
 
 export interface AnalyzeRequest {
   text: string;
+  context: AnalyzeContext;
+  privacy_mode: boolean;
+}
+
+export interface AnalyzeImageRequest {
+  image_url: string;
   context: AnalyzeContext;
   privacy_mode: boolean;
 }
@@ -51,6 +58,14 @@ export interface LlmScoredFields {
   recommended_fixes: string[];
 }
 
+export interface ImageScoredFields {
+  synthetic_image_risk: number;
+  synthetic_risk: number;
+  confidence: Confidence;
+  evidence: EvidenceItem[];
+  recommended_fixes: string[];
+}
+
 export interface DerivedTrustSignals {
   /** Overall allowability score derived from v0.1 observable quality/provenance signals. Higher is better. */
   content_trust_score: number;
@@ -64,6 +79,16 @@ export interface DerivedTrustSignals {
 
 export interface AnalyzeResponse extends LlmScoredFields, DerivedTrustSignals {
   analysis_id: string;
+  risk_level: RiskLevel;
+  recommended_action: RecommendedAction;
+  model_version: string;
+  limitations: string[];
+  billing?: BillingMetadata;
+}
+
+export interface AnalyzeImageResponse extends ImageScoredFields {
+  analysis_id: string;
+  content_trust_score: number;
   risk_level: RiskLevel;
   recommended_action: RecommendedAction;
   model_version: string;

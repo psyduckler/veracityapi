@@ -8,7 +8,9 @@ CREATE TABLE IF NOT EXISTS analysis_logs (
   context_json  TEXT,
   response_json TEXT NOT NULL,
   latency_ms    INTEGER NOT NULL,
-  model_version TEXT NOT NULL
+  model_version TEXT NOT NULL,
+  kind          TEXT NOT NULL DEFAULT 'text',
+  image_url_domain TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_analysis_created ON analysis_logs(created_at);

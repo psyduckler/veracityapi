@@ -1,8 +1,8 @@
 # VeracityAPI
 
-Content trust and specificity scoring for agents. VeracityAPI scores English-calibrated text for generic/slop risk, weak provenance, low specificity, evidence spans, and a recommended workflow action.
+Content and image trust scoring for agents. VeracityAPI scores English-calibrated text for generic/slop risk, weak provenance, low specificity, and image URLs for visible synthetic-image risk, evidence, and recommended workflow action.
 
-VeracityAPI is **not** a binary AI detector. It does not prove whether content was written by a human or a model. It answers the agent workflow question: should this text be allowed, revised, reviewed, or rejected before publishing, citing, training, or moderation?
+VeracityAPI is **not** a binary AI detector. It does not prove whether content was written by a human or a model. It answers the agent workflow question: should this text or image be allowed, revised, reviewed, or rejected before publishing, citing, training, or moderation?
 
 ## Live URLs
 
@@ -35,10 +35,11 @@ New accounts get $1.50 in free credits. No subscriptions. Buy credits when you n
 
 Public demo is free, no-key, privacy_mode=true, capped at 4,000 characters, and rate limited. New accounts get $1.50 in free API credits for authenticated testing; production API access is credit-based after that.
 
-## MVP endpoint
+## MVP endpoints
 
 ```text
 POST /v1/analyze-text
+POST /v1/analyze-image
 ```
 
 Auth: send a bearer token in the `Authorization` header. Create an account, get $1.50 in free credits, and create an API key at `/account`.
@@ -59,6 +60,21 @@ curl https://api.veracityapi.com/v1/analyze-text \
     "privacy_mode": true
   }'
 ```
+
+## Image request
+
+```bash
+curl https://api.veracityapi.com/v1/analyze-image \
+  -H "Authorization: Bearer ***" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "image_url": "https://example.com/photo.jpg",
+    "context": {"format": "article", "intended_use": "publish", "domain": "news"},
+    "privacy_mode": true
+  }'
+```
+
+Image analysis is API-key-only at launch, costs $0.02/image, stores no image bytes, and logs only the image URL hash plus hostname. Response fields include `content_trust_score`, `synthetic_image_risk`, `synthetic_risk` alias, `risk_level`, `recommended_action`, `confidence`, `evidence`, `recommended_fixes`, `limitations`, and billing.
 
 ## Response shape
 
@@ -88,6 +104,8 @@ curl https://api.veracityapi.com/v1/analyze-text \
 ```
 
 `synthetic_risk` is retained for compatibility. New integrations should prefer `content_trust_score`, `specificity_risk`, `provenance_weakness`, and `synthetic_texture_risk`.
+
+For images, `synthetic_image_risk` is the canonical visible-artifact risk field and `synthetic_risk` is an alias for SDK consistency. v0.1 image scoring is a vision-LLM workflow signal, not proof of AI authorship and not EXIF/C2PA/provenance verification.
 
 ## Current threshold policy
 

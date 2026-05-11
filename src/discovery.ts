@@ -9,8 +9,8 @@ export function openApiSpec(): Record<string, unknown> {
     info: {
       title: "VeracityAPI",
       version: "0.1.0",
-      summary: "Content trust scoring API for agents",
-      description: "Scores English text for content trust, specificity/slop risk, weak provenance, evidence spans, and a recommended action. Workflow risk scoring only; not proof of authorship or truth.",
+      summary: "Content and image trust scoring API for agents",
+      description: "Scores English text and image URLs for content trust, specificity/slop risk, synthetic-image risk, evidence, and recommended actions. Workflow risk scoring only; not proof of authorship or truth.",
       contact: {
         name: "VeracityAPI beta access",
         email: "bernard@tabiji.ai",
@@ -25,7 +25,7 @@ export function openApiSpec(): Record<string, unknown> {
       { url: BASE_URL, description: "Public demo host" },
     ],
     tags: [
-      { name: "analysis", description: "Text content trust scoring" },
+      { name: "analysis", description: "Text and image content trust scoring" },
       { name: "demo", description: "No-key public demo endpoint" },
       { name: "health", description: "Service health" },
       { name: "access", description: "Credit-based API access requests" },
@@ -83,6 +83,42 @@ export function openApiSpec(): Record<string, unknown> {
             },
             "400": { "$ref": "#/components/responses/BadRequest" },
             "401": { "$ref": "#/components/responses/Unauthorized" },
+            "503": { "$ref": "#/components/responses/LlmUnavailable" },
+          },
+        },
+      },
+
+      "/v1/analyze-image": {
+        post: {
+          tags: ["analysis"],
+          summary: "Analyze image synthetic risk",
+          description: "Requires a bearer API key. Submit an https image URL and receive synthetic-image risk, content trust score, visible evidence, recommended fixes, and a deterministic recommended action. No image bytes are stored by VeracityAPI.",
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: { "$ref": "#/components/schemas/AnalyzeImageRequest" },
+                examples: {
+                  imageUrl: {
+                    value: {
+                      image_url: "https://example.com/photo.jpg",
+                      context: { format: "article", intended_use: "publish", domain: "news" },
+                      privacy_mode: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            "200": {
+              description: "Image risk scoring result",
+              content: { "application/json": { schema: { "$ref": "#/components/schemas/AnalyzeImageResponse" }, examples: { highRisk: { value: sampleAnalyzeImageResponse("img_01EXAMPLE") } } } },
+            },
+            "400": { "$ref": "#/components/responses/BadRequest" },
+            "401": { "$ref": "#/components/responses/Unauthorized" },
+            "402": { "$ref": "#/components/responses/InsufficientBalance" },
             "503": { "$ref": "#/components/responses/LlmUnavailable" },
           },
         },
@@ -154,6 +190,23 @@ export function openApiSpec(): Record<string, unknown> {
             privacy_mode: { type: "boolean", default: true, description: "When true, raw text is not stored in D1 logs." },
           },
         },
+
+        AnalyzeImageRequest: {
+          type: "object",
+          required: ["image_url"],
+          properties: {
+            image_url: { type: "string", format: "uri", maxLength: 2000, description: "HTTPS URL for a JPEG, PNG, WebP, or other image format supported by the vision provider. VeracityAPI does not store image bytes." },
+            context: {
+              type: "object",
+              properties: {
+                format: { type: "string", enum: ["article", "social_post", "product_review", "caption", "other"], default: "other" },
+                intended_use: { type: "string", enum: ["publish", "train", "cite", "moderate", "other"], default: "other" },
+                domain: { type: "string", maxLength: 100, description: "Optional topic/domain hint." },
+              },
+            },
+            privacy_mode: { type: "boolean", default: true, description: "When true, only the image URL hash and hostname are logged; image bytes and the full URL are not stored." },
+          },
+        },
         AnalyzeTextResponse: {
           type: "object",
           required: ["analysis_id", "synthetic_risk", "slop_risk", "risk_level", "recommended_action", "confidence", "evidence", "recommended_fixes", "model_version", "limitations"],
@@ -165,6 +218,24 @@ export function openApiSpec(): Record<string, unknown> {
             synthetic_texture_risk: { type: "number", minimum: 0, maximum: 1, example: 0.72, description: "Backward-compatible authorship-texture signal; not proof of AI authorship." },
             synthetic_risk: { type: "number", minimum: 0, maximum: 1, example: 0.72, deprecated: true, description: "Legacy alias for synthetic_texture_risk; retained for compatibility." },
             slop_risk: { type: "number", minimum: 0, maximum: 1, example: 0.78 },
+            risk_level: { type: "string", enum: ["low", "medium", "high"] },
+            recommended_action: { type: "string", enum: ["allow", "revise", "human_review", "reject"] },
+            confidence: { type: "string", enum: ["low", "medium", "high"] },
+            evidence: { type: "array", items: { "$ref": "#/components/schemas/EvidenceItem" } },
+            recommended_fixes: { type: "array", items: { type: "string" } },
+            model_version: { type: "string", example: "v0.1" },
+            limitations: { type: "array", items: { type: "string" } },
+          },
+        },
+
+        AnalyzeImageResponse: {
+          type: "object",
+          required: ["analysis_id", "content_trust_score", "synthetic_image_risk", "synthetic_risk", "risk_level", "recommended_action", "confidence", "evidence", "recommended_fixes", "model_version", "limitations"],
+          properties: {
+            analysis_id: { type: "string", example: "img_01KRA1EQPDJ7N2KHBXCQMGZYFJ" },
+            content_trust_score: { type: "number", minimum: 0, maximum: 1, example: 0.28, description: "Derived image workflow trust score. Higher is better." },
+            synthetic_image_risk: { type: "number", minimum: 0, maximum: 1, example: 0.72, description: "Visible synthetic-image artifact risk; not proof of AI authorship." },
+            synthetic_risk: { type: "number", minimum: 0, maximum: 1, example: 0.72, description: "Alias for synthetic_image_risk for SDK consistency." },
             risk_level: { type: "string", enum: ["low", "medium", "high"] },
             recommended_action: { type: "string", enum: ["allow", "revise", "human_review", "reject"] },
             confidence: { type: "string", enum: ["low", "medium", "high"] },
@@ -207,6 +278,7 @@ export function openApiSpec(): Record<string, unknown> {
       responses: {
         BadRequest: { description: "Invalid JSON or request body", content: { "application/json": { schema: { "$ref": "#/components/schemas/ErrorResponse" } } } },
         Unauthorized: { description: "Missing or invalid bearer API key", content: { "application/json": { schema: { "$ref": "#/components/schemas/ErrorResponse" }, examples: { unauthorized: { value: { error: "unauthorized" } } } } } },
+        InsufficientBalance: { description: "Account balance is too low for the requested analysis", content: { "application/json": { schema: { "$ref": "#/components/schemas/ErrorResponse" } } } },
         RateLimited: { description: "Demo rate limit reached", headers: { "Retry-After": { schema: { type: "string" } } }, content: { "application/json": { schema: { "$ref": "#/components/schemas/ErrorResponse" } } } },
         LlmUnavailable: { description: "Scoring model unavailable", headers: { "Retry-After": { schema: { type: "string" } } }, content: { "application/json": { schema: { "$ref": "#/components/schemas/ErrorResponse" } } } },
       },
@@ -241,10 +313,30 @@ export function sampleAnalyzeResponse(analysisId = "demo_01KRA1EQPDJ7N2KHBXCQMGZ
   };
 }
 
+
+export function sampleAnalyzeImageResponse(analysisId = "img_01KRA1IMAGEEXAMPLE"): Record<string, unknown> {
+  return {
+    analysis_id: analysisId,
+    content_trust_score: 0.28,
+    synthetic_image_risk: 0.72,
+    synthetic_risk: 0.72,
+    confidence: "medium",
+    evidence: [
+      { type: "hand_artifact", severity: "high", span: "subject left hand shows fused or extra fingers", explanation: "Visible anatomy artifact associated with generated imagery." },
+      { type: "text_signage_artifact", severity: "medium", span: "background sign contains letter-like but unreadable glyphs", explanation: "Malformed text/signage is a visible synthetic-image risk signal." },
+    ],
+    recommended_fixes: ["Verify provenance from a trusted source before publishing.", "Route to human review if the image is used as evidence for a claim."],
+    risk_level: "high",
+    recommended_action: "human_review",
+    model_version: "v0.1",
+    limitations: ["Scores are probabilistic workflow risk signals, not proof of AI authorship.", "v0.1 image scoring uses a vision LLM, not a calibrated synthetic-image classifier.", "VeracityAPI does not inspect EXIF, C2PA Content Credentials, or provenance metadata in v0.1."],
+  };
+}
+
 export function llmsTxt(): string {
   return `# VeracityAPI
 
-VeracityAPI is a content trust scoring API for agents. It scores English-calibrated text for specificity risk, slop risk, weak provenance signals, synthetic-looking texture, and recommended next actions.
+VeracityAPI is a content trust scoring API for agents. It scores English-calibrated text for specificity/slop/provenance risk and image URLs for visible synthetic-image risk, evidence, and recommended next actions.
 
 VeracityAPI is not an AI detector, truth oracle, or proof of authorship. Treat results as probabilistic workflow risk signals with evidence and recommendations.
 
@@ -266,9 +358,10 @@ POST ${BASE_URL}/demo/analyze
 
 No API key required. privacy_mode is forced true server-side. Text limit is 4,000 characters. Rate limited.
 
-## Production endpoint
+## Production endpoints
 
 POST ${API_BASE_URL}/v1/analyze-text
+POST ${API_BASE_URL}/v1/analyze-image
 
 Requires:
 
@@ -304,6 +397,10 @@ Content-Type: application/json
 - model_version: model/scoring contract version
 - limitations: array of caveats
 
+## Image endpoint
+
+POST ${API_BASE_URL}/v1/analyze-image accepts {"image_url":"https://...","context":{"format":"article","intended_use":"publish","domain":"news"},"privacy_mode":true}. It returns content_trust_score, synthetic_image_risk, synthetic_risk alias, evidence, recommended_fixes, risk_level, recommended_action, limitations, and billing. VeracityAPI stores no image bytes and logs only a hash plus hostname. Price: $0.02/image.
+
 ## Example curl
 
 curl ${API_BASE_URL}/v1/analyze-text \\
@@ -333,10 +430,11 @@ Public demo is open. New accounts get $1.50 in free credits to test real workflo
 
 ## Pricing
 
-- ≤4k chars: $0.01
-- ≤20k chars: $0.03
-- ≤50k chars: $0.06
-- ≤100k chars: $0.12
+- Text ≤4k chars: $0.01
+- Text ≤20k chars: $0.03
+- Text ≤50k chars: $0.06
+- Text ≤100k chars: $0.12
+- Image analysis: $0.02/image
 - >100k chars: chunk or contact us
 
 ## Limitations
@@ -360,7 +458,7 @@ ${urls.map((path) => `  <url><loc>${BASE_URL}${path}</loc><lastmod>${updated}</l
 export function agentsJson(): Record<string, unknown> {
   return {
     name: "VeracityAPI",
-    description: "Content trust and specificity/slop scoring API for agents.",
+    description: "Content and image trust scoring API for agents.",
     homepage: BASE_URL,
     api_base: API_BASE_URL,
     openapi: `${BASE_URL}/openapi.json`,
@@ -381,7 +479,7 @@ export function agentsJson(): Record<string, unknown> {
     },
     pricing: {
       model: "prepaid_credits",
-      billing: "New accounts get $1.50 in free credits. No subscriptions. Every request debits the account balance by character bucket.",
+      billing: "New accounts get $1.50 in free credits. No subscriptions. Text requests debit by character bucket; image analysis debits $0.02/image.",
       buckets: [
         { max_chars: 4000, price_usd: 0.01 },
         { max_chars: 20000, price_usd: 0.03 },
@@ -389,6 +487,7 @@ export function agentsJson(): Record<string, unknown> {
         { max_chars: 100000, price_usd: 0.12 },
       ],
       above_100k: "chunk or contact us",
+      image_analysis: { unit: "image", price_usd: 0.02, bucket: "image_v0" },
     },
     demo: {
       endpoint: `${BASE_URL}/demo/analyze`,
@@ -397,8 +496,8 @@ export function agentsJson(): Record<string, unknown> {
       limits: "4000 chars, rate limited, privacy_mode=true forced server-side",
     },
     recommended_use_cases: USE_CASES.map((u) => u.title),
-    capabilities: ["content_trust_score", "specificity_risk", "provenance_weakness", "synthetic_texture_risk", "ai_slop_risk", "evidence_spans", "recommended_action", "privacy_mode"],
-    limitations: ["Workflow risk score, not proof of authorship or truth", "English-calibrated at MVP; non-English scoring is experimental"],
+    capabilities: ["content_trust_score", "specificity_risk", "provenance_weakness", "synthetic_texture_risk", "synthetic_image_risk", "ai_slop_risk", "evidence_spans", "recommended_action", "privacy_mode"],
+    limitations: ["Workflow risk score, not proof of authorship or truth", "English-calibrated text at MVP; non-English scoring is experimental", "Image v0.1 uses visible artifact scoring only and does not inspect EXIF/C2PA metadata"],
   };
 }
 
@@ -428,6 +527,6 @@ export function ogSvg(): string {
   <text x="108" y="282" fill="#f7f8f8" font-family="Inter, Arial, sans-serif" font-size="66" font-weight="700">Content trust scoring</text>
   <text x="108" y="358" fill="#f7f8f8" font-family="Inter, Arial, sans-serif" font-size="66" font-weight="700">for agents</text>
   <text x="110" y="438" fill="#a2a8b3" font-family="Inter, Arial, sans-serif" font-size="30">Specificity · Provenance · Evidence · Actions</text>
-  <text x="110" y="496" fill="#d0d6e0" font-family="JetBrains Mono, monospace" font-size="24">POST /v1/analyze-text → JSON</text>
+  <text x="110" y="496" fill="#d0d6e0" font-family="JetBrains Mono, monospace" font-size="24">POST /v1/analyze-text or /v1/analyze-image → JSON</text>
 </svg>`;
 }

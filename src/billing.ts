@@ -15,6 +15,10 @@ export function priceForChars(chars: number): { bucket: string; priceCents: numb
   return { bucket: "up_to_100k", priceCents: 12 };
 }
 
+export function priceForImage(): { bucket: string; priceCents: number } {
+  return { bucket: "image_v0", priceCents: 2 };
+}
+
 export async function authenticateUsageKey(request: Request, env: Env): Promise<{ accountId?: string; apiKeyId?: string; apiKeyHash: string; legacy: boolean }> {
   const header = request.headers.get("authorization") ?? "";
   const token = header.match(/^Bearer\s+(.+)$/i)?.[1]?.trim() ?? "";
@@ -41,13 +45,29 @@ export async function debitForRequest(env: Env, accountId: string, apiKeyId: str
   }
   const account = await getAccountBalance(env, accountId);
   const usageId = `use_${ulid()}`;
-  await env.DB.prepare(`INSERT INTO credit_ledger (ledger_id, account_id, type, amount_cents, balance_after_cents, reference_id, metadata_json, created_at) VALUES (?, ?, 'usage_debit', ?, ?, ?, ?, ?)`)
-    .bind(`led_${ulid()}`, accountId, -priceCents, account.balanceCents, analysisId, JSON.stringify({ api_key_id: apiKeyId, chars_analyzed: chars, bucket }), new Date().toISOString())
+  await env.DB.prepare(`INSERT INTO credit_ledger (ledger_id, account_id, type, amount_cents, balance_after_cents, reference_id, metadata_json, created_at) VALUES (?, ?, 'usage_debit', ?, ?, ?, ?, ?)`).bind(`led_${ulid()}`, accountId, -priceCents, account.balanceCents, analysisId, JSON.stringify({ api_key_id: apiKeyId, chars_analyzed: chars, bucket }), new Date().toISOString()).run();
+  await env.DB.prepare(`INSERT INTO usage_events (usage_id, account_id, api_key_id, analysis_id, chars_analyzed, bucket, price_cents, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'debited', ?)`).bind(usageId, accountId, apiKeyId, analysisId, chars, bucket, priceCents, new Date().toISOString()).run();
+  return { chars_analyzed: chars, bucket, price_cents: priceCents, remaining_balance_cents: account.balanceCents };
+}
+
+export async function debitForImage(env: Env, accountId: string, apiKeyId: string, analysisId: string): Promise<BillingMetadata> {
+  const { bucket, priceCents } = priceForImage();
+  const updated = await env.DB.prepare(`UPDATE accounts SET balance_cents = balance_cents - ?, updated_at = ? WHERE account_id = ? AND deleted_at IS NULL AND balance_cents >= ?`)
+    .bind(priceCents, new Date().toISOString(), accountId, priceCents)
+    .run();
+  if (!updated.meta || updated.meta.changes < 1) {
+    const account = await getAccountBalance(env, accountId);
+    throw new InsufficientBalanceError(priceCents, account.balanceCents);
+  }
+  const account = await getAccountBalance(env, accountId);
+  const usageId = `use_${ulid()}`;
+  await env.DB.prepare(`INSERT INTO credit_ledger (ledger_id, account_id, type, amount_cents, balance_after_cents, reference_id, metadata_json, created_at) VALUES (?, ?, 'image_analysis_debit', ?, ?, ?, ?, ?)`)
+    .bind(`led_${ulid()}`, accountId, -priceCents, account.balanceCents, analysisId, JSON.stringify({ api_key_id: apiKeyId, units_analyzed: 1, bucket }), new Date().toISOString())
     .run();
   await env.DB.prepare(`INSERT INTO usage_events (usage_id, account_id, api_key_id, analysis_id, chars_analyzed, bucket, price_cents, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'debited', ?)`)
-    .bind(usageId, accountId, apiKeyId, analysisId, chars, bucket, priceCents, new Date().toISOString())
+    .bind(usageId, accountId, apiKeyId, analysisId, 1, bucket, priceCents, new Date().toISOString())
     .run();
-  return { chars_analyzed: chars, bucket, price_cents: priceCents, remaining_balance_cents: account.balanceCents };
+  return { units_analyzed: 1, bucket, price_cents: priceCents, remaining_balance_cents: account.balanceCents };
 }
 
 export async function refundUsage(env: Env, accountId: string, apiKeyId: string, analysisId: string, billing: BillingMetadata, reason: string): Promise<void> {

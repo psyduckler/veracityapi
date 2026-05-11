@@ -1,20 +1,27 @@
 import { ulid } from "ulid";
 import { sha256Hex } from "./auth";
 import { accountHtml, buildAccountView, cleanEmail, clearSessionCookie, consumeMagicLink, createApiKey, createMagicLink, getSessionAccount, parseForm, redirect, requireAccount, sendMagicLink, sessionCookie, validEmail } from "./account";
-import { authenticateUsageKey, BillingAuthError, creditCheckoutSession, CREDIT_PACKS, debitForRequest, InsufficientBalanceError, refundUsage, verifyStripeWebhook } from "./billing";
+import { authenticateUsageKey, BillingAuthError, creditCheckoutSession, CREDIT_PACKS, debitForImage, debitForRequest, InsufficientBalanceError, refundUsage, verifyStripeWebhook } from "./billing";
 import { logAnalysis } from "./db";
-import { LlmError, scoreText } from "./llm";
-import { deriveAction, deriveRiskLevel, deriveTrustSignals } from "./scoring";
+import { LlmError, scoreImage, scoreText } from "./llm";
+import { deriveAction, deriveImageRiskLevel, deriveImageTrustScore, deriveRiskLevel, deriveTrustSignals } from "./scoring";
 import { agentsJson, llmsTxt, ogSvg, openApiSpec, robotsTxt, sitemapXml } from "./discovery";
 import { docsHtml, evalsHtml, examplesHtml, howItWorksHtml, pricingHtml, privacyHtml, requestAccessHtml, useCaseHtml, useCasesIndexHtml } from "./pages";
 import { homepageHtml } from "./site";
-import type { AnalyzeResponse, Env } from "./types";
-import { parseAnalyzeRequest, ValidationError } from "./validate";
+import type { AnalyzeImageResponse, AnalyzeResponse, Env } from "./types";
+import { parseAnalyzeImageRequest, parseAnalyzeRequest, ValidationError } from "./validate";
 
 const LIMITATIONS = [
   "Scores are probabilistic workflow risk signals, not proof of AI authorship or truth.",
   "v0.1 uses an LLM-backed structured scoring pass; treat synthetic_risk as texture risk, not ground-truth authorship detection.",
   "English-calibrated at MVP; non-English content should be treated as experimental.",
+];
+
+const IMAGE_LIMITATIONS = [
+  "Scores are probabilistic workflow risk signals, not proof of AI authorship.",
+  "v0.1 image scoring uses a vision LLM, not a calibrated synthetic-image classifier.",
+  "Evidence is limited to visible artifacts; VeracityAPI does not inspect EXIF, C2PA Content Credentials, or provenance metadata in v0.1.",
+  "Missing metadata, social compression, screenshots, and edited exports can lower trust in real workflows but are not used as proof of synthetic generation here.",
 ];
 
 const demoHits = new Map<string, { count: number; resetAt: number }>();
@@ -112,6 +119,10 @@ export default {
 
     if (request.method === "POST" && url.pathname === "/v1/analyze-text") {
       return handleAnalyzeText(request, env);
+    }
+
+    if (request.method === "POST" && url.pathname === "/v1/analyze-image") {
+      return handleAnalyzeImage(request, env);
     }
 
     return json({ error: "not_found" }, 404);
@@ -226,6 +237,7 @@ async function handleAnalyzeText(request: Request, env: Env): Promise<Response> 
       request: parsed,
       response,
       latencyMs: Date.now() - start,
+      kind: "text",
     });
     return json(response);
   } catch (err) {
@@ -233,6 +245,50 @@ async function handleAnalyzeText(request: Request, env: Env): Promise<Response> 
     if (err instanceof BillingAuthError) return json({ error: "unauthorized" }, 401);
     if (err instanceof InsufficientBalanceError) return json({ error: "insufficient_balance", message: `This request costs $${(err.requiredCents / 100).toFixed(2)}. Your balance is $${(err.balanceCents / 100).toFixed(2)}.`, required_cents: err.requiredCents, balance_cents: err.balanceCents, top_up_url: "https://veracityapi.com/account" }, 402);
     if (err instanceof ValidationError) return json({ error: "bad_request", message: err.message }, 400);
+    if (err instanceof LlmError) return json({ error: "llm_unavailable", message: "Scoring model unavailable. Retry shortly." }, 503, { "Retry-After": "10" });
+    console.error(err);
+    return json({ error: "internal_error" }, 500);
+  }
+}
+
+async function handleAnalyzeImage(request: Request, env: Env): Promise<Response> {
+  const start = Date.now();
+  let debit: { accountId: string; apiKeyId: string; billing: NonNullable<AnalyzeImageResponse["billing"]>; analysisId: string } | null = null;
+  try {
+    const auth = await authenticateUsageKey(request, env);
+    const parsed = await parseAnalyzeImageRequest(request);
+    const analysisId = `img_${ulid()}`;
+    const billing = auth.legacy ? undefined : await debitForImage(env, auth.accountId!, auth.apiKeyId!, analysisId);
+    if (billing) debit = { accountId: auth.accountId!, apiKeyId: auth.apiKeyId!, billing, analysisId };
+    const scored = await scoreImage(parsed, env);
+    const riskLevel = deriveImageRiskLevel(scored.synthetic_image_risk);
+    const action = deriveAction(riskLevel, parsed.context.intended_use);
+    const response: AnalyzeImageResponse = {
+      analysis_id: analysisId,
+      ...scored,
+      content_trust_score: deriveImageTrustScore(scored.synthetic_image_risk),
+      risk_level: riskLevel,
+      recommended_action: action,
+      model_version: env.MODEL_VERSION || "v0.1",
+      limitations: IMAGE_LIMITATIONS,
+      ...(billing ? { billing } : {}),
+    };
+    await logAnalysis({
+      env,
+      analysisId: response.analysis_id,
+      apiKeyHash: auth.apiKeyHash,
+      request: parsed,
+      response,
+      latencyMs: Date.now() - start,
+      kind: "image",
+    });
+    return json(response);
+  } catch (err) {
+    if (debit && (err instanceof LlmError)) await refundUsage(env, debit.accountId, debit.apiKeyId, debit.analysisId, debit.billing, "llm_unavailable");
+    if (err instanceof BillingAuthError) return json({ error: "unauthorized" }, 401);
+    if (err instanceof InsufficientBalanceError) return json({ error: "insufficient_balance", message: `This request costs $${(err.requiredCents / 100).toFixed(2)}. Your balance is $${(err.balanceCents / 100).toFixed(2)}.`, required_cents: err.requiredCents, balance_cents: err.balanceCents, top_up_url: "https://veracityapi.com/account" }, 402);
+    if (err instanceof ValidationError) return json({ error: "bad_request", message: err.message }, 400);
+    if (err instanceof LlmError && /400|image|url|fetch|format|unsupported|too large|invalid/i.test(err.message)) return json({ error: "bad_request", message: "Image URL could not be analyzed. Check that it is a reachable supported image URL." }, 400);
     if (err instanceof LlmError) return json({ error: "llm_unavailable", message: "Scoring model unavailable. Retry shortly." }, 503, { "Retry-After": "10" });
     console.error(err);
     return json({ error: "internal_error" }, 500);
