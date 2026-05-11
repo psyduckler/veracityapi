@@ -1,4 +1,4 @@
-import type { AnalyzeAudioInput, AnalyzeImageInput, AnalyzeTextInput } from "./schemas.js";
+import type { AnalyzeAudioInput, AnalyzeBatchInput, AnalyzeImageInput, AnalyzeTextInput } from "./schemas.js";
 
 export interface VeracityClientOptions {
   apiKey?: string;
@@ -34,6 +34,10 @@ export class VeracityClient {
 
   analyzeAudio(input: AnalyzeAudioInput): Promise<Record<string, unknown>> {
     return this.post("/v1/analyze", { type: "audio", content: input.audio_url, transcript: input.transcript, context: input.context, store_content: false });
+  }
+
+  analyzeBatch(input: AnalyzeBatchInput): Promise<Record<string, unknown>> {
+    return this.post("/v1/analyze-batch", { items: input.items, context: input.context, store_content: input.store_content ?? false });
   }
 
   getBalance(): Promise<Record<string, unknown>> {

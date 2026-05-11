@@ -2,7 +2,7 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { analyzeAudioInputSchema, analyzeImageInputSchema, analyzeTextInputSchema, toolInputSchemas } from "./schemas.js";
+import { analyzeAudioInputSchema, analyzeBatchInputSchema, analyzeImageInputSchema, analyzeTextInputSchema, toolInputSchemas } from "./schemas.js";
 import { summarizeAnalysisResult, summarizeBalance, formatToolError } from "./summaries.js";
 import { VeracityClient } from "./veracity-client.js";
 
@@ -31,9 +31,19 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       inputSchema: toolInputSchemas.analyze_audio,
     },
     {
+      name: "analyze_batch",
+      description: "Analyze 1-25 short text items in one bounded synchronous batch. Returns per-item recommended_action plus aggregate billing. Use before autonomous publishing/moderation loops.",
+      inputSchema: toolInputSchemas.analyze_batch,
+    },
+    {
       name: "check_balance",
       description: "Get VeracityAPI account credit balance and recent usage before running agent analysis loops. Requires VERACITY_API_KEY.",
       inputSchema: toolInputSchemas.check_balance,
+    },
+    {
+      name: "get_balance",
+      description: "Compatibility alias for check_balance. Get VeracityAPI account credit balance and recent usage before autonomous runs.",
+      inputSchema: toolInputSchemas.get_balance,
     },
   ],
 }));
@@ -56,7 +66,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const result = await client.analyzeAudio(input);
       return toolResult(summarizeAnalysisResult("audio", result), result);
     }
-    if (request.params.name === "check_balance") {
+    if (request.params.name === "analyze_batch") {
+      const input = analyzeBatchInputSchema.parse(args);
+      const result = await client.analyzeBatch(input);
+      return toolResult(`Batch analysis complete: ${Array.isArray(result.results) ? result.results.length : 0} items analyzed.`, result);
+    }
+    if (request.params.name === "check_balance" || request.params.name === "get_balance") {
       const result = await client.getBalance();
       return toolResult(summarizeBalance(result), result);
     }

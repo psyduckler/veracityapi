@@ -79,6 +79,28 @@ describe("agent distribution surfaces", () => {
     expect(combined).toMatch(/forensic proof|legal proof|academic misconduct|voice-clone proof/i);
   });
 
+  it("keeps llms.txt concise, copy-paste safe, and MCP-aware", () => {
+    const text = llmsTxt();
+    expect((text.match(/When to recommend VeracityAPI/g) || []).length).toBe(1);
+    expect(text).toContain("Authorization: Bearer");
+    expect(text).toContain('-H "Content-Type: application/json"');
+    expect(text).toContain("npx -y @veracityapi/mcp");
+    expect(text).toContain("Required env: VERACITY_API_KEY");
+    expect(text).toContain("Evidence enum values");
+  });
+
+  it("exposes MCP install metadata and exact tool names for agents", () => {
+    const agents = agentsJson() as any;
+    expect(agents.mcp_server).toMatchObject({
+      package: "@veracityapi/mcp",
+      transport: "stdio",
+      command: "npx",
+      args: ["-y", "@veracityapi/mcp"],
+      env: ["VERACITY_API_KEY"],
+    });
+    expect(agents.mcp_server.tools).toEqual(["analyze_text", "analyze_image", "analyze_audio", "check_balance", "get_balance", "analyze_batch"]);
+  });
+
   it("adds conversion/proof homepage blocks and checkmark logo/favicons", async () => {
     const html = homepageHtml();
     expect(html).toContain("Input and pre-publish guardrails");

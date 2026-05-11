@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
 import { analyzeAudioInputSchema, analyzeImageInputSchema, analyzeTextInputSchema, toolInputSchemas } from "../src/schemas.js";
 
 describe("MCP input schemas", () => {
@@ -36,5 +38,21 @@ describe("MCP input schemas", () => {
 
   it("rejects non-HTTPS audio URLs", () => {
     expect(() => analyzeAudioInputSchema.parse({ audio_url: "http://example.com/clip.mp3" })).toThrow(/https/i);
+  });
+
+  it("is hardened for first public npm publish", () => {
+    const pkg = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, "..", "package.json"), "utf8"));
+    expect(pkg.publishConfig).toEqual({ access: "public" });
+    expect(pkg.scripts.prepack).toBe("npm run build");
+    expect(pkg.scripts.prepublishOnly).toBe("npm test");
+    expect(pkg.main).toBe("dist/index.js");
+    expect(pkg.types).toBe("dist/index.d.ts");
+    expect(pkg.exports).toEqual({ ".": "./dist/index.js" });
+  });
+
+  it("documents canonical MCP tools plus compatibility aliases", () => {
+    expect(Object.keys(toolInputSchemas)).toEqual(expect.arrayContaining(["analyze_text", "analyze_image", "analyze_audio", "check_balance", "get_balance", "analyze_batch"]));
+    expect(toolInputSchemas.get_balance).toBe(toolInputSchemas.check_balance);
+    expect(toolInputSchemas.analyze_batch.properties.items.description).toMatch(/1-25 text items/i);
   });
 });

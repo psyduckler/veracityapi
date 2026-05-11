@@ -4,7 +4,7 @@ import { accountHtml, buildAccountView, cleanEmail, clearSessionCookie, consumeM
 import { authenticateUsageKey, BillingAuthError, creditCheckoutSession, CREDIT_PACKS, debitForAudio, debitForBatchRequest, debitForImage, debitForRequest, getBalanceSummary, InsufficientBalanceError, refundUsage, verifyStripeWebhook } from "./billing";
 import { logAnalysis } from "./db";
 import { LlmError, reviseText, scoreAudio, scoreImage, scoreText } from "./llm";
-import { deriveAction, deriveAudioRiskLevel, deriveAudioTrustScore, deriveImageRiskLevel, deriveImageTrustScore, deriveRiskLevel, deriveTrustSignals } from "./scoring";
+import { deriveAction, deriveAudioRiskLevel, deriveAudioTrustScore, deriveImageRiskLevel, deriveImageTrustScore, derivePrimaryReason, deriveRiskLevel, deriveTrustSignals } from "./scoring";
 import { agentsJson, faviconSvg, INDEXNOW_KEY, llmsTxt, ogSvg, openApiSpec, robotsTxt, sitemapXml } from "./discovery";
 import { DEMO_IMAGE_CONTENT_TYPE, DEMO_IMAGE_PATH, demoImageBytes } from "./demoImage";
 import { DEMO_AUDIO_CONTENT_TYPE, DEMO_AUDIO_PATH, demoAudioBytes } from "./demoAudio";
@@ -267,6 +267,7 @@ async function handleDemoAnalyze(request: Request, env: Env): Promise<Response> 
       ...derived,
       risk_level: riskLevel,
       recommended_action: action,
+      primary_reason: derivePrimaryReason("text", scored),
       model_version: env.MODEL_VERSION || "v0.1",
       limitations: LIMITATIONS,
     };
@@ -313,6 +314,7 @@ async function handleDemoAnalyzeImage(request: Request, env: Env): Promise<Respo
       content_trust_score: deriveImageTrustScore(scored.synthetic_image_risk),
       risk_level: riskLevel,
       recommended_action: action,
+      primary_reason: derivePrimaryReason("image", scored),
       model_version: env.MODEL_VERSION || "v0.1",
       limitations: IMAGE_LIMITATIONS,
     };
@@ -347,7 +349,7 @@ async function handleDemoAnalyzeAudio(request: Request, env: Env): Promise<Respo
     const parsed = await parseAnalyzeAudioRequest(jsonRequest(request.url, { audio_url: body.audio_url, transcript: body.transcript, context: body.context, store_content: false }));
     const scored = await scoreAudio(parsed, env);
     const riskLevel = deriveAudioRiskLevel(scored.synthetic_audio_risk, scored.workflow_risk);
-    const response: AnalyzeAudioResponse = { analysis_id: `demo_aud_${ulid()}`, ...scored, content_trust_score: deriveAudioTrustScore(scored.synthetic_audio_risk, scored.workflow_risk), risk_level: riskLevel, recommended_action: deriveAction(riskLevel, parsed.context.intended_use), model_version: env.MODEL_VERSION || "v0.1", limitations: AUDIO_LIMITATIONS };
+    const response: AnalyzeAudioResponse = { analysis_id: `demo_aud_${ulid()}`, ...scored, content_trust_score: deriveAudioTrustScore(scored.synthetic_audio_risk, scored.workflow_risk), risk_level: riskLevel, recommended_action: deriveAction(riskLevel, parsed.context.intended_use), primary_reason: derivePrimaryReason("audio", scored), model_version: env.MODEL_VERSION || "v0.1", limitations: AUDIO_LIMITATIONS };
     await logAnalysis({ env, analysisId: response.analysis_id, apiKeyHash: `demo-audio:${await sha256Hex(ip)}`, request: parsed, response, latencyMs: Date.now() - start, kind: "audio" });
     return json(response, 200, { "Set-Cookie": `veracity_demo=${cookieKey === "nocookie" ? ulid() : cookieKey}; Path=/; Max-Age=86400; SameSite=Lax; Secure` });
   } catch (err) {
@@ -410,6 +412,7 @@ async function handleAnalyzeBatch(request: Request, env: Env): Promise<Response>
         ...derived,
         risk_level: riskLevel,
         recommended_action: action,
+        primary_reason: derivePrimaryReason("text", scored),
         model_version: env.MODEL_VERSION || "v0.1",
         limitations: LIMITATIONS,
       };
@@ -456,6 +459,7 @@ async function handleAnalyzeText(request: Request, env: Env): Promise<Response> 
       ...derived,
       risk_level: riskLevel,
       recommended_action: action,
+      primary_reason: derivePrimaryReason("text", scored),
       ...(parsed.auto_revise === true && action === "revise" ? await reviseText(parsed, scored.recommended_fixes, env) : {}),
       model_version: env.MODEL_VERSION || "v0.1",
       limitations: LIMITATIONS,
@@ -501,6 +505,7 @@ async function handleAnalyzeImage(request: Request, env: Env): Promise<Response>
       content_trust_score: deriveImageTrustScore(scored.synthetic_image_risk),
       risk_level: riskLevel,
       recommended_action: action,
+      primary_reason: derivePrimaryReason("image", scored),
       model_version: env.MODEL_VERSION || "v0.1",
       limitations: IMAGE_LIMITATIONS,
       ...(billing ? { billing } : {}),
@@ -542,7 +547,7 @@ async function handleAnalyzeAudio(request: Request, env: Env): Promise<Response>
     debit = { accountId: auth.accountId, apiKeyId: auth.apiKeyId, billing, analysisId };
     const scored = await scoreAudio(parsed, env);
     const riskLevel = deriveAudioRiskLevel(scored.synthetic_audio_risk, scored.workflow_risk);
-    const response: AnalyzeAudioResponse = { analysis_id: analysisId, ...scored, content_trust_score: deriveAudioTrustScore(scored.synthetic_audio_risk, scored.workflow_risk), risk_level: riskLevel, recommended_action: deriveAction(riskLevel, parsed.context.intended_use), model_version: env.MODEL_VERSION || "v0.1", limitations: AUDIO_LIMITATIONS, billing };
+    const response: AnalyzeAudioResponse = { analysis_id: analysisId, ...scored, content_trust_score: deriveAudioTrustScore(scored.synthetic_audio_risk, scored.workflow_risk), risk_level: riskLevel, recommended_action: deriveAction(riskLevel, parsed.context.intended_use), primary_reason: derivePrimaryReason("audio", scored), model_version: env.MODEL_VERSION || "v0.1", limitations: AUDIO_LIMITATIONS, billing };
     await logAnalysis({ env, analysisId, apiKeyHash: auth.apiKeyHash, request: parsed, response, latencyMs: Date.now() - start, kind: "audio" });
     await logApiCallSuccess(env, request, auth.accountId, auth.apiKeyId, "audio", response.analysis_id);
     return json(response);

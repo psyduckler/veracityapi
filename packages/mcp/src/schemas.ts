@@ -44,9 +44,25 @@ export const analyzeAudioInputSchema = z.object({
   privacy_mode: z.boolean().optional(),
 });
 
+export const analyzeBatchInputSchema = z.object({
+  items: z.array(z.object({
+    id: z.string().min(1).max(120),
+    text: z.string().min(20).max(4000),
+  })).min(1).max(25).describe("1-25 text items. Each item is capped at 4,000 characters; total API request is capped at 50,000 characters."),
+  context: contextSchema,
+  store_content: z.boolean().optional().default(false),
+  privacy_mode: z.boolean().optional(),
+});
+
 export type AnalyzeTextInput = z.infer<typeof analyzeTextInputSchema>;
 export type AnalyzeImageInput = z.infer<typeof analyzeImageInputSchema>;
 export type AnalyzeAudioInput = z.infer<typeof analyzeAudioInputSchema>;
+export type AnalyzeBatchInput = z.infer<typeof analyzeBatchInputSchema>;
+
+const balanceInputSchema = {
+  type: "object",
+  properties: {},
+} as const;
 
 export const toolInputSchemas = {
   analyze_text: {
@@ -81,10 +97,31 @@ export const toolInputSchemas = {
       privacy_mode: { type: "boolean", default: true, deprecated: true, description: "Legacy alias. Prefer store_content:false; media raw-byte/full-URL storage is not supported." },
     },
   },
-  check_balance: {
+  analyze_batch: {
     type: "object",
-    properties: {},
+    required: ["items"],
+    properties: {
+      items: {
+        type: "array",
+        minItems: 1,
+        maxItems: 25,
+        description: "1-25 text items. Each item is capped at 4,000 characters; batch total max is 50,000 characters.",
+        items: {
+          type: "object",
+          required: ["id", "text"],
+          properties: {
+            id: { type: "string", minLength: 1, maxLength: 120 },
+            text: { type: "string", minLength: 20, maxLength: 4000 },
+          },
+        },
+      },
+      context: contextJsonSchema(),
+      store_content: { type: "boolean", default: false, description: "Explicit default: do not store raw content. Set true only if you want raw text retained for debugging/audit workflows." },
+      privacy_mode: { type: "boolean", default: true, deprecated: true, description: "Legacy alias. Prefer store_content:false." },
+    },
   },
+  check_balance: balanceInputSchema,
+  get_balance: balanceInputSchema,
 } as const;
 
 function contextJsonSchema() {

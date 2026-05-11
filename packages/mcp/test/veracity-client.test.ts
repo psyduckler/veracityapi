@@ -28,6 +28,18 @@ describe("VeracityClient", () => {
     }));
   });
 
+  it("sends analyze batch requests to the batch endpoint", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ batch_id: "bat_1", results: [] }), { status: 200, headers: { "content-type": "application/json" } }));
+    const client = new VeracityClient({ apiKey: "vapi_secret", baseUrl: "https://api.example.test", fetchImpl: fetchMock as typeof fetch });
+
+    await client.analyzeBatch({ items: [{ id: "one", text: "This sample text is long enough to analyze." }], store_content: false, context: { format: "other", intended_use: "other" } });
+
+    expect(fetchMock).toHaveBeenCalledWith("https://api.example.test/v1/analyze-batch", expect.objectContaining({
+      method: "POST",
+      body: JSON.stringify({ items: [{ id: "one", text: "This sample text is long enough to analyze." }], context: { format: "other", intended_use: "other" }, store_content: false })
+    }));
+  });
+
   it("fails at call time when API key is missing", async () => {
     const client = new VeracityClient({ apiKey: "", baseUrl: "https://api.example.test", fetchImpl: vi.fn() as unknown as typeof fetch });
     await expect(client.getBalance()).rejects.toThrow(/VERACITY_API_KEY/);

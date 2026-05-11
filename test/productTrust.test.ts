@@ -85,6 +85,10 @@ describe("OpenAPI and agent discovery", () => {
     expect(spec.paths["/v1/balance"].get.operationId).toBe("getBalance");
     expect(spec.components.schemas.AnalyzeTextResponse.properties.billing).toBeTruthy();
     expect(spec.components.schemas.AnalyzeImageResponse.properties.billing).toBeTruthy();
+    expect(spec.components.schemas.AnalyzeTextResponse.required).toContain("primary_reason");
+    expect(spec.components.schemas.AnalyzeImageResponse.required).toContain("primary_reason");
+    expect(spec.components.schemas.AnalyzeAudioResponse.required).toContain("primary_reason");
+    expect(spec.components.schemas.AnalyzeTextResponse.properties.primary_reason.description).toMatch(/enum-like/i);
     expect(spec.components.schemas.AnalyzeAudioRequest.properties.audio_url.description).toMatch(/HTTPS audio URL/i);
     expect(spec.components.schemas.AnalyzeAudioResponse.properties.billing.properties.bucket.example).toBe("audio_v0");
     expect(spec.components.schemas.BalanceResponse.required).toContain("balance_cents");
@@ -100,6 +104,8 @@ describe("OpenAPI and agent discovery", () => {
     }
     expect(audioExample.transcript).toEqual(expect.any(String));
     expect(audioExample.transcript.length).toBeGreaterThan(0);
+    expect(imageExample.primary_reason).toEqual(expect.any(String));
+    expect(audioExample.primary_reason).toEqual(expect.any(String));
   });
 
   it("uses precise signup credit copy in machine-readable discovery", () => {
@@ -111,7 +117,7 @@ describe("OpenAPI and agent discovery", () => {
 
 describe("privacy logging", () => {
   const request: AnalyzeRequest = { text: "This is a sufficiently long private text sample for scoring.", context: { format: "article", intended_use: "publish" }, privacy_mode: true };
-  const response: AnalyzeResponse = { analysis_id: "ana_1", synthetic_risk: 0.2, slop_risk: 0.3, confidence: "medium", evidence: [], recommended_fixes: [], content_trust_score: 0.7, specificity_risk: 0.3, provenance_weakness: 0.3, synthetic_texture_risk: 0.2, risk_level: "low", recommended_action: "allow", model_version: "v0.1", limitations: [] };
+  const response: AnalyzeResponse = { analysis_id: "ana_1", synthetic_risk: 0.2, slop_risk: 0.3, confidence: "medium", evidence: [], recommended_fixes: [], content_trust_score: 0.7, specificity_risk: 0.3, provenance_weakness: 0.3, synthetic_texture_risk: 0.2, risk_level: "low", recommended_action: "allow", primary_reason: "unsupported_generic_claims", model_version: "v0.1", limitations: [] };
 
   it("does not store raw text when privacy_mode is true", async () => {
     const db = new LogDb();
@@ -228,6 +234,15 @@ describe("developer examples and dashboard conversion", () => {
     expect(mcp).toContain("Content verification tools for MCP agents");
     expect(mcp).toContain("@veracityapi/mcp");
     expect(mcp).toContain("VERACITY_API_KEY");
+    expect(mcp).toContain("check_balance");
+    expect(mcp).toContain("get_balance");
+    expect(mcp).toContain("analyze_batch");
+  });
+
+  it("keeps public copy aligned with guaranteed response fields", () => {
+    const combined = `${homepageHtml()} ${llmsTxt()} ${JSON.stringify(openApiSpec())}`;
+    expect(combined).toContain("primary_reason");
+    expect(combined).toMatch(/unsupported_generic_claims|visible_synthetic_media_cues|synthetic_speech_cues/);
   });
 
   it("publishes benchmark proof and agent eval metadata", async () => {

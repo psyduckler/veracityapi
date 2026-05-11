@@ -14,7 +14,9 @@
     "build": "rm -rf dist && tsc -p tsconfig.json",
     "test": "vitest run",
     "dev": "tsx src/index.ts",
-    "smoke": "tsx scripts/smoke.mts"
+    "smoke": "tsx scripts/smoke.mts",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm test"
   },
   "keywords": [
     "mcp",
@@ -45,5 +47,13 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

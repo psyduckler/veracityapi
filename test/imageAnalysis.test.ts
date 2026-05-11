@@ -160,6 +160,7 @@ describe("image billing and logging", () => {
       recommended_fixes: [],
       risk_level: "high",
       recommended_action: "human_review",
+      primary_reason: "visible_synthetic_media_cues",
       model_version: "v0.1",
       limitations: [],
     };

@@ -42,6 +42,14 @@ export function deriveImageTrustScore(syntheticImageRisk: number): number {
   return round2(1 - clamp01(syntheticImageRisk));
 }
 
+export function derivePrimaryReason(kind: "text" | "image" | "audio", scored: { evidence?: Array<Pick<EvidenceItem, "type">> }): string {
+  const firstEvidenceType = scored.evidence?.find((item) => item.type)?.type;
+  if (firstEvidenceType) return firstEvidenceType;
+  if (kind === "image") return "visible_synthetic_media_cues";
+  if (kind === "audio") return "synthetic_speech_cues";
+  return "unsupported_generic_claims";
+}
+
 export function deriveAction(level: RiskLevel, intendedUse: IntendedUse): RecommendedAction {
   const matrix: Record<IntendedUse, Record<RiskLevel, RecommendedAction>> = {
     publish: { low: "allow", medium: "revise", high: "human_review" },
