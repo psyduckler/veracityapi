@@ -19,6 +19,7 @@ const LIMITATIONS = [
 
 const demoHits = new Map<string, { count: number; resetAt: number }>();
 const DEMO_MAX_CHARS = 4_000;
+const GOOGLE_ANALYTICS_TAG = `<script async src="https://www.googletagmanager.com/gtag/js?id=G-BMB8X59JBY"></script><script>window.dataLayer = window.dataLayer || [];function gtag(){dataLayer.push(arguments);}gtag('js', new Date());gtag('config', 'G-BMB8X59JBY');</script>`;
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -389,13 +390,20 @@ function jsonRequest(url: string, body: unknown): Request {
 }
 
 function html(body: string, cache = true): Response {
-  return new Response(body, {
+  const htmlBody = injectGoogleAnalytics(body);
+  return new Response(htmlBody, {
     headers: {
       "content-type": "text/html; charset=utf-8",
       "cache-control": cache ? "public, max-age=120" : "no-store",
       ...corsHeaders(),
     },
   });
+}
+
+function injectGoogleAnalytics(body: string): string {
+  if (!body || body.includes("G-BMB8X59JBY")) return body;
+  if (body.includes("</head>")) return body.replace("</head>", `${GOOGLE_ANALYTICS_TAG}</head>`);
+  return body;
 }
 
 function text(body: string, contentType: string): Response {
