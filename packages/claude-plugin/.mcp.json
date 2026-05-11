@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "veracityapi": {
+      "command": "npx",
+      "args": ["-y", "@veracityapi/mcp"],
+      "env": {
+        "VERACITY_API_KEY": "${VERACITY_API_KEY}"
+      }
+    }
+  }
+}

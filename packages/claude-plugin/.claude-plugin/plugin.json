@@ -1,0 +1,25 @@
+{
+  "name": "veracityapi",
+  "version": "0.1.0",
+  "description": "Content verification tools for Claude Code using VeracityAPI MCP.",
+  "author": {
+    "name": "Bernard Huang",
+    "email": "bernard@tabiji.ai",
+    "url": "https://veracityapi.com"
+  },
+  "homepage": "https://veracityapi.com/integrations/claude",
+  "repository": "https://github.com/psyduckler/veracityapi/tree/main/packages/claude-plugin",
+  "license": "MIT",
+  "keywords": [
+    "content-verification",
+    "content-trust",
+    "mcp",
+    "ai-detection",
+    "moderation",
+    "rag",
+    "publishing"
+  ],
+  "mcpServers": "./.mcp.json",
+  "skills": "./skills/",
+  "commands": "./commands/"
+}
