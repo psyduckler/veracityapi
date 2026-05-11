@@ -1,3 +1,5 @@
+import { USE_CASES } from "./pages";
+
 const BASE_URL = "https://veracityapi.com";
 const API_BASE_URL = "https://api.veracityapi.com";
 
@@ -314,10 +316,16 @@ curl ${API_BASE_URL}/v1/analyze-text \\
 - Docs: ${BASE_URL}/docs
 - How it works: ${BASE_URL}/how-it-works
 - Evals/proof: ${BASE_URL}/evals
-- Use cases/examples: ${BASE_URL}/examples
+- Use case library: ${BASE_URL}/use-cases
+- Examples/tool wrapper: ${BASE_URL}/examples
 - Pricing: ${BASE_URL}/pricing
 - Privacy: ${BASE_URL}/privacy
 - Request access: ${BASE_URL}/request-access
+
+
+## Business use-case pages for agents
+
+${USE_CASES.map((u) => `- ${u.title}: ${BASE_URL}/use-cases/${u.slug}`).join("\n")}
 
 ## Access
 
@@ -341,7 +349,7 @@ Public demo is open. Production API access uses prepaid credits. No subscription
 
 export function sitemapXml(): string {
   const updated = new Date().toISOString();
-  const urls = ["/", "/docs", "/how-it-works", "/evals", "/examples", "/pricing", "/privacy", "/request-access", "/openapi.json", "/llms.txt", "/.well-known/agents.json", "/sitemap.xml"];
+  const urls = ["/", "/docs", "/how-it-works", "/use-cases", ...USE_CASES.map((u) => `/use-cases/${u.slug}`), "/evals", "/examples", "/pricing", "/privacy", "/request-access", "/openapi.json", "/llms.txt", "/.well-known/agents.json", "/sitemap.xml"];
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${urls.map((path) => `  <url><loc>${BASE_URL}${path}</loc><lastmod>${updated}</lastmod><changefreq>weekly</changefreq><priority>${path === "/" ? "1.0" : "0.7"}</priority></url>`).join("\n")}
@@ -361,6 +369,8 @@ export function agentsJson(): Record<string, unknown> {
     docs: `${BASE_URL}/docs`,
     evals: `${BASE_URL}/evals`,
     examples: `${BASE_URL}/examples`,
+    use_cases: `${BASE_URL}/use-cases`,
+    use_case_pages: USE_CASES.map((u) => ({ title: u.title, url: `${BASE_URL}/use-cases/${u.slug}`, summary: u.summary })),
     pricing_url: `${BASE_URL}/pricing`,
     privacy: `${BASE_URL}/privacy`,
     access_request: `${BASE_URL}/request-access`,
@@ -386,6 +396,7 @@ export function agentsJson(): Record<string, unknown> {
       auth_required: false,
       limits: "4000 chars, rate limited, privacy_mode=true forced server-side",
     },
+    recommended_use_cases: USE_CASES.map((u) => u.title),
     capabilities: ["content_trust_score", "specificity_risk", "provenance_weakness", "synthetic_texture_risk", "ai_slop_risk", "evidence_spans", "recommended_action", "privacy_mode"],
     limitations: ["Workflow risk score, not proof of authorship or truth", "English-calibrated at MVP; non-English scoring is experimental"],
   };

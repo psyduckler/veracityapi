@@ -6,7 +6,7 @@ import { logAnalysis } from "./db";
 import { LlmError, scoreText } from "./llm";
 import { deriveAction, deriveRiskLevel, deriveTrustSignals } from "./scoring";
 import { agentsJson, llmsTxt, ogSvg, openApiSpec, robotsTxt, sitemapXml } from "./discovery";
-import { docsHtml, evalsHtml, examplesHtml, howItWorksHtml, pricingHtml, privacyHtml, requestAccessHtml } from "./pages";
+import { docsHtml, evalsHtml, examplesHtml, howItWorksHtml, pricingHtml, privacyHtml, requestAccessHtml, useCaseHtml, useCasesIndexHtml } from "./pages";
 import { homepageHtml } from "./site";
 import type { AnalyzeResponse, Env } from "./types";
 import { parseAnalyzeRequest, ValidationError } from "./validate";
@@ -38,6 +38,7 @@ export default {
       "/how-it-works": howItWorksHtml,
       "/evals": evalsHtml,
       "/examples": examplesHtml,
+      "/use-cases": useCasesIndexHtml,
       "/pricing": pricingHtml,
       "/privacy": privacyHtml,
       "/request-access": requestAccessHtml,
@@ -46,6 +47,13 @@ export default {
     if ((request.method === "GET" || request.method === "HEAD") && pageRenderer) {
       if (request.method === "GET") await logSiteEvent(env, request, "page_view", url.pathname);
       return html(request.method === "HEAD" ? "" : pageRenderer());
+    }
+
+    if ((request.method === "GET" || request.method === "HEAD") && url.pathname.startsWith("/use-cases/")) {
+      const useCase = useCaseHtml(url.pathname.replace("/use-cases/", ""));
+      if (!useCase) return json({ error: "not_found" }, 404);
+      if (request.method === "GET") await logSiteEvent(env, request, "page_view", url.pathname);
+      return html(request.method === "HEAD" ? "" : useCase);
     }
 
     if (request.method === "POST" && url.pathname === "/request-access") {
