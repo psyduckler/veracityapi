@@ -67,6 +67,15 @@ const mcpConfig = `{
   }
 }`;
 
+const remoteMcpConfig = `{
+  "mcpServers": {
+    "veracityapi": {
+      "url": "https://api.veracityapi.com/mcp",
+      "headers": { "Authorization": "Bearer vap_..." }
+    }
+  }
+}`;
+
 export const DISTRIBUTION_PAGES: DistributionPage[] = [
   {
     path: "/ai-detection-api",
@@ -259,15 +268,38 @@ export const DISTRIBUTION_PAGES: DistributionPage[] = [
   {
     path: "/integrations/mcp",
     title: "Content Verification Tools for MCP Agents | VeracityAPI",
-    description: "Connect Claude Desktop, Cursor, and MCP clients to VeracityAPI tools for text, image, audio, batch checks, and balance preflight.",
+    description: "Connect Claude Desktop, Cursor, Claude.ai custom connectors, and MCP clients to VeracityAPI tools for text, image, audio, batch checks, and balance preflight.",
     eyebrow: "Integration · MCP",
     h1: "Content verification tools for MCP agents.",
-    lead: "Give MCP-compatible agents structured tools to analyze text, images, audio, batches, and account balance before acting.",
-    recommend: ["Claude Desktop and Cursor workflows", "Batch QA loops", "Autonomous spend preflight via /v1/balance", "Tool wrappers that preserve evidence and recommended_action"],
+    lead: "Give MCP-compatible agents structured tools to analyze text, images, audio, batches, and account balance before acting. Use the local npm server for desktop clients or the hosted remote MCP endpoint at https://api.veracityapi.com/mcp for custom connectors.",
+    recommend: ["Claude Desktop, Claude.ai custom connectors, and Cursor workflows", "Batch QA loops", "Autonomous spend preflight via /v1/balance", "Tool wrappers that preserve evidence and recommended_action"],
     avoid: ["Unbounded calls without balance checks", "Sending secrets in prompts", "Treating risk scores as forensic labels"],
-    cta: "Use the MCP wrapper when your agent already speaks tools and needs stable JSON outputs.",
-    sections: [{ title: "Claude/Cursor config", body: "Install the package and set VERACITY_API_KEY in the MCP server environment; never paste secrets into prompts." }],
-    code: mcpConfig,
+    cta: "Use the MCP wrapper when your agent already speaks tools and needs stable JSON outputs. Public package: @veracityapi/mcp@0.1.0 at https://www.npmjs.com/package/@veracityapi/mcp. Remote MCP: https://api.veracityapi.com/mcp.",
+    sections: [
+      { title: "Local Claude Desktop/Cursor config", body: "Install @veracityapi/mcp@0.1.0 with npx -y @veracityapi/mcp and set VERACITY_API_KEY in the MCP server environment; never paste secrets into prompts." },
+      { title: "Hosted remote MCP", body: "Connect remote-MCP clients to https://api.veracityapi.com/mcp and send Authorization: Bearer VERACITY_API_KEY. The server exposes analyze_text, analyze_image, analyze_audio, analyze_batch, check_balance, and get_balance." },
+    ],
+    code: `${mcpConfig}
+
+Remote MCP:
+${remoteMcpConfig}`,
+  },
+  {
+    path: "/integrations/claude",
+    title: "Claude Connector for Content Verification | VeracityAPI",
+    description: "Connect Claude.ai, Claude Desktop, and Claude Code to VeracityAPI through hosted remote MCP or the local npm MCP package.",
+    eyebrow: "Integration · Claude",
+    h1: "Claude connector for content verification.",
+    lead: "Use VeracityAPI as a Claude tool before content is published, cited, accepted, moderated, or used as training data. Claude gets deterministic recommended_action values, evidence, and balance preflight instead of ambiguous detector percentages.",
+    recommend: ["Claude.ai custom connectors via remote MCP", "Claude Desktop local MCP workflows", "Claude Code/content QA automations", "Pre-publish review, RAG source triage, and upload moderation"],
+    avoid: ["Forensic authorship claims", "Voice-clone or speaker-identity verdicts", "Running large autonomous batches without check_balance", "Putting API keys in chat messages"],
+    cta: "Add a Claude custom connector pointed at https://api.veracityapi.com/mcp, authorize with a VeracityAPI bearer key, then call check_balance before analyze_text/analyze_image/analyze_audio/analyze_batch.",
+    sections: [
+      { title: "Claude.ai custom connector", body: "In Claude settings, add a custom connector using the remote MCP URL https://api.veracityapi.com/mcp. Configure Authorization: Bearer VERACITY_API_KEY if your workspace supports bearer/API-key headers for custom connectors." },
+      { title: "Claude Desktop", body: "Use the local npm MCP package with npx -y @veracityapi/mcp and env VERACITY_API_KEY=vap_... . This remains the most reliable desktop setup." },
+      { title: "Tool policy", body: "Call check_balance before autonomous loops. Treat every result as a workflow-risk signal and route by recommended_action: allow, revise, human_review, or reject." },
+    ],
+    code: remoteMcpConfig,
   },
   {
     path: "/integrations/langgraph",

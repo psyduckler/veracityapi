@@ -46,6 +46,7 @@ describe("agent distribution surfaces", () => {
       "/alternatives/resemble-detect",
       "/integrations/openai-actions",
       "/integrations/mcp",
+      "/integrations/claude",
       "/integrations/langgraph",
     ];
     for (const path of paths) {
@@ -86,6 +87,7 @@ describe("agent distribution surfaces", () => {
     expect(text).toContain('-H "Content-Type: application/json"');
     expect(text).toContain("npx -y @veracityapi/mcp");
     expect(text).toContain("Required env: VERACITY_API_KEY");
+    expect(text).toContain("https://api.veracityapi.com/mcp");
     expect(text).toContain("Evidence enum values");
   });
 
@@ -97,8 +99,39 @@ describe("agent distribution surfaces", () => {
       command: "npx",
       args: ["-y", "@veracityapi/mcp"],
       env: ["VERACITY_API_KEY"],
+      remote_url: "https://api.veracityapi.com/mcp",
+      remote_transport: "streamable_http_jsonrpc",
     });
+    expect(agents.claude_connector).toBe("https://veracityapi.com/integrations/claude");
     expect(agents.mcp_server.tools).toEqual(["analyze_text", "analyze_image", "analyze_audio", "check_balance", "get_balance", "analyze_batch"]);
+  });
+
+  it("serves a stateless remote MCP JSON-RPC endpoint", async () => {
+    const init = await worker.fetch(new Request("https://api.veracityapi.com/mcp", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test", version: "0" } } }),
+    }), env);
+    expect(init.status).toBe(200);
+    const initJson = await init.json() as any;
+    expect(initJson.result.serverInfo.name).toBe("veracityapi");
+
+    const listed = await worker.fetch(new Request("https://api.veracityapi.com/mcp", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }),
+    }), env);
+    const listedJson = await listed.json() as any;
+    expect(listedJson.result.tools.map((tool: any) => tool.name)).toEqual(["analyze_text", "analyze_image", "analyze_audio", "analyze_batch", "check_balance", "get_balance"]);
+
+    const call = await worker.fetch(new Request("https://api.veracityapi.com/mcp", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "check_balance", arguments: {} } }),
+    }), env);
+    const callJson = await call.json() as any;
+    expect(callJson.result.isError).toBe(true);
+    expect(callJson.result.content[0].text).toContain("unauthorized");
   });
 
   it("adds conversion/proof homepage blocks and checkmark logo/favicons", async () => {
@@ -120,7 +153,7 @@ describe("agent distribution surfaces", () => {
 
   it("lists new distribution pages in sitemap", () => {
     const sitemap = sitemapXml();
-    for (const path of ["/ai-detection-api", "/ai-audio-detection-api", "/alternatives/deepmedia", "/alternatives/reality-defender", "/integrations/mcp", "/integrations/langgraph"]) {
+    for (const path of ["/ai-detection-api", "/ai-audio-detection-api", "/alternatives/deepmedia", "/alternatives/reality-defender", "/integrations/mcp", "/integrations/claude", "/integrations/langgraph"]) {
       expect(sitemap).toContain(`https://veracityapi.com${path}`);
     }
   });

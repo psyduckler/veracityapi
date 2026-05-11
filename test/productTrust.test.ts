@@ -307,6 +307,9 @@ describe("developer examples and dashboard conversion", () => {
     expect(mcp).toContain("npx -y @veracityapi/mcp");
     expect(mcp).not.toContain("npm auth is completed");
     expect(mcp).not.toContain("package is not yet visible");
+    expect(mcp).not.toContain("Remote MCP for Claude.ai custom connectors is a later milestone");
+    expect(mcp).toContain("https://api.veracityapi.com/mcp");
+    expect(mcp).toContain("/integrations/claude");
     expect(mcp).toContain("VERACITY_API_KEY");
     expect(mcp).toContain("check_balance");
     expect(mcp).toContain("get_balance");

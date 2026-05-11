@@ -679,6 +679,7 @@ curl ${API_BASE_URL}/v1/analyze \\
 - Docs: ${BASE_URL}/docs
 - For agents: ${BASE_URL}/for-agents
 - MCP integration: ${BASE_URL}/mcp
+- Claude connector: ${BASE_URL}/integrations/claude
 - Evals/proof: ${BASE_URL}/evals
 - Examples/tool wrapper: ${BASE_URL}/examples
 - Pricing: ${BASE_URL}/pricing
@@ -687,8 +688,10 @@ curl ${API_BASE_URL}/v1/analyze \\
 
 ## MCP
 
-Install: npx -y @veracityapi/mcp
+Local install: npx -y @veracityapi/mcp
 Required env: VERACITY_API_KEY
+Remote MCP endpoint for custom connectors: ${API_BASE_URL}/mcp
+Remote auth: Authorization: Bearer VERACITY_API_KEY
 Tools: analyze_text, analyze_image, analyze_audio, analyze_batch, check_balance, get_balance.
 
 ## Evidence enum values
@@ -745,6 +748,8 @@ export function agentsJson(): Record<string, unknown> {
     docs: `${BASE_URL}/docs`,
     for_agents: `${BASE_URL}/for-agents`,
     mcp: `${BASE_URL}/mcp`,
+    remote_mcp: `${API_BASE_URL}/mcp`,
+    claude_connector: `${BASE_URL}/integrations/claude`,
     evals: `${BASE_URL}/evals`,
     examples: `${BASE_URL}/examples`,
     use_cases: `${BASE_URL}/use-cases`,
@@ -791,10 +796,15 @@ export function agentsJson(): Record<string, unknown> {
     
     mcp_server: {
       package: "@veracityapi/mcp",
+      package_version: "0.1.0",
+      npm_url: "https://www.npmjs.com/package/@veracityapi/mcp",
       transport: "stdio",
       command: "npx",
       args: ["-y", "@veracityapi/mcp"],
       env: ["VERACITY_API_KEY"],
+      remote_transport: "streamable_http_jsonrpc",
+      remote_url: `${API_BASE_URL}/mcp`,
+      remote_auth: "Authorization: Bearer VERACITY_API_KEY",
       tools: ["analyze_text", "analyze_image", "analyze_audio", "check_balance", "get_balance", "analyze_batch"],
     },
     endpoints: [

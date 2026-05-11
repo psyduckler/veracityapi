@@ -173,6 +173,10 @@ export default {
       return json(request.method === "HEAD" ? null : { status: "ok", service: "veracityapi", version: env.MODEL_VERSION || "v0.1" });
     }
 
+    if ((request.method === "GET" || request.method === "HEAD" || request.method === "POST") && url.pathname === "/mcp") {
+      return handleRemoteMcp(request, env);
+    }
+
     if (request.method === "POST" && url.pathname === "/demo/analyze") {
       await logSiteEvent(env, request, "demo_run", url.pathname);
       return handleDemoAnalyze(request, env);
@@ -757,6 +761,186 @@ function jsonRequest(url: string, body: unknown): Request {
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
+}
+
+const MCP_TOOLS = [
+  {
+    name: "analyze_text",
+    description: "Analyze text for content trust, specificity risk, weak provenance, slop risk, evidence, and recommended workflow action. Workflow triage only; not proof of AI authorship or truth.",
+    inputSchema: {
+      type: "object",
+      required: ["text"],
+      properties: {
+        text: { type: "string", minLength: 20, maxLength: 100000 },
+        context: mcpContextSchema(),
+        store_content: { type: "boolean", default: false, description: "Default false. Do not store raw content unless explicitly needed for audit/debug." },
+        privacy_mode: { type: "boolean", default: true, deprecated: true, description: "Legacy alias. Prefer store_content:false." },
+        auto_revise: { type: "boolean", default: false, description: "When true, bill Analyze + revise at $0.010 per 1k chars and return revised_text only when recommended_action=revise." },
+      },
+    },
+  },
+  {
+    name: "analyze_image",
+    description: "Analyze an HTTPS image URL for visible synthetic-image artifact risk, content trust score, evidence, and recommended workflow action. Not forensic proof of AI authorship, provenance, identity, or truth.",
+    inputSchema: {
+      type: "object",
+      required: ["image_url"],
+      properties: {
+        image_url: { type: "string", format: "uri", maxLength: 2000, description: "HTTPS image URL to analyze." },
+        context: mcpContextSchema(),
+        store_content: { type: "boolean", default: false, description: "No raw image bytes or full URLs are stored; only URL hash and hostname are logged." },
+        privacy_mode: { type: "boolean", default: true, deprecated: true },
+      },
+    },
+  },
+  {
+    name: "analyze_audio",
+    description: "Analyze a short HTTPS audio URL for synthetic-audio workflow triage. Stores no audio bytes/base64/full URL. Not proof of AI generation, voice cloning, speaker identity, or truth.",
+    inputSchema: {
+      type: "object",
+      required: ["audio_url"],
+      properties: {
+        audio_url: { type: "string", format: "uri", maxLength: 2000, description: "HTTPS audio URL. Supports common short audio formats up to 4 MB." },
+        transcript: { type: "string", maxLength: 10000, description: "Optional caller-supplied transcript/context. VeracityAPI also returns a Gemini-generated transcript." },
+        context: mcpContextSchema(),
+        store_content: { type: "boolean", default: false, description: "No raw audio bytes, base64, or full URLs are stored; only URL hash and hostname are logged." },
+        privacy_mode: { type: "boolean", default: true, deprecated: true },
+      },
+    },
+  },
+  {
+    name: "analyze_batch",
+    description: "Analyze 1-25 short text items in one bounded synchronous batch. Use before autonomous publishing/moderation loops.",
+    inputSchema: {
+      type: "object",
+      required: ["items"],
+      properties: {
+        items: { type: "array", minItems: 1, maxItems: 25, items: { type: "object", required: ["id", "text"], properties: { id: { type: "string", minLength: 1, maxLength: 120 }, text: { type: "string", minLength: 20, maxLength: 4000 } } } },
+        context: mcpContextSchema(),
+        store_content: { type: "boolean", default: false },
+        privacy_mode: { type: "boolean", default: true, deprecated: true },
+      },
+    },
+  },
+  { name: "check_balance", description: "Get VeracityAPI account credit balance and recent usage before running agent analysis loops.", inputSchema: { type: "object", properties: {} } },
+  { name: "get_balance", description: "Compatibility alias for check_balance.", inputSchema: { type: "object", properties: {} } },
+] as const;
+
+function mcpContextSchema() {
+  return {
+    type: "object",
+    properties: {
+      format: { type: "string", enum: ["article", "social_post", "product_review", "caption", "other"], default: "other" },
+      intended_use: { type: "string", enum: ["publish", "train", "cite", "moderate", "other"], default: "other" },
+      domain: { type: "string", maxLength: 100 },
+    },
+  };
+}
+
+async function handleRemoteMcp(request: Request, env: Env): Promise<Response> {
+  if (request.method === "GET" || request.method === "HEAD") {
+    return json(request.method === "HEAD" ? null : {
+      name: "veracityapi",
+      version: "0.1.0",
+      transport: "streamable_http_jsonrpc",
+      endpoint: "https://api.veracityapi.com/mcp",
+      auth: "Authorization: Bearer VERACITY_API_KEY",
+      tools: MCP_TOOLS.map((tool) => tool.name),
+    });
+  }
+
+  let payload: any;
+  try {
+    payload = await request.json();
+  } catch {
+    return mcpHttpResponse(mcpError(null, -32700, "Parse error"), 400);
+  }
+  const isBatch = Array.isArray(payload);
+  const messages = isBatch ? payload : [payload];
+  const responses = [];
+  for (const message of messages) {
+    const response = await handleMcpMessage(message, request, env);
+    if (response !== null) responses.push(response);
+  }
+  if (responses.length === 0) return new Response(null, { status: 202, headers: corsHeaders() });
+  return mcpHttpResponse(isBatch ? responses : responses[0]);
+}
+
+async function handleMcpMessage(message: any, source: Request, env: Env): Promise<Record<string, unknown> | null> {
+  const id = message?.id ?? null;
+  const method = message?.method;
+  if (!id && typeof method === "string" && method.startsWith("notifications/")) return null;
+
+  if (method === "initialize") {
+    return mcpResult(id, {
+      protocolVersion: "2025-06-18",
+      capabilities: { tools: {} },
+      serverInfo: { name: "veracityapi", version: "0.1.0" },
+      instructions: "Use VeracityAPI as a content, image, and audio workflow-risk gate for agents. Return recommended_action and evidence; do not treat outputs as forensic proof.",
+    });
+  }
+  if (method === "ping") return mcpResult(id, {});
+  if (method === "tools/list") return mcpResult(id, { tools: MCP_TOOLS });
+  if (method === "tools/call") return callMcpTool(id, String(message?.params?.name || ""), message?.params?.arguments || {}, source, env);
+  return mcpError(id, -32601, `Method not found: ${method || "unknown"}`);
+}
+
+async function callMcpTool(id: unknown, name: string, args: Record<string, unknown>, source: Request, env: Env): Promise<Record<string, unknown>> {
+  try {
+    let response: Response;
+    if (name === "analyze_text") {
+      response = await handleUnifiedAnalyze(mcpApiRequest(source, "/v1/analyze", { type: "text", content: args.text, context: args.context, store_content: args.store_content ?? (args.privacy_mode === undefined ? false : !args.privacy_mode), auto_revise: args.auto_revise }), env);
+    } else if (name === "analyze_image") {
+      response = await handleUnifiedAnalyze(mcpApiRequest(source, "/v1/analyze", { type: "image", content: args.image_url, context: args.context, store_content: false }), env);
+    } else if (name === "analyze_audio") {
+      response = await handleUnifiedAnalyze(mcpApiRequest(source, "/v1/analyze", { type: "audio", content: args.audio_url, transcript: args.transcript, context: args.context, store_content: false }), env);
+    } else if (name === "analyze_batch") {
+      response = await handleAnalyzeBatch(mcpApiRequest(source, "/v1/analyze-batch", { items: args.items, context: args.context, store_content: args.store_content ?? false }), env);
+    } else if (name === "check_balance" || name === "get_balance") {
+      response = await handleBalance(mcpApiRequest(source, "/v1/balance", null, "GET"), env);
+    } else {
+      return mcpResult(id, { isError: true, content: [{ type: "text", text: `Unknown tool: ${name}` }] });
+    }
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) return mcpResult(id, { isError: true, content: [{ type: "text", text: formatMcpApiError(response.status, result) }, { type: "text", text: JSON.stringify(result, null, 2) }] });
+    return mcpResult(id, { content: [{ type: "text", text: summarizeMcpResult(name, result) }, { type: "text", text: JSON.stringify(result, null, 2) }] });
+  } catch (err) {
+    return mcpResult(id, { isError: true, content: [{ type: "text", text: err instanceof Error ? err.message : "Tool call failed" }] });
+  }
+}
+
+function mcpApiRequest(source: Request, path: string, body: unknown, method: "GET" | "POST" = "POST"): Request {
+  const url = new URL(source.url);
+  const headers = new Headers();
+  const authorization = source.headers.get("authorization");
+  if (authorization) headers.set("authorization", authorization);
+  if (method === "POST") headers.set("content-type", "application/json");
+  return new Request(`${url.origin}${path}`, { method, headers, ...(method === "POST" ? { body: JSON.stringify(body) } : {}) });
+}
+
+function summarizeMcpResult(name: string, result: any): string {
+  if (name === "check_balance" || name === "get_balance") return `Balance: $${((Number(result.balance_cents || 0)) / 100).toFixed(2)} ${result.currency || "USD"}.`;
+  if (name === "analyze_batch") return `Batch analysis complete: ${Array.isArray(result.results) ? result.results.length : 0} items analyzed.`;
+  return `VeracityAPI ${result.modality || name} analysis: recommended_action=${result.recommended_action || "unknown"}; risk_level=${result.risk_level || "unknown"}; primary_reason=${result.primary_reason || "unknown"}.`;
+}
+
+function formatMcpApiError(status: number, result: any): string {
+  const message = typeof result?.message === "string" ? result.message : typeof result?.error === "string" ? result.error : "Request failed";
+  if (status === 401) return "VeracityAPI unauthorized: missing or invalid API key. Create/copy a key at https://veracityapi.com/account and send it as Authorization: Bearer VERACITY_API_KEY.";
+  if (status === 402) return `${message} Top up at https://veracityapi.com/account.`;
+  return `VeracityAPI HTTP ${status}: ${message}`;
+}
+
+function mcpResult(id: unknown, result: Record<string, unknown>): Record<string, unknown> {
+  return { jsonrpc: "2.0", id, result };
+}
+
+function mcpError(id: unknown, code: number, message: string): Record<string, unknown> {
+  return { jsonrpc: "2.0", id, error: { code, message } };
+}
+
+function mcpHttpResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json; charset=utf-8", ...corsHeaders() } });
 }
 
 function html(body: string, cache = true, status = 200): Response {
