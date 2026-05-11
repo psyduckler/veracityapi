@@ -631,10 +631,10 @@ export function useCaseHtml(slug: string): string | null {
     ? JSON.stringify({ image_url: u.sampleImageUrl ?? "https://example.com/image.jpg", context: u.context, privacy_mode: true }, null, 2)
     : JSON.stringify({ text: u.sampleText, context: u.context, privacy_mode: true }, null, 2);
   const requestBlock = modality === "image"
-    ? `<section class="card"><h3>Request template</h3><pre>curl ${API_BASE_URL}/v1/analyze-image \\n  -H "Authorization: Bearer ***" \\n  -H "Content-Type: application/json" \\n  -d '${esc(request)}'</pre></section>`
+    ? `<section class="card"><h3>Request template</h3><pre>curl ${API_BASE_URL}/v1/analyze-image \\n  -H "Authorization: Bearer $VERACITYAPI_KEY" \\n  -H "Content-Type: application/json" \\n  -d '${esc(request)}'</pre></section>`
     : modality === "audio"
       ? `<section class="card"><h3>Request template</h3><pre>curl ${API_BASE_URL}/v1/analyze-audio \\n  -H "Authorization: Bearer $VERACITYAPI_KEY" \\n  -H "Content-Type: application/json" \\n  -d '${esc(JSON.stringify({ audio_url: "https://your-secure-storage.example/clip.mp3", transcript: "optional caller-supplied transcript", context: u.context, privacy_mode: true }, null, 2))}'</pre></section>`
-      : `<section class="card"><h3>Request template</h3><pre>curl ${API_BASE_URL}/v1/analyze-text \\n  -H "Authorization: Bearer ***" \\n  -H "Content-Type: application/json" \\n  -d '${esc(request)}'</pre></section>`;
+      : `<section class="card"><h3>Request template</h3><pre>curl ${API_BASE_URL}/v1/analyze-text \\n  -H "Authorization: Bearer $VERACITYAPI_KEY" \\n  -H "Content-Type: application/json" \\n  -d '${esc(request)}'</pre></section>`;
   const inputLabel = modality === "image" ? "What image URL to submit" : modality === "audio" ? "What audio URL to submit" : "What text to submit";
   const costNotes = modality === "image"
     ? "Image analysis is a flat $0.02 per image. The endpoint accepts HTTPS image URLs, stores no image bytes, and logs only a URL hash plus hostname. Current v0.1 latency is vision-model-bound, so preflight balance and retry carefully."

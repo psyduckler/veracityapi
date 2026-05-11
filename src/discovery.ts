@@ -651,6 +651,7 @@ Public demo is open. New accounts get $1.50 free credit — enough for 150 short
 - Text ≤50k chars: $0.06
 - Text ≤100k chars: $0.12
 - Image analysis: $0.02/image
+- Audio workflow triage: $0.01/request
 - >100k chars: chunk or contact us
 
 ## Limitations
@@ -761,6 +762,6 @@ export function ogSvg(): string {
   <text x="108" y="282" fill="#f7f8f8" font-family="Inter, Arial, sans-serif" font-size="66" font-weight="700">Content trust scoring</text>
   <text x="108" y="358" fill="#f7f8f8" font-family="Inter, Arial, sans-serif" font-size="66" font-weight="700">for agents</text>
   <text x="110" y="438" fill="#a2a8b3" font-family="Inter, Arial, sans-serif" font-size="30">Specificity · Provenance · Evidence · Actions</text>
-  <text x="110" y="496" fill="#d0d6e0" font-family="JetBrains Mono, monospace" font-size="24">POST /v1/analyze-text or /v1/analyze-image → JSON</text>
+  <text x="110" y="496" fill="#d0d6e0" font-family="JetBrains Mono, monospace" font-size="24">POST text/image/audio → JSON</text>
 </svg>`;
 }

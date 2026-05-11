@@ -65,7 +65,7 @@ Auth: send a bearer token in the `Authorization` header for `/v1/*` endpoints. C
 
 ```bash
 curl https://api.veracityapi.com/v1/analyze-text \
-  -H "Authorization: Bearer ***" \
+  -H "Authorization: Bearer $VERACITYAPI_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "text": "Travelers should always be careful in tourist areas because scams can happen anywhere. Keep your belongings close and avoid strangers.",
@@ -82,7 +82,7 @@ curl https://api.veracityapi.com/v1/analyze-text \
 
 ```bash
 curl https://api.veracityapi.com/v1/analyze-image \
-  -H "Authorization: Bearer ***" \
+  -H "Authorization: Bearer $VERACITYAPI_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "image_url": "https://veracityapi.com/demo/influencer-beauty-tonic.jpg",
@@ -97,7 +97,7 @@ Image analysis is API-key-only at launch, costs $0.02/image, stores no image byt
 
 ```bash
 curl https://api.veracityapi.com/v1/analyze-audio \
-  -H "Authorization: Bearer ***" \
+  -H "Authorization: Bearer $VERACITYAPI_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "audio_url": "https://veracityapi.com/assets/demo-voice-message.mp3",

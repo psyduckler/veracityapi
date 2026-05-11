@@ -117,8 +117,8 @@ describe("privacy logging", () => {
 describe("homepage conversion", () => {
   it("leads with the text/slop wedge, shows curl and JSON above the live demo, and has two primary CTAs", () => {
     const html = homepageHtml();
-    expect(html).toContain("AI authorship detection is broken");
-    expect(html).toContain("slop scores");
+    expect(html).toContain("A content trust gate for agents");
+    expect(html).toContain("workflow risk");
     expect(html).toContain("$1.50 free credit — enough for 150 short text analyses");
     expect(html).toContain("curl https://api.veracityapi.com/v1/analyze-text");
     expect(html).toContain('"recommended_action"');

@@ -1,0 +1,49 @@
+{
+  "name": "@veracityapi/mcp",
+  "version": "0.1.0",
+  "description": "Content trust scoring tools for MCP-compatible agents",
+  "type": "module",
+  "bin": {
+    "veracityapi-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.json",
+    "test": "vitest run",
+    "dev": "tsx src/index.ts",
+    "smoke": "tsx scripts/smoke.mts"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "veracityapi",
+    "content-trust",
+    "ai-safety"
+  ],
+  "homepage": "https://veracityapi.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/veracityapi/veracityapi.git",
+    "directory": "packages/mcp"
+  },
+  "bugs": {
+    "url": "https://veracityapi.com/account"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.22.0",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.2",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.8"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
