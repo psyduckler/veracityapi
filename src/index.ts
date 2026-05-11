@@ -3,7 +3,7 @@ import { sha256Hex } from "./auth";
 import { accountHtml, buildAccountView, cleanEmail, clearSessionCookie, consumeMagicLink, createApiKey, createMagicLink, getSessionAccount, parseForm, redirect, requireAccount, sendMagicLink, sessionCookie, validEmail } from "./account";
 import { authenticateUsageKey, BillingAuthError, creditCheckoutSession, CREDIT_PACKS, debitForAudio, debitForBatchRequest, debitForImage, debitForRequest, getBalanceSummary, InsufficientBalanceError, refundUsage, verifyStripeWebhook } from "./billing";
 import { logAnalysis } from "./db";
-import { LlmError, scoreAudio, scoreImage, scoreText } from "./llm";
+import { LlmError, reviseText, scoreAudio, scoreImage, scoreText } from "./llm";
 import { deriveAction, deriveAudioRiskLevel, deriveAudioTrustScore, deriveImageRiskLevel, deriveImageTrustScore, deriveRiskLevel, deriveTrustSignals } from "./scoring";
 import { agentsJson, faviconSvg, INDEXNOW_KEY, llmsTxt, ogSvg, openApiSpec, robotsTxt, sitemapXml } from "./discovery";
 import { DEMO_IMAGE_CONTENT_TYPE, DEMO_IMAGE_PATH, demoImageBytes } from "./demoImage";
@@ -81,6 +81,7 @@ export default {
 
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/account") {
       const account = await getSessionAccount(request, env);
+      if (request.method === "GET") await logSiteEvent(env, request, account ? "account_view" : "signup_page_view", url.pathname, account ? { account_id: account.accountId } : {});
       const view = account ? await buildAccountView(env, account.accountId, account.email) : null;
       return html(request.method === "HEAD" ? "" : accountHtml(view, url.searchParams.get("message") || ""), false);
     }
@@ -107,7 +108,10 @@ export default {
       const redirectTarget = distributionRedirectTarget(url.pathname);
       if (redirectTarget) return Response.redirect(`${url.origin}${redirectTarget}`, 301);
       const distribution = distributionPageHtml(url.pathname);
-      if (distribution) return html(request.method === "HEAD" ? "" : distribution);
+      if (distribution) {
+        if (request.method === "GET") await logSiteEvent(env, request, "page_view", url.pathname);
+        return html(request.method === "HEAD" ? "" : distribution);
+      }
     }
 
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname === `/${INDEXNOW_KEY}.txt`) {
@@ -231,7 +235,7 @@ async function handleDemoAnalyze(request: Request, env: Env): Promise<Response> 
   try {
     const ip = request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for") || "unknown";
     if (!consumeDemoQuota(ip, Number(env.DEMO_RATE_LIMIT_PER_HOUR || 12))) {
-      return json({ error: "rate_limited", message: "Public demo limit reached. Try again later or create an account for $1.50 free credit — enough for 300 1k-character text analyses." }, 429, { "Retry-After": "3600" });
+      return json({ error: "rate_limited", message: "Public demo limit reached. Try again later or create an account for $1.50 free credit — enough for 300 analyze-only 1k-character text requests or 150 Analyze + revise requests." }, 429, { "Retry-After": "3600" });
     }
 
     let body: Record<string, unknown>;
@@ -248,7 +252,7 @@ async function handleDemoAnalyze(request: Request, env: Env): Promise<Response> 
     const sanitized = {
       text: body.text,
       context: body.context,
-      privacy_mode: true,
+      store_content: false,
     };
     const parsed = await parseAnalyzeRequest(jsonRequest(request.url, sanitized));
     const scored = await scoreText(parsed, env);
@@ -296,7 +300,7 @@ async function handleDemoAnalyzeImage(request: Request, env: Env): Promise<Respo
     } catch {
       throw new ValidationError("Request body must be valid JSON");
     }
-    const sanitized = { image_url: body.image_url, context: body.context, privacy_mode: true };
+    const sanitized = { image_url: body.image_url, context: body.context, store_content: false };
     const parsed = await parseAnalyzeImageRequest(jsonRequest(request.url, sanitized));
     const scored = await scoreImage(parsed, env);
     const riskLevel = deriveImageRiskLevel(scored.synthetic_image_risk);
@@ -338,7 +342,7 @@ async function handleDemoAnalyzeAudio(request: Request, env: Env): Promise<Respo
     if (!consumeDemoQuota(`audio:${ip}:${cookieKey}`, Number(env.DEMO_RATE_LIMIT_PER_HOUR || 12))) return json({ error: "rate_limited", message: "Public audio demo limit reached. Try again later or create an account for API access." }, 429, { "Retry-After": "3600" });
     let body: Record<string, unknown>;
     try { body = await request.json() as Record<string, unknown>; } catch { throw new ValidationError("Request body must be valid JSON"); }
-    const parsed = await parseAnalyzeAudioRequest(jsonRequest(request.url, { audio_url: body.audio_url, transcript: body.transcript, context: body.context, privacy_mode: true }));
+    const parsed = await parseAnalyzeAudioRequest(jsonRequest(request.url, { audio_url: body.audio_url, transcript: body.transcript, context: body.context, store_content: false }));
     const scored = await scoreAudio(parsed, env);
     const riskLevel = deriveAudioRiskLevel(scored.synthetic_audio_risk, scored.workflow_risk);
     const response: AnalyzeAudioResponse = { analysis_id: `demo_aud_${ulid()}`, ...scored, content_trust_score: deriveAudioTrustScore(scored.synthetic_audio_risk, scored.workflow_risk), risk_level: riskLevel, recommended_action: deriveAction(riskLevel, parsed.context.intended_use), model_version: env.MODEL_VERSION || "v0.1", limitations: AUDIO_LIMITATIONS };
@@ -367,7 +371,7 @@ async function handleUnifiedAnalyze(request: Request, env: Env): Promise<Respons
   try {
     const parsed = await parseUnifiedAnalyzeRequest(request);
     if (parsed.type === "text") {
-      return handleAnalyzeText(jsonRequestFrom(request, { text: parsed.content, context: parsed.context, privacy_mode: parsed.privacy_mode }), env);
+      return handleAnalyzeText(jsonRequestFrom(request, { text: parsed.content, context: parsed.context, privacy_mode: parsed.privacy_mode, auto_revise: parsed.auto_revise }), env);
     }
     if (parsed.type === "image") {
       return handleAnalyzeImage(jsonRequestFrom(request, { image_url: parsed.content, context: parsed.context, privacy_mode: parsed.privacy_mode }), env);
@@ -450,6 +454,7 @@ async function handleAnalyzeText(request: Request, env: Env): Promise<Response> 
       ...derived,
       risk_level: riskLevel,
       recommended_action: action,
+      ...(parsed.auto_revise === true && action === "revise" ? await reviseText(parsed, scored.recommended_fixes, env) : {}),
       model_version: env.MODEL_VERSION || "v0.1",
       limitations: LIMITATIONS,
       ...(billing ? { billing } : {}),
@@ -463,6 +468,7 @@ async function handleAnalyzeText(request: Request, env: Env): Promise<Response> 
       latencyMs: Date.now() - start,
       kind: "text",
     });
+    await logApiCallSuccess(env, request, auth.accountId, auth.apiKeyId, "text", response.analysis_id);
     return json(response);
   } catch (err) {
     if (debit && (err instanceof LlmError)) await refundUsage(env, debit.accountId, debit.apiKeyId, debit.analysisId, debit.billing, "llm_unavailable");
@@ -506,6 +512,7 @@ async function handleAnalyzeImage(request: Request, env: Env): Promise<Response>
       latencyMs: Date.now() - start,
       kind: "image",
     });
+    await logApiCallSuccess(env, request, auth.accountId, auth.apiKeyId, "image", response.analysis_id);
     return json(response);
   } catch (err) {
     if (debit && (err instanceof LlmError)) await refundUsage(env, debit.accountId, debit.apiKeyId, debit.analysisId, debit.billing, "llm_unavailable");
@@ -535,6 +542,7 @@ async function handleAnalyzeAudio(request: Request, env: Env): Promise<Response>
     const riskLevel = deriveAudioRiskLevel(scored.synthetic_audio_risk, scored.workflow_risk);
     const response: AnalyzeAudioResponse = { analysis_id: analysisId, ...scored, content_trust_score: deriveAudioTrustScore(scored.synthetic_audio_risk, scored.workflow_risk), risk_level: riskLevel, recommended_action: deriveAction(riskLevel, parsed.context.intended_use), model_version: env.MODEL_VERSION || "v0.1", limitations: AUDIO_LIMITATIONS, billing };
     await logAnalysis({ env, analysisId, apiKeyHash: auth.apiKeyHash, request: parsed, response, latencyMs: Date.now() - start, kind: "audio" });
+    await logApiCallSuccess(env, request, auth.accountId, auth.apiKeyId, "audio", response.analysis_id);
     return json(response);
   } catch (err) {
     if (debit && err instanceof LlmError) await refundUsage(env, debit.accountId, debit.apiKeyId, debit.analysisId, debit.billing, "llm_unavailable");
@@ -559,6 +567,7 @@ async function handleLogin(request: Request, env: Env): Promise<Response> {
     }
     const link = await createMagicLink(email, request, env);
     await sendMagicLink(env, email, link);
+    await logSiteEvent(env, request, "login_link_requested", "/account", { email_hash: emailHash });
     return html(accountHtml(null, "Login link sent. Check your email."), false);
   } catch (err) {
     console.error(err);
@@ -570,6 +579,7 @@ async function handleCallback(request: Request, env: Env): Promise<Response> {
   const token = new URL(request.url).searchParams.get("token") || "";
   try {
     const session = await consumeMagicLink(env, token);
+    await logSiteEvent(env, request, "account_login", "/auth/callback", { account_id: session.accountId });
     return redirect("/account?message=Logged+in", { "Set-Cookie": sessionCookie(session.sessionToken) });
   } catch {
     return redirect("/account?message=Login+link+expired+or+invalid");
@@ -588,6 +598,7 @@ async function handleCreateApiKey(request: Request, env: Env): Promise<Response>
   const params = parseForm(await request.text());
   const label = (params.get("label") || "default").slice(0, 80);
   const created = await createApiKey(env, account.accountId, label);
+  await logSiteEvent(env, request, "api_key_created", "/api-keys", { account_id: account.accountId, key_id: created.keyId, label });
   const view = await buildAccountView(env, account.accountId, account.email);
   return html(accountHtml(view, `API key created. Copy it now: ${created.key}`), false);
 }
@@ -660,6 +671,16 @@ async function handleStripeWebhook(request: Request, env: Env): Promise<Response
   if (event.type === "checkout.session.completed" && event.data?.object) await creditCheckoutSession(env, event.data.object);
   if (event.type === "checkout.session.expired" && event.data?.object?.id) await env.DB.prepare(`UPDATE checkout_sessions SET status = 'expired' WHERE stripe_session_id = ?`).bind(String(event.data.object.id)).run();
   return json({ received: true });
+}
+
+async function logApiCallSuccess(env: Env, request: Request, accountId: string, apiKeyId: string, modality: string, analysisId: string): Promise<void> {
+  try {
+    const row = await env.DB.prepare(`SELECT COUNT(*) AS count FROM usage_events WHERE account_id = ?`).bind(accountId).first<{ count: number }>();
+    const usageCount = Number(row?.count ?? 0);
+    await logSiteEvent(env, request, usageCount <= 1 ? "first_api_call" : "api_call_success", "/v1/analyze", { account_id: accountId, api_key_id: apiKeyId, modality, analysis_id: analysisId, usage_count: usageCount });
+  } catch (err) {
+    console.warn("api_call_event_failed", err);
+  }
 }
 
 async function logSiteEvent(env: Env, request: Request, eventName: string, path: string, metadata: Record<string, unknown> = {}): Promise<void> {

@@ -10,10 +10,12 @@ export const CREDIT_PACKS: Record<string, { amountCents: number; label: string }
 
 export const TEXT_UNIT_CHARS = 1_000;
 export const TEXT_UNIT_PRICE_CENTS = 0.5; // $0.005 per 1,000 characters
+export const TEXT_REVISE_UNIT_PRICE_CENTS = 1; // $0.010 per 1,000 characters for analyze + revise
 
-export function priceForChars(chars: number): { bucket: string; priceCents: number; billableUnits: number } {
+export function priceForChars(chars: number, autoRevise = false): { bucket: string; priceCents: number; billableUnits: number } {
   const billableUnits = Math.max(1, Math.ceil(chars / TEXT_UNIT_CHARS));
-  return { bucket: "text_1k_units", priceCents: billableUnits * TEXT_UNIT_PRICE_CENTS, billableUnits };
+  const unitPrice = autoRevise ? TEXT_REVISE_UNIT_PRICE_CENTS : TEXT_UNIT_PRICE_CENTS;
+  return { bucket: autoRevise ? "text_revise_1k_units" : "text_1k_units", priceCents: billableUnits * unitPrice, billableUnits };
 }
 
 export function priceForImage(): { bucket: string; priceCents: number } {
@@ -39,7 +41,7 @@ export async function authenticateUsageKey(request: Request, env: Env): Promise<
 
 export async function debitForRequest(env: Env, accountId: string, apiKeyId: string, analysisId: string, parsed: AnalyzeRequest): Promise<BillingMetadata> {
   const chars = parsed.text.length;
-  const { bucket, priceCents, billableUnits } = priceForChars(chars);
+  const { bucket, priceCents, billableUnits } = priceForChars(chars, parsed.auto_revise === true);
   const updated = await env.DB.prepare(`UPDATE accounts SET balance_cents = balance_cents - ?, updated_at = ? WHERE account_id = ? AND deleted_at IS NULL AND balance_cents >= ?`)
     .bind(priceCents, new Date().toISOString(), accountId, priceCents)
     .run();
@@ -49,7 +51,7 @@ export async function debitForRequest(env: Env, accountId: string, apiKeyId: str
   }
   const account = await getAccountBalance(env, accountId);
   const usageId = `use_${ulid()}`;
-  await env.DB.prepare(`INSERT INTO credit_ledger (ledger_id, account_id, type, amount_cents, balance_after_cents, reference_id, metadata_json, created_at) VALUES (?, ?, 'usage_debit', ?, ?, ?, ?, ?)`).bind(`led_${ulid()}`, accountId, -priceCents, account.balanceCents, analysisId, JSON.stringify({ api_key_id: apiKeyId, chars_analyzed: chars, billable_units: billableUnits, unit_chars: TEXT_UNIT_CHARS, unit_price_cents: TEXT_UNIT_PRICE_CENTS, bucket }), new Date().toISOString()).run();
+  await env.DB.prepare(`INSERT INTO credit_ledger (ledger_id, account_id, type, amount_cents, balance_after_cents, reference_id, metadata_json, created_at) VALUES (?, ?, 'usage_debit', ?, ?, ?, ?, ?)`).bind(`led_${ulid()}`, accountId, -priceCents, account.balanceCents, analysisId, JSON.stringify({ api_key_id: apiKeyId, chars_analyzed: chars, billable_units: billableUnits, unit_chars: TEXT_UNIT_CHARS, unit_price_cents: parsed.auto_revise === true ? TEXT_REVISE_UNIT_PRICE_CENTS : TEXT_UNIT_PRICE_CENTS, auto_revise: parsed.auto_revise === true, bucket }), new Date().toISOString()).run();
   await env.DB.prepare(`INSERT INTO usage_events (usage_id, account_id, api_key_id, analysis_id, chars_analyzed, bucket, price_cents, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'debited', ?)`).bind(usageId, accountId, apiKeyId, analysisId, chars, bucket, priceCents, new Date().toISOString()).run();
   return { chars_analyzed: chars, units_analyzed: billableUnits, bucket, price_cents: priceCents, remaining_balance_cents: account.balanceCents };
 }
@@ -70,7 +72,7 @@ export async function debitForBatchRequest(env: Env, accountId: string, apiKeyId
   const account = await getAccountBalance(env, accountId);
   const now = new Date().toISOString();
   await env.DB.prepare(`INSERT INTO credit_ledger (ledger_id, account_id, type, amount_cents, balance_after_cents, reference_id, metadata_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
-    .bind(`led_${ulid()}`, accountId, "batch_usage_debit", -priceCents, account.balanceCents, batchId, JSON.stringify({ api_key_id: apiKeyId, units_analyzed: parsed.items.length, billable_units: billableUnits, chars_analyzed: totalChars, unit_chars: TEXT_UNIT_CHARS, unit_price_cents: TEXT_UNIT_PRICE_CENTS, bucket }), now)
+    .bind(`led_${ulid()}`, accountId, "batch_usage_debit", -priceCents, account.balanceCents, batchId, JSON.stringify({ api_key_id: apiKeyId, units_analyzed: parsed.items.length, billable_units: billableUnits, chars_analyzed: totalChars, unit_chars: TEXT_UNIT_CHARS, unit_price_cents: TEXT_UNIT_PRICE_CENTS, auto_revise: false, bucket }), now)
     .run();
   await env.DB.prepare(`INSERT INTO usage_events (usage_id, account_id, api_key_id, analysis_id, chars_analyzed, bucket, price_cents, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'debited', ?)`)
     .bind(`use_${ulid()}`, accountId, apiKeyId, batchId, totalChars, bucket, priceCents, now)

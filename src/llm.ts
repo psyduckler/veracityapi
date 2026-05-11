@@ -1,4 +1,4 @@
-import type { AnalyzeAudioRequest, AnalyzeImageRequest, AnalyzeRequest, AudioScoredFields, Env, ImageScoredFields, LlmScoredFields } from "./types";
+import { EVIDENCE_TYPES, type AnalyzeAudioRequest, type AnalyzeImageRequest, type AnalyzeRequest, type AudioScoredFields, type Env, type EvidenceType, type ImageScoredFields, type LlmScoredFields } from "./types";
 import { DEMO_AUDIO_CONTENT_TYPE, DEMO_AUDIO_PATH, demoAudioBytes } from "./demoAudio";
 import { clamp01, round2 } from "./scoring";
 
@@ -23,7 +23,7 @@ const SCORE_TOOL = {
         items: {
           type: "object",
           properties: {
-            type: { type: "string" },
+            type: { type: "string", enum: EVIDENCE_TYPES },
             severity: { type: "string", enum: ["low", "medium", "high"] },
             span: { type: "string", maxLength: 120 },
             explanation: { type: "string", maxLength: 240 },
@@ -57,7 +57,7 @@ const SCORE_IMAGE_TOOL = {
         items: {
           type: "object",
           properties: {
-            type: { type: "string" },
+            type: { type: "string", enum: EVIDENCE_TYPES },
             severity: { type: "string", enum: ["low", "medium", "high"] },
             span: { type: "string", maxLength: 200 },
             explanation: { type: "string", maxLength: 240 },
@@ -73,6 +73,20 @@ const SCORE_IMAGE_TOOL = {
       },
     },
     required: ["synthetic_image_risk", "confidence", "evidence", "recommended_fixes"],
+    additionalProperties: false,
+  },
+};
+
+const REVISE_TOOL = {
+  name: "return_revised_text",
+  description: "Return a revised version of the original text and concise notes describing the fixes applied.",
+  input_schema: {
+    type: "object",
+    properties: {
+      revised_text: { type: "string", maxLength: 120000 },
+      revision_notes: { type: "array", maxItems: 5, items: { type: "string", maxLength: 240 } },
+    },
+    required: ["revised_text", "revision_notes"],
     additionalProperties: false,
   },
 };
@@ -121,6 +135,44 @@ export async function scoreText(input: AnalyzeRequest, env: Env): Promise<LlmSco
     if (err instanceof LlmError) throw err;
     if (err instanceof DOMException && err.name === "AbortError") throw new LlmError("Anthropic request timed out");
     throw new LlmError(err instanceof Error ? err.message : "Unknown Anthropic error");
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+
+export async function reviseText(input: AnalyzeRequest, recommendedFixes: string[], env: Env): Promise<{ revised_text: string; revision_notes: string[] }> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20_000);
+  const model = env.ANTHROPIC_MODEL || "claude-haiku-4-5-20251001";
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": env.ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: Math.min(8192, Math.max(1200, Math.ceil(input.text.length / 3))),
+        temperature: 0,
+        system: "You revise text for publication readiness. Preserve meaning, factual claims, tone, and approximate length. Apply only the requested specificity/provenance/slop fixes. Do not invent unverifiable facts; use placeholders like [source needed] if a claim requires support.",
+        messages: [{ role: "user", content: buildRevisionPrompt(input, recommendedFixes) }],
+        tools: [REVISE_TOOL],
+        tool_choice: { type: "tool", name: "return_revised_text" },
+      }),
+    });
+    if (!res.ok) throw new LlmError(`Anthropic revision returned ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    const data = (await res.json()) as { content?: Array<AnthropicToolUse | Record<string, unknown>> };
+    const toolUse = data.content?.find((item): item is AnthropicToolUse => item.type === "tool_use" && item.name === "return_revised_text");
+    if (!toolUse) throw new LlmError("Anthropic response did not include expected revision tool_use");
+    return normalizeRevision(toolUse.input);
+  } catch (err) {
+    if (err instanceof LlmError) throw err;
+    if (err instanceof DOMException && err.name === "AbortError") throw new LlmError("Anthropic revision request timed out");
+    throw new LlmError(err instanceof Error ? err.message : "Unknown Anthropic revision error");
   } finally {
     clearTimeout(timeout);
   }
@@ -269,7 +321,7 @@ function normalizeAudioScoredFields(raw: Record<string, unknown>, fallbackTransc
     const obj = typeof item === "object" && item ? (item as Record<string, unknown>) : {};
     const rawSeverity = obj.severity;
     const severity: "low" | "medium" | "high" = rawSeverity === "high" || rawSeverity === "medium" || rawSeverity === "low" ? rawSeverity : "low";
-    return { type: String(obj.type || "audio_signal").slice(0, 80), severity, span: String(obj.span || "overall clip").slice(0, 200), explanation: String(obj.explanation || "").slice(0, 240) };
+    return { type: normalizeEvidenceType(obj.type), severity, span: String(obj.span || "overall clip").slice(0, 200), explanation: String(obj.explanation || "").slice(0, 240) };
   });
   const fixes = Array.isArray(raw.recommended_fixes) ? raw.recommended_fixes.slice(0, 5).map((x) => String(x).slice(0, 240)) : [];
   const syntheticAudioRisk = calibrateAudioRisk(raw.synthetic_audio_risk, confidence, evidence, "synthetic");
@@ -344,6 +396,21 @@ function isPrivateIp(host: string): boolean {
   return a === 10 || a === 127 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168);
 }
 
+function normalizeEvidenceType(type: unknown): EvidenceType {
+  return typeof type === "string" && (EVIDENCE_TYPES as readonly string[]).includes(type) ? type as EvidenceType : "other";
+}
+
+function normalizeRevision(raw: Record<string, unknown>): { revised_text: string; revision_notes: string[] } {
+  return {
+    revised_text: String(raw.revised_text || "").slice(0, 120000),
+    revision_notes: Array.isArray(raw.revision_notes) ? raw.revision_notes.slice(0, 5).map((x) => String(x).slice(0, 240)) : [],
+  };
+}
+
+function buildRevisionPrompt(input: AnalyzeRequest, recommendedFixes: string[]): string {
+  return `Revise the text below because VeracityAPI returned recommended_action=revise. Apply these fixes: ${recommendedFixes.join("; ") || "Improve specificity, provenance clarity, and generic phrasing."}. Return revised_text as a drop-in replacement. Preserve the user's core claims and avoid adding unsupported facts. Context format: ${input.context.format}; intended use: ${input.context.intended_use}; domain: ${input.context.domain || "general"}. Text:\n${input.text}`;
+}
+
 function buildPrompt(input: AnalyzeRequest): string {
   return `Score the following English text for content trust risk.
 
@@ -387,7 +454,7 @@ function normalizeScoredFields(raw: Record<string, unknown>): LlmScoredFields {
     const rawSeverity = obj.severity;
     const severity: "low" | "medium" | "high" = rawSeverity === "high" || rawSeverity === "medium" || rawSeverity === "low" ? rawSeverity : "low";
     return {
-      type: String(obj.type || "unspecified_signal").slice(0, 80),
+      type: normalizeEvidenceType(obj.type),
       severity,
       span: String(obj.span || "").slice(0, 120),
       explanation: String(obj.explanation || "").slice(0, 240),
@@ -411,7 +478,7 @@ function normalizeImageScoredFields(raw: Record<string, unknown>): ImageScoredFi
     const rawSeverity = obj.severity;
     const severity: "low" | "medium" | "high" = rawSeverity === "high" || rawSeverity === "medium" || rawSeverity === "low" ? rawSeverity : "low";
     return {
-      type: String(obj.type || "visual_artifact").slice(0, 80),
+      type: normalizeEvidenceType(obj.type),
       severity,
       span: String(obj.span || "").slice(0, 200),
       explanation: String(obj.explanation || "").slice(0, 240),

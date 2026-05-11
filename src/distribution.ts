@@ -13,12 +13,16 @@ export type DistributionPage = {
   sections?: Array<{ title: string; body: string }>;
   faq?: Array<{ q: string; a: string }>;
   code?: string;
+  demo?: "image" | "audio";
 };
 
 export const DISTRIBUTION_REDIRECTS: Record<string, string> = {
   "/categories/ai-detector-api": "/ai-detection-api",
   "/categories/ai-slop-detection-api": "/ai-content-detector-api",
   "/categories/content-trust-api": "/how-it-works",
+  "/categories/image-ai-detector-api": "/ai-image-detection-api",
+  "/image-ai-detection-api": "/ai-image-detection-api",
+  "/ai-generated-image-detector-api": "/ai-image-detection-api",
 };
 
 const policyCode = `switch (result.recommended_action) {
@@ -113,6 +117,33 @@ export const DISTRIBUTION_PAGES: DistributionPage[] = [
     code: policyCode,
   },
   {
+    path: "/ai-image-detection-api",
+    title: "AI Image Detection API for Agent Workflows | VeracityAPI",
+    description: "Analyze image URLs for synthetic-media cues, weak provenance, and review-worthy risk, then route uploads with allow, revise, human_review, or reject.",
+    eyebrow: "SEO category · AI image detection API",
+    h1: "AI Image Detection API for agent workflows.",
+    lead: "Analyze uploaded image URLs for synthetic-media cues, visual artifacts, weak provenance, and review-worthy risk. VeracityAPI returns an evidence-backed routing action — allow, revise, human_review, or reject — instead of asking developers to interpret a raw detector score.",
+    recommend: ["Async UGC image moderation", "Influencer/product-post QA before publish", "Marketplace seller image review", "Newsroom or brand asset triage", "Agent workflows that need image evidence plus a routing action"],
+    avoid: ["Forensic proof that an image is AI-generated", "Face identity or person verification", "Legal attribution of a generated image", "C2PA/EXIF provenance verification in v0.1"],
+    cta: "Submit an HTTPS image URL; receive synthetic_image_risk, evidence, content_trust_score, risk_level, and recommended_action. Use the action field to route uploads, not to accuse people.",
+    sections: [
+      { title: "Live image demo", body: "Paste a public HTTPS image URL or use the sample fixture. The public demo forces store_content=false, stores no image bytes, and logs only hostname plus URL hash." },
+      { title: "What the image endpoint returns", body: "The response prioritizes recommended_action and evidence. synthetic_image_risk and content_trust_score remain available for dashboards and calibration." },
+      { title: "Known limits", body: "Screenshots, social compression, crops, edits, low resolution, and missing provenance can all reduce confidence. v0.1 does not inspect EXIF or C2PA metadata." },
+    ],
+    faq: [
+      { q: "Can VeracityAPI detect AI-generated images?", a: "It can flag visible synthetic-media cues as probabilistic workflow-risk signals. It does not prove generation or authorship." },
+      { q: "Does it identify people or brands?", a: "No. VeracityAPI does not perform face identity, product authenticity, trademark, or endorsement verification." },
+      { q: "Do you store the image?", a: "No raw image bytes or full image URLs are stored. Logs keep metadata such as hostname and URL hash." },
+      { q: "How should high-risk image results be routed?", a: "Queue for human review, request source/provenance, or quarantine the upload depending on your local policy." },
+    ],
+    demo: "image",
+    code: `curl https://api.veracityapi.com/v1/analyze \
+  -H "Authorization: Bearer $VERACITYAPI_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"type":"image","content":"https://veracityapi.com/demo/influencer-beauty-tonic.jpg","context":{"format":"social_post","intended_use":"publish","domain":"image UGC moderation"},"store_content":false}'`,
+  },
+  {
     path: "/ai-audio-detection-api",
     title: "AI Audio Detection API for Async Media Review | VeracityAPI",
     description: "Analyze uploaded audio URLs for synthetic-speech and deepfake voice cues, then route suspicious clips to human review.",
@@ -123,8 +154,10 @@ export const DISTRIBUTION_PAGES: DistributionPage[] = [
     avoid: ["Real-time call-center fraud prevention", "KYC or payment approval", "Speaker identity verification", "Executive impersonation verdicts"],
     cta: "Submit an HTTPS audio URL; receive a Gemini-generated transcript, synthetic_audio_risk, workflow_risk, evidence, and recommended_action. Optional caller transcript/context can help calibration.",
     sections: [
+      { title: "Live audio demo", body: "Paste a public HTTPS audio URL or use the sample voice-message fixture. The demo forces store_content=false, returns a Gemini-generated transcript, and shows recommended_action first." },
       { title: "Async scope", body: "VeracityAPI is scoped for uploaded audio and review queues. Phone codecs, compression, short clips, and noisy recordings can degrade reliability, so high-risk outputs should route to human review or independent verification." },
       { title: "Privacy", body: "Audio requests use HTTPS URLs. VeracityAPI stores no raw audio bytes, base64 payloads, or full media URLs; logs keep metadata such as hostname and URL hash." },
+      { title: "What the audio endpoint returns", body: "The response includes transcript, synthetic_audio_risk, workflow_risk, evidence, risk_level, limitations, and recommended_action for routing." },
     ],
     faq: [
       { q: "Can VeracityAPI detect AI-generated audio?", a: "It can flag synthetic-speech and deepfake-voice cues as a workflow-risk signal. It does not prove generation or identity." },
@@ -132,7 +165,11 @@ export const DISTRIBUTION_PAGES: DistributionPage[] = [
       { q: "Can it identify the speaker?", a: "No. VeracityAPI does not perform speaker identity verification or voice-clone attribution." },
       { q: "How should I route high-risk audio?", a: "Queue it for human review, callback/source verification, or quarantine based on your local policy." },
     ],
-    code: policyCode,
+    demo: "audio",
+    code: `curl https://api.veracityapi.com/v1/analyze \
+  -H "Authorization: Bearer $VERACITYAPI_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"type":"audio","content":"https://veracityapi.com/assets/demo-voice-message.mp3","context":{"format":"social_post","intended_use":"publish","domain":"voice-note UGC moderation"},"store_content":false}'`,
   },
   {
     path: "/alternatives/deepmedia",
@@ -258,6 +295,24 @@ function list(items: string[]): string {
   return `<ul>${items.map((item) => `<li>${esc(item)}</li>`).join("")}</ul>`;
 }
 
+function renderDemo(page: DistributionPage): string {
+  if (page.demo === "image") {
+    return `<section class="card"><h2>Try the image demo</h2><p>Use the sample fixture or paste a public HTTPS image URL. Demo requests are rate limited and force <code>store_content:false</code>.</p><form id="image-demo"><label>Image URL<input name="image_url" value="https://veracityapi.com/demo/influencer-beauty-tonic.jpg" required /></label><button class="btn primary" type="submit">Analyze image</button></form><pre id="image-demo-out">{
+  "recommended_action": "human_review",
+  "risk_level": "high",
+  "primary_reason": "visible synthetic-media cues"
+}</pre></section><script>document.getElementById('image-demo')?.addEventListener('submit',async(e)=>{e.preventDefault();const f=e.currentTarget;const out=document.getElementById('image-demo-out');out.textContent='Analyzing…';const r=await fetch('/demo/analyze-image',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({image_url:f.image_url.value,context:{format:'social_post',intended_use:'publish',domain:'image UGC moderation'}})});out.textContent=JSON.stringify(await r.json(),null,2);});</script>`;
+  }
+  if (page.demo === "audio") {
+    return `<section class="card"><h2>Try the audio demo</h2><p>Use the sample fixture or paste a public HTTPS audio URL. Demo requests are rate limited and force <code>store_content:false</code>.</p><form id="audio-demo"><label>Audio URL<input name="audio_url" value="https://veracityapi.com/assets/demo-voice-message.mp3" required /></label><button class="btn primary" type="submit">Analyze audio</button></form><pre id="audio-demo-out">{
+  "recommended_action": "human_review",
+  "risk_level": "high",
+  "primary_reason": "synthetic-speech cues"
+}</pre></section><script>document.getElementById('audio-demo')?.addEventListener('submit',async(e)=>{e.preventDefault();const f=e.currentTarget;const out=document.getElementById('audio-demo-out');out.textContent='Analyzing…';const r=await fetch('/demo/analyze-audio',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({audio_url:f.audio_url.value,context:{format:'social_post',intended_use:'publish',domain:'voice-note UGC moderation'}})});out.textContent=JSON.stringify(await r.json(),null,2);});</script>`;
+  }
+  return "";
+}
+
 function renderSections(page: DistributionPage): string {
   const sections = page.sections?.length
     ? `<section class="grid">${page.sections.map((section) => `<div class="card"><h2>${esc(section.title)}</h2><p>${esc(section.body)}</p></div>`).join("")}</section>`
@@ -266,7 +321,7 @@ function renderSections(page: DistributionPage): string {
     ? `<section class="card"><h2>FAQ</h2>${page.faq.map((item) => `<h3>${esc(item.q)}</h3><p>${esc(item.a)}</p>`).join("")}</section>`
     : "";
   const code = page.code ? `<section class="card"><h2>Copy-paste routing example</h2><pre>${esc(page.code)}</pre></section>` : "";
-  return `${sections}${faq}${code}`;
+  return `${renderDemo(page)}${sections}${faq}${code}`;
 }
 
 export function distributionPageHtml(path: string): string | null {

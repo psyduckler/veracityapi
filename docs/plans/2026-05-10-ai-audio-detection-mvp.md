@@ -43,7 +43,7 @@ The endpoint accepts:
 2. `transcript` — optional caller-provided transcript or ASR output.
 3. `metadata` — optional caller-observed metadata.
 4. `context` — same workflow context shape as text/image endpoints.
-5. `privacy_mode` — defaults true.
+5. `store_content` — defaults false; legacy `privacy_mode` still accepted.
 
 Require at least one of:
 
@@ -113,7 +113,7 @@ Content-Type: application/json
   - `format`: `article | social_post | product_review | caption | other`
   - `intended_use`: `publish | train | cite | moderate | other`
   - `domain`: optional string
-- `privacy_mode` defaults to true
+- `store_content` defaults to false; legacy `privacy_mode` still accepted
 
 ## Response schema
 
@@ -309,7 +309,7 @@ For audio:
 - store audio URL hostname/domain
 - do not store transcript unless we deliberately add a separate transcript retention option later
 
-Recommendation: for MVP, do **not** store transcript, even if `privacy_mode=false`, to keep privacy posture simple.
+Recommendation: for MVP, do **not** store transcript, even if `store_content=true`, to keep privacy posture simple.
 
 ### 6. Route
 

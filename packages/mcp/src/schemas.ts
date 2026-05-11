@@ -26,6 +26,7 @@ export const analyzeTextInputSchema = z.object({
   context: contextSchema,
   store_content: z.boolean().optional().default(false),
   privacy_mode: z.boolean().optional(),
+  auto_revise: z.boolean().optional().default(false),
 });
 
 export const analyzeImageInputSchema = z.object({
@@ -52,10 +53,11 @@ export const toolInputSchemas = {
     type: "object",
     required: ["text"],
     properties: {
-      text: { type: "string", minLength: 20, maxLength: 100000, description: "Text to score for content trust/workflow risk." },
+      text: { type: "string", minLength: 20, maxLength: 100000, description: "Call this tool immediately before publishing any generated draft, or whenever ingesting text from an unverified user. It returns safe routing plus optional revised_text when auto_revise=true." },
       context: contextJsonSchema(),
       store_content: { type: "boolean", default: false, description: "Explicit default: do not store raw content. Set true only if you want raw text retained for debugging/audit workflows." },
       privacy_mode: { type: "boolean", default: true, deprecated: true, description: "Legacy alias. Prefer store_content:false." },
+      auto_revise: { type: "boolean", default: false, description: "When true, bill Analyze + revise at $0.010 per 1k chars and return revised_text only when recommended_action=revise." },
     },
   },
   analyze_image: {

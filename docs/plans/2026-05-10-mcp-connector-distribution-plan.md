@@ -37,13 +37,13 @@
 1. `analyze_text`
    - Calls `POST https://api.veracityapi.com/v1/analyze-text`
    - Requires `VERACITY_API_KEY`
-   - Input: `text`, optional `context`, optional `privacy_mode`
+   - Input: `text`, optional `context`, optional `store_content`
    - Output: raw JSON plus an agent-friendly summary string
 
 2. `analyze_image`
    - Calls `POST https://api.veracityapi.com/v1/analyze-image`
    - Requires `VERACITY_API_KEY`
-   - Input: `image_url`, optional `context`, optional `privacy_mode`
+   - Input: `image_url`, optional `context`, optional `store_content`
    - Output: raw JSON plus an agent-friendly summary string
 
 3. `check_balance`
@@ -172,11 +172,11 @@ Mock `fetch` and test 200/401/402/503 handling.
   - `context.format?: enum article|social_post|product_review|caption|other`
   - `context.intended_use?: enum publish|train|cite|moderate|other`
   - `context.domain?: string`, max 100
-  - `privacy_mode?: boolean`, default true
+  - `store_content?: boolean`, default false (legacy `privacy_mode?: boolean` accepted)
 - `AnalyzeImageInput`
   - `image_url: string`, valid HTTPS URL
   - same optional context
-  - `privacy_mode?: boolean`, default true
+  - `store_content?: boolean`, default false (legacy `privacy_mode?: boolean` accepted)
 
 **Verification:**
 Test valid/invalid text length, context enum, non-HTTPS image URL, default privacy mode.

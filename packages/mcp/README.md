@@ -111,3 +111,6 @@ The MCP server maps VeracityAPI HTTP errors into readable tool errors:
 - `503` model unavailable
 
 Run `check_balance` before autonomous loops.
+
+
+Text auto-revise: set `auto_revise: true` on text requests to bill Analyze + revise at $0.010 / 1k characters and receive `revised_text` when `recommended_action` is `revise`. Evidence `type` values are strict enums for deterministic agent branching.

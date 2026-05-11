@@ -110,7 +110,7 @@ Content-Type: application/json
 - `transcript`: optional, max 10,000 chars
 - no `metadata` field in the live API contract
 - `context`: same `format` / `intended_use` / `domain` shape as text/image
-- `privacy_mode`: defaults true
+- `store_content`: defaults false (legacy `privacy_mode` still accepted)
 
 **Response requirements:**
 - `analysis_id` prefix: `aud_`

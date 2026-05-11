@@ -25,7 +25,7 @@ export class VeracityClient {
   }
 
   analyzeText(input: AnalyzeTextInput): Promise<Record<string, unknown>> {
-    return this.post("/v1/analyze", { type: "text", content: input.text, context: input.context, store_content: input.store_content ?? (input.privacy_mode === undefined ? false : !input.privacy_mode) });
+    return this.post("/v1/analyze", { type: "text", content: input.text, auto_revise: input.auto_revise, context: input.context, store_content: input.store_content ?? (input.privacy_mode === undefined ? false : !input.privacy_mode) });
   }
 
   analyzeImage(input: AnalyzeImageInput): Promise<Record<string, unknown>> {

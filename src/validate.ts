@@ -13,6 +13,7 @@ const requestSchema = z.object({
   }).optional(),
   privacy_mode: z.boolean().optional(),
   store_content: z.boolean().optional(),
+  auto_revise: z.boolean().optional().default(false),
 });
 
 const batchRequestSchema = z.object({
@@ -60,6 +61,7 @@ const unifiedRequestSchema = z.object({
   }).optional(),
   privacy_mode: z.boolean().optional(),
   store_content: z.boolean().optional(),
+  auto_revise: z.boolean().optional().default(false),
 });
 
 const imageRequestSchema = z.object({
@@ -117,6 +119,7 @@ export async function parseUnifiedAnalyzeRequest(request: Request): Promise<Unif
     type: parsed.data.type,
     content,
     transcript: parsed.data.transcript,
+    auto_revise: parsed.data.type === "text" ? parsed.data.auto_revise : false,
     context: {
       format: parsed.data.context?.format ?? "other",
       intended_use: parsed.data.context?.intended_use ?? "other",
@@ -142,6 +145,7 @@ export async function parseAnalyzeRequest(request: Request): Promise<AnalyzeRequ
 
   return {
     text: parsed.data.text,
+    auto_revise: parsed.data.auto_revise,
     context: {
       format: parsed.data.context?.format ?? "other",
       intended_use: parsed.data.context?.intended_use ?? "other",

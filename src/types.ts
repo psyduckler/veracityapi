@@ -3,6 +3,8 @@ export type IntendedUse = "publish" | "train" | "cite" | "moderate" | "other";
 export type RiskLevel = "low" | "medium" | "high";
 export type RecommendedAction = "allow" | "revise" | "human_review" | "reject";
 export type Confidence = "low" | "medium" | "high";
+export const EVIDENCE_TYPES = ["generic_phrasing", "low_specificity", "weak_provenance", "unsupported_claim", "hedging_and_absolutes", "synthetic_texture", "repetitive_structure", "missing_concrete_examples", "absence_of_specificity", "source_quality", "visual_artifact", "audio_signal", "prosody_consistency", "other"] as const;
+export type EvidenceType = typeof EVIDENCE_TYPES[number];
 
 export interface Env {
   DB: D1Database;
@@ -38,6 +40,7 @@ export interface UnifiedAnalyzeRequest {
   type: UnifiedAnalyzeType;
   content: string;
   transcript?: string;
+  auto_revise?: boolean;
   context: AnalyzeContext;
   privacy_mode: boolean;
 }
@@ -52,6 +55,7 @@ export interface AnalyzeRequest {
   text: string;
   context: AnalyzeContext;
   privacy_mode: boolean;
+  auto_revise?: boolean;
 }
 
 export interface AnalyzeBatchItem {
@@ -84,7 +88,7 @@ export interface AnalyzeImageRequest {
 }
 
 export interface EvidenceItem {
-  type: string;
+  type: EvidenceType;
   severity: "low" | "medium" | "high";
   span: string;
   explanation: string;
@@ -96,6 +100,8 @@ export interface LlmScoredFields {
   confidence: Confidence;
   evidence: EvidenceItem[];
   recommended_fixes: string[];
+  revised_text?: string;
+  revision_notes?: string[];
 }
 
 export interface ImageScoredFields {

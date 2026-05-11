@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import json
 import os
-import sys
 import urllib.error
 import urllib.request
 
@@ -36,11 +35,13 @@ def get_balance() -> dict:
     return request("/v1/balance", method="GET")
 
 
-def analyze_text(text: str) -> dict:
+def analyze_text(text: str, auto_revise: bool = False) -> dict:
     return request(
         "/v1/analyze",
         payload={
-            "type": "text", "content": text,
+            "type": "text",
+            "content": text,
+            "auto_revise": auto_revise,
             "context": {"format": "article", "intended_use": "publish", "domain": "content QA"},
             "store_content": False,
         },
@@ -51,7 +52,8 @@ def analyze_image(image_url: str) -> dict:
     return request(
         "/v1/analyze",
         payload={
-            "image_url": image_url,
+            "type": "image",
+            "content": image_url,
             "context": {"format": "social_post", "intended_use": "publish", "domain": "image trust"},
             "store_content": False,
         },
@@ -62,7 +64,8 @@ def analyze_audio(audio_url: str, transcript: str | None = None) -> dict:
     return request(
         "/v1/analyze",
         payload={
-            "audio_url": audio_url,
+            "type": "audio",
+            "content": audio_url,
             "transcript": transcript,
             "context": {"format": "social_post", "intended_use": "publish", "domain": "audio workflow triage with transcript return"},
             "store_content": False,
@@ -83,5 +86,12 @@ def analyze_batch(items: list[dict]) -> dict:
 
 if __name__ == "__main__":
     print(json.dumps(get_balance(), indent=2))
-    result = analyze_text("This is a specific enough demo sentence only if it includes concrete evidence and context for an agent workflow.")
-    print(result.get("recommended_action"), result.get("risk_level"))
+    result = analyze_text(
+        "This is a specific enough demo sentence only if it includes concrete evidence and context for an agent workflow.",
+        auto_revise=True,
+    )
+    print(result.get("recommended_action"), result.get("risk_level"), result.get("revised_text"))
+
+# Text auto-revise: auto_revise=True bills Analyze + revise at $0.010 / 1k characters
+# and returns revised_text when recommended_action is revise. Analyze-only remains $0.005 / 1k.
+# Evidence type values are strict enums for deterministic agent branching.

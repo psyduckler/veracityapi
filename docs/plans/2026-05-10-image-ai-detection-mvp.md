@@ -130,7 +130,7 @@ type AnalyzeImageRequest = {
     audience?: string;
     needs_human_review_threshold?: number;
   };
-  privacy_mode?: boolean;
+  store_content?: boolean; // default false; legacy privacy_mode?: boolean still accepted
   retain_image?: boolean;
   execution_mode?: "fast" | "deep";
 };
@@ -877,7 +877,7 @@ This is product calibration, not a public benchmark.
 1. Add TypeScript types for request, context, response, image metadata, evidence, provider result, recommended action, and risk level.
 2. Add validation helper or schema if current codebase uses a validation pattern.
 3. Write tests for request defaults:
-   - `privacy_mode` defaults to `true`
+   - `store_content` defaults to `false` (legacy `privacy_mode` still accepted)
    - `retain_image` defaults to `false`
    - `execution_mode` defaults to `fast`
 4. Run:
@@ -1316,7 +1316,7 @@ Missing EXIF, social-media compression, screenshots, and edited exports can weak
 1. Should v0 use the existing Anthropic key/model if it supports image input in the Worker path, or should we add a separate multimodal provider secret?
 2. Should `retain_image=true` be allowed for all accounts, or only internal/admin accounts at launch?
 3. Should image pricing be exactly `$0.02`, or should deep mode be reserved from day one with `$0.06` copy hidden until implemented?
-4. Should source URL be stored as domain-only by default, or full URL when `privacy_mode=false`?
+4. Should source URL be stored as domain-only by default, or full URL when `store_content=true`?
 5. Do we want a small public demo for image analysis, or keep it API-key-only at launch?
 
 Recommended defaults:

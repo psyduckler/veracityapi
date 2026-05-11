@@ -23,26 +23,28 @@ VeracityAPI is **not** a binary AI detector. It does not prove whether content w
 
 ## Pricing
 
-New accounts get $1.50 free credit — enough for 300 1k-character text analyses. No subscriptions. Buy credits when you need more. Every request debits your balance.
+New accounts get $1.50 free credit — enough for 300 analyze-only 1k-character text requests or 150 Analyze + revise 1k-character text requests. No subscriptions. Buy credits when you need more. Every request debits your balance.
 
 | Request size | Price |
 | --- | ---: |
-| Text analysis | $0.005 per 1,000 characters, rounded up |
+| Text analyze only | $0.005 per 1,000 characters, rounded up |
+| Text Analyze + revise (`auto_revise:true`) | $0.010 per 1,000 characters, rounded up |
 | Synchronous text batch | Sum of per-item 1k-character units |
 | Image URL analysis | $0.02/image |
 | Audio URL analysis | $0.01/request |
 | >100k chars | chunk or contact us |
 
-Public text, image, and audio demos are free, no-key, store_content=false, capped/rate limited, and include hosted demo fixtures. New accounts get $1.50 free credit — enough for 300 1k-character text analyses for authenticated testing; production API access is credit-based after that.
+Public text, image, and audio demos are free, no-key, store_content=false, capped/rate limited, and include hosted demo fixtures. New accounts get $1.50 free credit — enough for 300 analyze-only 1k-character text requests or 150 Analyze + revise 1k-character text requests for authenticated testing; production API access is credit-based after that.
 
 ## Production endpoints
 
 ```text
 GET /v1/balance
-POST /v1/analyze
-POST /v1/analyze-batch
-POST /v1/analyze
-POST /v1/analyze
+POST /v1/analyze              # unified text/image/audio endpoint
+POST /v1/analyze-batch        # synchronous text batch
+POST /v1/analyze-text         # legacy text endpoint
+POST /v1/analyze-image        # legacy image endpoint
+POST /v1/analyze-audio        # legacy audio endpoint
 ```
 
 Public no-key demo endpoints:
@@ -55,7 +57,7 @@ GET /demo/influencer-beauty-tonic.jpg
 GET /assets/demo-voice-message.mp3
 ```
 
-Auth: send a bearer token in the `Authorization` header for `/v1/*` endpoints. Create an account, get $1.50 free credit — enough for 300 1k-character text analyses, and create an API key at `/account`.
+Auth: send a bearer token in the `Authorization` header for `/v1/*` endpoints. Create an account, get $1.50 free credit, and create an API key at `/account`.
 
 ## Request
 
@@ -65,6 +67,7 @@ curl https://api.veracityapi.com/v1/analyze \
   -H "Content-Type: application/json" \
   -d '{
     "text": "Travelers should always be careful in tourist areas because scams can happen anywhere. Keep your belongings close and avoid strangers.",
+    "auto_revise": true,
     "context": {
       "format": "article",
       "intended_use": "publish",
@@ -117,12 +120,14 @@ Audio analysis costs $0.01/request under billing bucket `audio_v0`. It accepts s
   "synthetic_risk": 0.72,
   "slop_risk": 0.78,
   "risk_level": "high",
-  "recommended_action": "human_review",
+  "recommended_action": "revise",
   "confidence": "medium",
   "evidence": [
     { "type": "generic_phrasing", "severity": "high", "span": "...", "explanation": "..." }
   ],
   "recommended_fixes": ["..."],
+  "revised_text": "A safer, more specific replacement appears here when auto_revise=true and recommended_action=revise.",
+  "revision_notes": ["Added concrete details and provenance cues without inventing unsupported facts."],
   "model_version": "v0.1",
   "limitations": [
     "Scores are probabilistic workflow risk signals, not proof of AI authorship or truth.",
@@ -131,6 +136,8 @@ Audio analysis costs $0.01/request under billing bucket `audio_v0`. It accepts s
   ]
 }
 ```
+
+Evidence `type` is a strict enum for deterministic agent branching; unknown model output is normalized to `other`.
 
 `synthetic_risk` is retained for compatibility. New integrations should prefer `content_trust_score`, `specificity_risk`, `provenance_weakness`, and `synthetic_texture_risk`.
 
