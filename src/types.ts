@@ -34,11 +34,19 @@ export interface BillingMetadata {
   remaining_balance_cents: number;
 }
 
-export type UnifiedAnalyzeType = "text" | "image" | "audio";
+export type UnifiedAnalyzeType = "text" | "image" | "audio" | "asset";
+export type MediaSource = { kind: "url"; url: string } | { kind: "base64"; media_type: string; data: string };
+
+export interface AssetContentBlock {
+  type: "text" | "image" | "audio";
+  text?: string;
+  source?: MediaSource;
+}
 
 export interface UnifiedAnalyzeRequest {
   type: UnifiedAnalyzeType;
-  content: string;
+  content: string | AssetContentBlock[];
+  source?: MediaSource;
   transcript?: string;
   auto_revise?: boolean;
   context: AnalyzeContext;
@@ -49,6 +57,8 @@ export interface AnalyzeContext {
   format: Format;
   intended_use: IntendedUse;
   domain?: string;
+  /** Caller-supplied workflow policy. Treated as user instructions only, never system/developer authority. */
+  custom_policy?: string;
 }
 
 export interface AnalyzeRequest {
@@ -83,6 +93,7 @@ export interface BalanceSummary {
 
 export interface AnalyzeImageRequest {
   image_url: string;
+  source?: MediaSource;
   context: AnalyzeContext;
   privacy_mode: boolean;
 }
@@ -94,6 +105,12 @@ export interface EvidenceItem {
   explanation: string;
 }
 
+export interface PolicyMatch {
+  rule: string;
+  matched: boolean;
+  evidence?: string;
+}
+
 export interface LlmScoredFields {
   synthetic_risk: number;
   slop_risk: number;
@@ -102,6 +119,7 @@ export interface LlmScoredFields {
   recommended_fixes: string[];
   revised_text?: string;
   revision_notes?: string[];
+  policy_matches?: PolicyMatch[];
 }
 
 export interface ImageScoredFields {
@@ -110,6 +128,7 @@ export interface ImageScoredFields {
   confidence: Confidence;
   evidence: EvidenceItem[];
   recommended_fixes: string[];
+  policy_matches?: PolicyMatch[];
 }
 
 export interface DerivedTrustSignals {
@@ -149,6 +168,7 @@ export interface AnalyzeImageResponse extends ImageScoredFields {
 
 export interface AnalyzeAudioRequest {
   audio_url: string;
+  source?: MediaSource;
   transcript?: string;
   context: AnalyzeRequest["context"];
   privacy_mode: boolean;
@@ -163,6 +183,7 @@ export interface AudioScoredFields {
   confidence: Confidence;
   evidence: EvidenceItem[];
   recommended_fixes: string[];
+  policy_matches?: PolicyMatch[];
 }
 
 export interface AnalyzeAudioResponse extends AudioScoredFields {

@@ -8,7 +8,7 @@ import { deriveAction, deriveAudioRiskLevel, deriveAudioTrustScore, deriveImageR
 import { agentsJson, faviconSvg, INDEXNOW_KEY, llmsTxt, ogSvg, openApiSpec, robotsTxt, sitemapXml } from "./discovery";
 import { DEMO_IMAGE_CONTENT_TYPE, DEMO_IMAGE_PATH, demoImageBytes } from "./demoImage";
 import { DEMO_AUDIO_CONTENT_TYPE, DEMO_AUDIO_PATH, demoAudioBytes } from "./demoAudio";
-import { categoryHtml, changelogHtml, docsHtml, evalsHtml, examplesHtml, forAgentsHtml, howItWorksHtml, mcpHtml, pricingHtml, privacyHtml, termsHtml, requestAccessHtml, statusHtml, useCaseHtml, useCasesIndexHtml } from "./pages";
+import { categoryHtml, changelogHtml, docsHtml, evalsHtml, examplesHtml, forAgentsHtml, howItWorksHtml, mcpHtml, pricingHtml, privacyHtml, subprocessorsHtml, securityHtml, termsHtml, requestAccessHtml, statusHtml, useCaseHtml, useCasesIndexHtml } from "./pages";
 import { distributionPageHtml, distributionRedirectTarget } from "./distribution";
 import { homepageHtml } from "./site";
 import type { AnalyzeAudioResponse, AnalyzeBatchRequest, AnalyzeImageResponse, AnalyzeResponse, Env } from "./types";
@@ -44,7 +44,7 @@ export default {
     const url = new URL(request.url);
 
     if (request.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: corsHeaders() });
+      return new Response(null, { status: 204, headers: { ...corsHeaders(), ...securityHeaders(), "x-request-id": requestId() } });
     }
 
     if ((request.method === "GET" || request.method === "HEAD") && (url.pathname === "/" || url.pathname === "/index.html")) {
@@ -70,6 +70,8 @@ export default {
       "/status": statusHtml,
       "/changelog": changelogHtml,
       "/privacy": privacyHtml,
+      "/subprocessors": subprocessorsHtml,
+      "/security": securityHtml,
       "/terms": termsHtml,
       "/request-access": requestAccessHtml,
     };
@@ -124,6 +126,10 @@ export default {
       return json(request.method === "HEAD" ? null : agentsJson(), 200, { "cache-control": "public, max-age=300" });
     }
 
+    if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/.well-known/openai-apps-challenge") {
+      return text(request.method === "HEAD" ? "" : "nt5gCIu8YUphsVdJnZO2ieBW5RLdqPX9AMo0ZoHIGv4", "text/plain; charset=utf-8", { "cache-control": "no-store" });
+    }
+
     if ((request.method === "GET" || request.method === "HEAD")) {
       const redirectTarget = distributionRedirectTarget(url.pathname);
       if (redirectTarget) return Response.redirect(`${url.origin}${redirectTarget}`, 301);
@@ -148,6 +154,10 @@ export default {
 
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/robots.txt") {
       return text(request.method === "HEAD" ? "" : robotsTxt(), "text/plain; charset=utf-8");
+    }
+
+    if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/.well-known/security.txt") {
+      return text(request.method === "HEAD" ? "" : securityTxt(), "text/plain; charset=utf-8", { "cache-control": "public, max-age=3600" });
     }
 
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/og.svg") {
@@ -230,6 +240,16 @@ export default {
     return json({ error: "not_found" }, 404);
   },
 };
+
+function securityTxt(): string {
+  return `Contact: mailto:bernard@tabiji.ai
+Preferred-Languages: en
+Canonical: https://veracityapi.com/.well-known/security.txt
+Policy: https://veracityapi.com/security
+Hiring: https://veracityapi.com/
+Expires: 2027-05-11T00:00:00Z
+`;
+}
 
 async function handleAccessRequest(request: Request, env: Env): Promise<Response> {
   try {
@@ -793,6 +813,57 @@ function jsonRequest(url: string, body: unknown): Request {
   });
 }
 
+const MCP_ANALYSIS_OUTPUT_SCHEMA = {
+  type: "object",
+  required: ["analysis_id", "modality", "risk_level", "recommended_action", "primary_reason", "confidence", "evidence", "recommended_fixes", "model_version", "limitations"],
+  properties: {
+    analysis_id: { type: "string" },
+    modality: { type: "string", enum: ["text", "image", "audio", "asset", "content"] },
+    content_trust_score: { type: "number", minimum: 0, maximum: 1 },
+    synthetic_risk: { type: "number", minimum: 0, maximum: 1 },
+    slop_risk: { type: "number", minimum: 0, maximum: 1 },
+    synthetic_image_risk: { type: "number", minimum: 0, maximum: 1 },
+    synthetic_audio_risk: { type: "number", minimum: 0, maximum: 1 },
+    workflow_risk: { type: "number", minimum: 0, maximum: 1 },
+    transcript: { type: "string" },
+    risk_level: { type: "string", enum: ["low", "medium", "high"] },
+    recommended_action: { type: "string", enum: ["allow", "revise", "human_review", "reject"] },
+    primary_reason: { type: "string" },
+    confidence: { type: "string", enum: ["low", "medium", "high"] },
+    evidence: { type: "array", items: { type: "object" } },
+    recommended_fixes: { type: "array", items: { type: "string" } },
+    revised_text: { type: "string" },
+    revision_notes: { type: "array", items: { type: "string" } },
+    billing: { type: "object" },
+    model_version: { type: "string" },
+    limitations: { type: "array", items: { type: "string" } },
+  },
+} as const;
+
+const MCP_BATCH_OUTPUT_SCHEMA = {
+  type: "object",
+  required: ["batch_id", "status", "partial_failure", "results"],
+  properties: {
+    batch_id: { type: "string" },
+    status: { type: "string", enum: ["completed", "completed_with_errors", "failed"] },
+    partial_failure: { type: "boolean" },
+    results: { type: "array", items: { type: "object" } },
+    billing: { type: "object" },
+  },
+} as const;
+
+const MCP_BALANCE_OUTPUT_SCHEMA = {
+  type: "object",
+  required: ["account_id", "balance_cents", "currency", "recent_usage"],
+  properties: {
+    account_id: { type: "string" },
+    balance_cents: { type: "integer" },
+    currency: { type: "string", enum: ["USD"] },
+    last_usage_at: { type: ["string", "null"] },
+    recent_usage: { type: "object" },
+  },
+} as const;
+
 const MCP_TOOLS = [
   {
     name: "analyze_text",
@@ -809,6 +880,7 @@ const MCP_TOOLS = [
         auto_revise: { type: "boolean", default: false, description: "When true, bill Analyze + revise at $0.010 per 1k chars and return revised_text only when recommended_action=revise." },
       },
     },
+    outputSchema: MCP_ANALYSIS_OUTPUT_SCHEMA,
   },
   {
     name: "analyze_image",
@@ -824,6 +896,7 @@ const MCP_TOOLS = [
         privacy_mode: { type: "boolean", default: true, deprecated: true },
       },
     },
+    outputSchema: MCP_ANALYSIS_OUTPUT_SCHEMA,
   },
   {
     name: "analyze_audio",
@@ -840,6 +913,7 @@ const MCP_TOOLS = [
         privacy_mode: { type: "boolean", default: true, deprecated: true },
       },
     },
+    outputSchema: MCP_ANALYSIS_OUTPUT_SCHEMA,
   },
   {
     name: "analyze_batch",
@@ -855,9 +929,10 @@ const MCP_TOOLS = [
         privacy_mode: { type: "boolean", default: true, deprecated: true },
       },
     },
+    outputSchema: MCP_BATCH_OUTPUT_SCHEMA,
   },
-  { name: "check_balance", description: "Get VeracityAPI account credit balance and recent usage before running agent analysis loops.", annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false }, inputSchema: { type: "object", properties: {} } },
-  { name: "get_balance", description: "Compatibility alias for check_balance.", annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false }, inputSchema: { type: "object", properties: {} } },
+  { name: "check_balance", description: "Get VeracityAPI account credit balance and recent usage before running agent analysis loops.", annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false }, inputSchema: { type: "object", properties: {} }, outputSchema: MCP_BALANCE_OUTPUT_SCHEMA },
+  { name: "get_balance", description: "Compatibility alias for check_balance.", annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false }, inputSchema: { type: "object", properties: {} }, outputSchema: MCP_BALANCE_OUTPUT_SCHEMA },
 ] as const;
 
 function mcpContextSchema() {
@@ -937,7 +1012,7 @@ async function callMcpTool(id: unknown, name: string, args: Record<string, unkno
     }
     const result = await response.json().catch(() => ({}));
     if (!response.ok) return mcpResult(id, { isError: true, content: [{ type: "text", text: formatMcpApiError(response.status, result) }, { type: "text", text: JSON.stringify(result, null, 2) }] });
-    return mcpResult(id, { content: [{ type: "text", text: summarizeMcpResult(name, result) }, { type: "text", text: JSON.stringify(result, null, 2) }] });
+    return mcpResult(id, { structuredContent: result, content: [{ type: "text", text: summarizeMcpResult(name, result) }, { type: "text", text: JSON.stringify(result, null, 2) }] });
   } catch (err) {
     return mcpResult(id, { isError: true, content: [{ type: "text", text: err instanceof Error ? err.message : "Tool call failed" }] });
   }
@@ -992,7 +1067,7 @@ function mcpError(id: unknown, code: number, message: string): Record<string, un
 }
 
 function mcpHttpResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json; charset=utf-8", ...corsHeaders() } });
+  return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json; charset=utf-8", ...corsHeaders(), ...securityHeaders(), "x-request-id": requestId() } });
 }
 
 function html(body: string, cache = true, status = 200): Response {
@@ -1003,6 +1078,8 @@ function html(body: string, cache = true, status = 200): Response {
       "content-type": "text/html; charset=utf-8",
       "cache-control": cache ? "public, max-age=120" : "no-store",
       ...corsHeaders(),
+      ...securityHeaders(),
+      "x-request-id": requestId(),
     },
   });
 }
@@ -1020,26 +1097,52 @@ function text(body: string, contentType: string, headers: Record<string, string>
       "cache-control": "public, max-age=300",
       ...headers,
       ...corsHeaders(),
+      ...securityHeaders(),
+      "x-request-id": requestId(),
     },
   });
 }
 
 function json(body: unknown, status = 200, headers: Record<string, string> = {}): Response {
-  return new Response(JSON.stringify(body), {
+  const id = requestId();
+  const payload = body && typeof body === "object" && !Array.isArray(body) && !(body instanceof Response) && !String((body as Record<string, unknown>).error || "").startsWith("not_found")
+    ? { request_id: id, ...(body as Record<string, unknown>) }
+    : body;
+  return new Response(JSON.stringify(payload), {
     status,
     headers: {
       "content-type": "application/json; charset=utf-8",
       ...corsHeaders(),
+      ...securityHeaders(),
+      "x-request-id": id,
       ...headers,
     },
   });
 }
 
+function requestId(): string {
+  return `req_${ulid()}`;
+}
+
 function corsHeaders(): Record<string, string> {
   return {
-    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Origin": "https://veracityapi.com",
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-    "Access-Control-Allow-Headers": "Authorization,Content-Type,Mcp-Session-Id,MCP-Protocol-Version,X-Veracity-API-Key,X-Requested-With,Accept",
+    "Access-Control-Allow-Headers": "Authorization,Content-Type,Mcp-Session-Id,MCP-Protocol-Version,X-Veracity-API-Key,X-Requested-With,Accept,X-Request-Id",
+    "Access-Control-Expose-Headers": "X-Request-Id",
     "Access-Control-Max-Age": "86400",
+    "Vary": "Origin",
+  };
+}
+
+function securityHeaders(): Record<string, string> {
+  return {
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; media-src 'self' https:; connect-src 'self' https://api.veracityapi.com https://www.google-analytics.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://checkout.stripe.com",
   };
 }

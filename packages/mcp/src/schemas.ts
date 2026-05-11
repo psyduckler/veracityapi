@@ -7,10 +7,12 @@ export const contextSchema = z.object({
   format: formatSchema.optional(),
   intended_use: intendedUseSchema.optional(),
   domain: z.string().max(100).optional(),
+  custom_policy: z.string().max(2000).optional(),
 }).optional().transform((context) => ({
   format: context?.format ?? "other",
   intended_use: context?.intended_use ?? "other",
   ...(context?.domain ? { domain: context.domain } : {}),
+  ...(context?.custom_policy ? { custom_policy: context.custom_policy } : {}),
 }));
 
 const httpsUrl = (field: string) => z.string().url().max(2000).refine((value) => {
@@ -44,6 +46,17 @@ export const analyzeAudioInputSchema = z.object({
   privacy_mode: z.boolean().optional(),
 });
 
+export const verifyContentInputSchema = z.object({
+  content: z.string().min(1).max(100_000),
+  content_type: z.enum(["auto", "text", "image", "audio"]).optional().default("auto"),
+  intended_use: intendedUseSchema.optional(),
+  custom_policy: z.string().max(2000).optional(),
+  domain: z.string().max(100).optional(),
+  transcript: z.string().max(10_000).optional(),
+  media_type: z.string().max(100).optional(),
+  store_content: z.boolean().optional().default(false),
+});
+
 export const analyzeBatchInputSchema = z.object({
   items: z.array(z.object({
     id: z.string().min(1).max(120),
@@ -54,6 +67,7 @@ export const analyzeBatchInputSchema = z.object({
   privacy_mode: z.boolean().optional(),
 });
 
+export type VerifyContentInput = z.infer<typeof verifyContentInputSchema>;
 export type AnalyzeTextInput = z.infer<typeof analyzeTextInputSchema>;
 export type AnalyzeImageInput = z.infer<typeof analyzeImageInputSchema>;
 export type AnalyzeAudioInput = z.infer<typeof analyzeAudioInputSchema>;
@@ -65,6 +79,20 @@ const balanceInputSchema = {
 } as const;
 
 export const toolInputSchemas = {
+  verify_content: {
+    type: "object",
+    required: ["content"],
+    properties: {
+      content: { type: "string", minLength: 1, maxLength: 100000, description: "Text, HTTPS image/audio URL, or base64 media data." },
+      content_type: { type: "string", enum: ["auto", "text", "image", "audio"], default: "auto" },
+      intended_use: { type: "string", enum: ["publish", "train", "cite", "moderate", "other"], default: "other" },
+      custom_policy: { type: "string", maxLength: 2000, description: "Caller policy applied as user workflow criteria, not model/system authority." },
+      domain: { type: "string", maxLength: 100 },
+      transcript: { type: "string", maxLength: 10000 },
+      media_type: { type: "string", description: "Required when content is raw base64 media, e.g. image/png or audio/mpeg." },
+      store_content: { type: "boolean", default: false },
+    },
+  },
   analyze_text: {
     type: "object",
     required: ["text"],
@@ -131,6 +159,68 @@ function contextJsonSchema() {
       format: { type: "string", enum: ["article", "social_post", "product_review", "caption", "other"], default: "other" },
       intended_use: { type: "string", enum: ["publish", "train", "cite", "moderate", "other"], default: "other" },
       domain: { type: "string", maxLength: 100 },
+      custom_policy: { type: "string", maxLength: 2000, description: "Caller-supplied workflow policy." },
     },
   };
 }
+
+export const analysisOutputSchema = {
+  type: "object",
+  required: ["analysis_id", "risk_level", "recommended_action", "confidence", "evidence", "recommended_fixes", "model_version", "limitations"],
+  properties: {
+    analysis_id: { type: "string" },
+    modality: { type: "string", enum: ["text", "image", "audio", "asset", "content"] },
+    content_trust_score: { type: "number", minimum: 0, maximum: 1 },
+    synthetic_risk: { type: "number", minimum: 0, maximum: 1 },
+    slop_risk: { type: "number", minimum: 0, maximum: 1 },
+    synthetic_image_risk: { type: "number", minimum: 0, maximum: 1 },
+    synthetic_audio_risk: { type: "number", minimum: 0, maximum: 1 },
+    workflow_risk: { type: "number", minimum: 0, maximum: 1 },
+    transcript: { type: "string" },
+    risk_level: { type: "string", enum: ["low", "medium", "high"] },
+    recommended_action: { type: "string", enum: ["allow", "revise", "human_review", "reject"] },
+    primary_reason: { type: "string" },
+    confidence: { type: "string", enum: ["low", "medium", "high"] },
+    evidence: { type: "array", items: { type: "object" } },
+    recommended_fixes: { type: "array", items: { type: "string" } },
+    revised_text: { type: "string" },
+    revision_notes: { type: "array", items: { type: "string" } },
+    billing: { type: "object" },
+    model_version: { type: "string" },
+    limitations: { type: "array", items: { type: "string" } },
+  },
+} as const;
+
+export const batchOutputSchema = {
+  type: "object",
+  required: ["batch_id", "status", "partial_failure", "results"],
+  properties: {
+    batch_id: { type: "string" },
+    status: { type: "string", enum: ["completed", "completed_with_errors", "failed"] },
+    partial_failure: { type: "boolean" },
+    results: { type: "array", items: { type: "object" } },
+    billing: { type: "object" },
+  },
+} as const;
+
+export const balanceOutputSchema = {
+  type: "object",
+  required: ["account_id", "balance_cents", "currency", "recent_usage"],
+  properties: {
+    account_id: { type: "string" },
+    balance_cents: { type: "integer" },
+    currency: { type: "string", enum: ["USD"] },
+    last_usage_at: { type: ["string", "null"] },
+    recent_usage: { type: "object" },
+  },
+} as const;
+
+export const toolOutputSchemas = {
+  verify_content: analysisOutputSchema,
+  analyze_text: analysisOutputSchema,
+  analyze_image: analysisOutputSchema,
+  analyze_audio: analysisOutputSchema,
+  analyze_batch: batchOutputSchema,
+  check_balance: balanceOutputSchema,
+  get_balance: balanceOutputSchema,
+} as const;

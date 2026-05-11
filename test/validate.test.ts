@@ -81,6 +81,35 @@ describe("parseUnifiedAnalyzeRequest", () => {
     await expect(parseUnifiedAnalyzeRequest(req({ type: "audio", content: "https://example.com/clip.mp3", transcript: "optional transcript" }))).resolves.toMatchObject({ type: "audio", transcript: "optional transcript" });
   });
 
+  it("accepts custom_policy and explicit base64 media source objects", async () => {
+    const parsed = await parseUnifiedAnalyzeRequest(req({
+      type: "image",
+      content: "inline image",
+      source: { kind: "base64", media_type: "image/png", data: "iVBORw0KGgo=" },
+      context: { intended_use: "publish", custom_policy: "Flag unsupported medical claims as human_review." },
+    }));
+    expect(parsed.source).toEqual({ kind: "base64", media_type: "image/png", data: "iVBORw0KGgo=" });
+    expect(parsed.context.custom_policy).toBe("Flag unsupported medical claims as human_review.");
+  });
+
+  it("rejects unsupported base64 media types and overlong custom policies", async () => {
+    await expect(parseUnifiedAnalyzeRequest(req({ type: "image", content: "inline", source: { kind: "base64", media_type: "image/gif", data: "abcd" } }))).rejects.toBeInstanceOf(ValidationError);
+    await expect(parseUnifiedAnalyzeRequest(req({ type: "text", content: "This is a sufficiently long piece of text to analyze.", context: { custom_policy: "x".repeat(2001) } }))).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  it("accepts staged mixed asset content blocks", async () => {
+    const parsed = await parseUnifiedAnalyzeRequest(req({
+      type: "asset",
+      content: [
+        { type: "text", text: "Caption with enough detail to validate as an asset block." },
+        { type: "image", source: { kind: "url", url: "https://example.com/image.jpg" } },
+      ],
+      context: { custom_policy: "Reject unsupported health claims." },
+    }));
+    expect(parsed.type).toBe("asset");
+    expect(Array.isArray(parsed.content)).toBe(true);
+  });
+
   it("rejects non-https media content", async () => {
     await expect(parseUnifiedAnalyzeRequest(req({ type: "image", content: "http://example.com/image.jpg" }))).rejects.toBeInstanceOf(ValidationError);
   });

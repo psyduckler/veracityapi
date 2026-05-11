@@ -1,6 +1,6 @@
 {
   "name": "@veracityapi/mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Content trust scoring tools for MCP-compatible agents",
   "type": "module",
   "bin": {

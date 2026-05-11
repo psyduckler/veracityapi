@@ -1,4 +1,4 @@
-export type Modality = "text" | "image" | "audio";
+export type Modality = "text" | "image" | "audio" | "asset" | "content";
 
 export function summarizeAnalysisResult(modality: Modality, result: Record<string, unknown>): string {
   const risk = stringValue(result.risk_level, "unknown");

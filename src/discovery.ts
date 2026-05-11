@@ -278,7 +278,7 @@ export function openApiSpec(): Record<string, unknown> {
             content: { "application/json": { schema: { "$ref": "#/components/schemas/AccessRequest" } } },
           },
           responses: {
-            "200": { description: "Access request stored", content: { "application/json": { schema: { type: "object", properties: { ok: { type: "boolean" }, request_id: { type: "string" } } } } } },
+            "200": { description: "Access request stored", content: { "application/json": { schema: { type: "object", properties: { ok: { type: "boolean" }, request_id: { type: "string", description: "Stable request identifier also emitted as X-Request-Id." } } } } } },
             "400": { "$ref": "#/components/responses/BadRequest" },
           },
         },
@@ -312,6 +312,7 @@ export function openApiSpec(): Record<string, unknown> {
         ErrorResponse: {
           type: "object",
           properties: {
+            request_id: { type: "string", description: "Stable request identifier also emitted as X-Request-Id for debugging." },
             error: { type: "string" },
             message: { type: "string" },
           },
@@ -425,6 +426,7 @@ export function openApiSpec(): Record<string, unknown> {
           type: "object",
           required: ["analysis_id", "modality", "synthetic_risk", "slop_risk", "risk_level", "recommended_action", "primary_reason", "confidence", "evidence", "recommended_fixes", "model_version", "limitations"],
           properties: {
+            request_id: { type: "string", description: "Stable request identifier also emitted as X-Request-Id for debugging." },
             analysis_id: { type: "string", example: "ana_01KRA1EQPDJ7N2KHBXCQMGZYFJ" },
             modality: { type: "string", enum: ["text"], description: "Response modality for agent branching." },
             content_trust_score: { type: "number", minimum: 0, maximum: 1, example: 0.22, description: "Derived workflow trust score. Higher is better." },
@@ -451,6 +453,7 @@ export function openApiSpec(): Record<string, unknown> {
           type: "object",
           required: ["batch_id", "status", "partial_failure", "results"],
           properties: {
+            request_id: { type: "string", description: "Stable request identifier also emitted as X-Request-Id for debugging." },
             batch_id: { type: "string", example: "bat_01K..." },
             status: { type: "string", enum: ["completed", "completed_with_errors", "failed"], description: "Batch-level completion status. One failed item does not fail the whole batch response." },
             partial_failure: { type: "boolean", description: "True when at least one item failed but the batch returned per-item details." },
@@ -467,6 +470,7 @@ export function openApiSpec(): Record<string, unknown> {
           type: "object",
           required: ["analysis_id", "modality", "transcript", "content_trust_score", "synthetic_audio_risk", "workflow_risk", "synthetic_risk", "risk_level", "recommended_action", "primary_reason", "confidence", "evidence", "recommended_fixes", "model_version", "limitations"],
           properties: {
+            request_id: { type: "string", description: "Stable request identifier also emitted as X-Request-Id for debugging." },
             analysis_id: { type: "string", example: "aud_01KRA1EQPDJ7N2KHBXCQMGZYFJ" },
             modality: { type: "string", enum: ["audio"], description: "Response modality for agent branching." },
             transcript: { type: "string", example: "Hey, can you send the transfer before noon?", description: "Best-effort Gemini transcript generated from the audio; caller transcript may be corrected against the clip." },
@@ -489,6 +493,7 @@ export function openApiSpec(): Record<string, unknown> {
           type: "object",
           required: ["analysis_id", "modality", "content_trust_score", "synthetic_image_risk", "synthetic_risk", "risk_level", "recommended_action", "primary_reason", "confidence", "evidence", "recommended_fixes", "model_version", "limitations"],
           properties: {
+            request_id: { type: "string", description: "Stable request identifier also emitted as X-Request-Id for debugging." },
             analysis_id: { type: "string", example: "img_01KRA1EQPDJ7N2KHBXCQMGZYFJ" },
             modality: { type: "string", enum: ["image"], description: "Response modality for agent branching." },
             content_trust_score: { type: "number", minimum: 0, maximum: 1, example: 0.28, description: "Derived image workflow trust score. Higher is better." },

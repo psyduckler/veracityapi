@@ -134,20 +134,23 @@ describe("agent distribution surfaces", () => {
     expect(callJson.result.content[0].text).toContain("unauthorized");
   });
 
-  it("adds conversion/proof homepage blocks and checkmark logo/favicons", async () => {
+  it("adds conversion/proof homepage blocks and API Cube logo/favicons", async () => {
     const html = homepageHtml();
     expect(html).toContain("Input and pre-publish guardrails");
     expect(html).toContain("How agents use VeracityAPI");
     expect(html).toContain("Example workflow costs");
     expect(html).toContain("Operational proof");
     expect(html).toContain('rel="icon"');
-    expect(html).toContain("✅");
+    expect(html).toContain("apiCubeGradient");
+    expect(html).toContain("/terms");
 
     for (const path of ["/favicon.svg", "/favicon.ico"]) {
       const res = await worker.fetch(new Request(`https://veracityapi.com${path}`), env);
       expect(res.status, path).toBe(200);
       expect(res.headers.get("content-type"), path).toContain("image/svg+xml");
-      expect(await res.text(), path).toContain("✅");
+      const favicon = await res.text();
+      expect(favicon, path).toContain("apiCubeGradient");
+      expect(favicon, path).toContain("M256 92 389 169");
     }
   });
 

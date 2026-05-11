@@ -1,3 +1,4 @@
+import { logoMarkHtml } from "./brand";
 import { ulid } from "ulid";
 import { sha256Hex } from "./auth";
 import { CREDIT_PACKS } from "./billing";
@@ -9,7 +10,7 @@ export const SIGNUP_CREDIT_CENTS = 150;
 
 export function accountHtml(account: AccountView | null, message = ""): string {
   const loggedOut = !account;
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>VeracityAPI Account</title><link rel="icon" type="image/svg+xml" href="/favicon.svg"/><link rel="shortcut icon" href="/favicon.ico"/><style>${css()}</style></head><body><main class="wrap"><nav><a class="brand" href="/"><span class="mark" aria-hidden="true">✅</span><span>VeracityAPI</span></a><span>Prepaid API console</span></nav>${message ? `<div class="notice">${escapeHtml(message)}</div>` : ""}${loggedOut ? loginPanel() : dashboard(account, message)}</main></body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>VeracityAPI Account</title><link rel="icon" type="image/svg+xml" href="/favicon.svg"/><link rel="shortcut icon" href="/favicon.ico"/><style>${css()}</style></head><body><main class="wrap"><nav><a class="brand" href="/">${logoMarkHtml()}<span>VeracityAPI</span></a><span>Prepaid API console</span></nav>${message ? `<div class="notice">${escapeHtml(message)}</div>` : ""}${loggedOut ? loginPanel() : dashboard(account, message)}</main></body></html>`;
 }
 
 function loginPanel(): string { return `<section class="hero"><div class="eyebrow">Account</div><h1>Email login. $1.50 free credit — enough for 300 analyze-only 1k-character text requests or 150 Analyze + revise requests. API keys for agents.</h1><p>Enter your email and we’ll send a magic login link. New accounts start with $1.50 free credit — enough for 300 analyze-only 1k-character text requests or 150 Analyze + revise requests. No passwords, no subscriptions.</p></section><form method="post" action="/auth/login" class="card"><label>Email<input name="email" type="email" required autocomplete="email" placeholder="hello@company.com"/></label><button>Send login link</button></form>`; }

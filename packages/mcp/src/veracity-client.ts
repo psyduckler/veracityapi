@@ -1,4 +1,4 @@
-import type { AnalyzeAudioInput, AnalyzeBatchInput, AnalyzeImageInput, AnalyzeTextInput } from "./schemas.js";
+import type { AnalyzeAudioInput, AnalyzeBatchInput, AnalyzeImageInput, AnalyzeTextInput, VerifyContentInput } from "./schemas.js";
 
 export interface VeracityClientOptions {
   apiKey?: string;
@@ -22,6 +22,14 @@ export class VeracityClient {
     this.apiKey = options.apiKey ?? process.env.VERACITY_API_KEY ?? "";
     this.baseUrl = stripTrailingSlash(options.baseUrl ?? process.env.VERACITY_API_BASE_URL ?? "https://api.veracityapi.com");
     this.fetchImpl = options.fetchImpl ?? fetch;
+  }
+
+  verifyContent(input: VerifyContentInput): Promise<Record<string, unknown>> {
+    const contentType = input.content_type === "auto" || !input.content_type ? detectContentType(input.content, input.media_type) : input.content_type;
+    const context = { intended_use: input.intended_use ?? "other", domain: input.domain, custom_policy: input.custom_policy };
+    if (contentType === "text") return this.post("/v1/analyze", { type: "text", content: input.content, context, store_content: input.store_content ?? false });
+    const source = input.media_type ? { kind: "base64", media_type: input.media_type, data: input.content } : undefined;
+    return this.post("/v1/analyze", { type: contentType, content: source ? "" : input.content, source, transcript: input.transcript, context, store_content: false });
   }
 
   analyzeText(input: AnalyzeTextInput): Promise<Record<string, unknown>> {
@@ -86,6 +94,18 @@ function errorMessage(status: number, body: Record<string, unknown>): string {
   if (status === 429) return `VeracityAPI rate limited: ${apiMessage}. Retry later.`;
   if (status === 503) return `VeracityAPI scoring model unavailable: ${apiMessage}. Retry shortly.`;
   return `VeracityAPI returned HTTP ${status}: ${apiMessage}`;
+}
+
+function detectContentType(content: string, mediaType?: string): "text" | "image" | "audio" {
+  if (mediaType?.startsWith("image/")) return "image";
+  if (mediaType?.startsWith("audio/")) return "audio";
+  try {
+    const url = new URL(content);
+    const pathname = url.pathname.toLowerCase();
+    if (/\.(png|jpe?g|webp|gif)$/.test(pathname)) return "image";
+    if (/\.(mp3|wav|m4a|mp4|webm|ogg)$/.test(pathname)) return "audio";
+  } catch {}
+  return "text";
 }
 
 function stripTrailingSlash(value: string): string {

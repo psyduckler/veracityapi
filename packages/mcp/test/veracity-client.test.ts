@@ -2,6 +2,31 @@ import { describe, expect, it, vi } from "vitest";
 import { VeracityClient, VeracityApiError } from "../src/veracity-client.js";
 
 describe("VeracityClient", () => {
+  it("verifyContent auto-detects image URLs and sends unified analyze requests", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ analysis_id: "img_1", modality: "image", recommended_action: "allow" }), { status: 200, headers: { "content-type": "application/json" } }));
+    const client = new VeracityClient({ apiKey: "vapi_secret", baseUrl: "https://api.example.test", fetchImpl: fetchMock as typeof fetch });
+
+    const result = await client.verifyContent({ content: "https://cdn.example.com/image.png", content_type: "auto", intended_use: "publish", custom_policy: "Flag medical claims without evidence." });
+
+    expect(result).toMatchObject({ analysis_id: "img_1" });
+    expect(fetchMock).toHaveBeenCalledWith("https://api.example.test/v1/analyze", expect.objectContaining({
+      method: "POST",
+      body: JSON.stringify({ type: "image", content: "https://cdn.example.com/image.png", context: { intended_use: "publish", domain: undefined, custom_policy: "Flag medical claims without evidence." }, store_content: false })
+    }));
+  });
+
+  it("verifyContent sends base64 media as explicit source objects", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ analysis_id: "aud_1", modality: "audio", recommended_action: "human_review" }), { status: 200, headers: { "content-type": "application/json" } }));
+    const client = new VeracityClient({ apiKey: "vapi_secret", baseUrl: "https://api.example.test", fetchImpl: fetchMock as typeof fetch });
+
+    await client.verifyContent({ content: "UklGRg==", content_type: "audio", media_type: "audio/wav", transcript: "hello world" });
+
+    expect(fetchMock).toHaveBeenCalledWith("https://api.example.test/v1/analyze", expect.objectContaining({
+      method: "POST",
+      body: JSON.stringify({ type: "audio", content: "", source: { kind: "base64", media_type: "audio/wav", data: "UklGRg==" }, transcript: "hello world", context: { intended_use: "other", domain: undefined, custom_policy: undefined }, store_content: false })
+    }));
+  });
+
   it("sends bearer auth to analyze audio", async () => {
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({ analysis_id: "aud_1", risk_level: "low" }), { status: 200, headers: { "content-type": "application/json" } }));
     const client = new VeracityClient({ apiKey: "vapi_secret", baseUrl: "https://api.example.test", fetchImpl: fetchMock as typeof fetch });
