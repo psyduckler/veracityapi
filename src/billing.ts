@@ -19,6 +19,10 @@ export function priceForImage(): { bucket: string; priceCents: number } {
   return { bucket: "image_v0", priceCents: 2 };
 }
 
+export function priceForAudio(): { bucket: string; priceCents: number } {
+  return { bucket: "audio_v0", priceCents: 1 };
+}
+
 
 export async function authenticateUsageKey(request: Request, env: Env): Promise<{ accountId: string; apiKeyId: string; apiKeyHash: string; legacy: false }> {
   const header = request.headers.get("authorization") ?? "";
@@ -69,6 +73,26 @@ export async function debitForBatchRequest(env: Env, accountId: string, apiKeyId
     .bind(`use_${ulid()}`, accountId, apiKeyId, batchId, totalChars, bucket, priceCents, now)
     .run();
   return { units_analyzed: parsed.items.length, chars_analyzed: totalChars, bucket, price_cents: priceCents, remaining_balance_cents: account.balanceCents };
+}
+
+export async function debitForAudio(env: Env, accountId: string, apiKeyId: string, analysisId: string): Promise<BillingMetadata> {
+  const { bucket, priceCents } = priceForAudio();
+  const updated = await env.DB.prepare(`UPDATE accounts SET balance_cents = balance_cents - ?, updated_at = ? WHERE account_id = ? AND deleted_at IS NULL AND balance_cents >= ?`)
+    .bind(priceCents, new Date().toISOString(), accountId, priceCents)
+    .run();
+  if (!updated.meta || updated.meta.changes < 1) {
+    const account = await getAccountBalance(env, accountId);
+    throw new InsufficientBalanceError(priceCents, account.balanceCents);
+  }
+  const account = await getAccountBalance(env, accountId);
+  const usageId = `use_${ulid()}`;
+  await env.DB.prepare(`INSERT INTO credit_ledger (ledger_id, account_id, type, amount_cents, balance_after_cents, reference_id, metadata_json, created_at) VALUES (?, ?, 'audio_analysis_debit', ?, ?, ?, ?, ?)`)
+    .bind(`led_${ulid()}`, accountId, -priceCents, account.balanceCents, analysisId, JSON.stringify({ api_key_id: apiKeyId, units_analyzed: 1, bucket }), new Date().toISOString())
+    .run();
+  await env.DB.prepare(`INSERT INTO usage_events (usage_id, account_id, api_key_id, analysis_id, chars_analyzed, bucket, price_cents, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'debited', ?)`)
+    .bind(usageId, accountId, apiKeyId, analysisId, 1, bucket, priceCents, new Date().toISOString())
+    .run();
+  return { units_analyzed: 1, bucket, price_cents: priceCents, remaining_balance_cents: account.balanceCents };
 }
 
 export async function debitForImage(env: Env, accountId: string, apiKeyId: string, analysisId: string): Promise<BillingMetadata> {

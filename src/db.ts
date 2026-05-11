@@ -1,21 +1,21 @@
-import type { AnalyzeImageRequest, AnalyzeImageResponse, AnalyzeRequest, AnalyzeResponse, Env } from "./types";
+import type { AnalyzeAudioRequest, AnalyzeAudioResponse, AnalyzeImageRequest, AnalyzeImageResponse, AnalyzeRequest, AnalyzeResponse, Env } from "./types";
 import { sha256Hex } from "./auth";
 
 export async function logAnalysis(args: {
   env: Env;
   analysisId: string;
   apiKeyHash: string;
-  request: AnalyzeRequest | AnalyzeImageRequest;
-  response: AnalyzeResponse | AnalyzeImageResponse;
+  request: AnalyzeRequest | AnalyzeImageRequest | AnalyzeAudioRequest;
+  response: AnalyzeResponse | AnalyzeImageResponse | AnalyzeAudioResponse;
   latencyMs: number;
-  kind?: "text" | "image";
+  kind?: "text" | "image" | "audio";
 }): Promise<void> {
   const { env, analysisId, apiKeyHash, request, response, latencyMs } = args;
-  const kind = args.kind ?? ("image_url" in request ? "image" : "text");
-  const inputForHash = kind === "image" ? (request as AnalyzeImageRequest).image_url : (request as AnalyzeRequest).text;
+  const kind = args.kind ?? ("audio_url" in request ? "audio" : "image_url" in request ? "image" : "text");
+  const inputForHash = kind === "image" ? (request as AnalyzeImageRequest).image_url : kind === "audio" ? (request as AnalyzeAudioRequest).audio_url : (request as AnalyzeRequest).text;
   const textHash = await sha256Hex(inputForHash);
   const textToStore = kind === "text" && !request.privacy_mode ? (request as AnalyzeRequest).text : null;
-  const imageUrlDomain = kind === "image" ? safeHostname((request as AnalyzeImageRequest).image_url) : null;
+  const imageUrlDomain = kind === "image" ? safeHostname((request as AnalyzeImageRequest).image_url) : kind === "audio" ? safeHostname((request as AnalyzeAudioRequest).audio_url) : null;
 
   await env.DB.prepare(
     `INSERT INTO analysis_logs

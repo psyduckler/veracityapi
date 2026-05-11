@@ -1,4 +1,5 @@
-import type { AnalyzeImageRequest, AnalyzeRequest, Env, ImageScoredFields, LlmScoredFields } from "./types";
+import type { AnalyzeAudioRequest, AnalyzeImageRequest, AnalyzeRequest, AudioScoredFields, Env, ImageScoredFields, LlmScoredFields } from "./types";
+import { DEMO_AUDIO_CONTENT_TYPE, DEMO_AUDIO_PATH, demoAudioBytes } from "./demoAudio";
 import { clamp01 } from "./scoring";
 
 interface AnthropicToolUse {
@@ -185,6 +186,85 @@ async function scoreImageWithSource(input: AnalyzeImageRequest, env: Env, source
   } finally {
     clearTimeout(timeout);
   }
+}
+
+
+export async function scoreAudio(input: AnalyzeAudioRequest, env: Env): Promise<AudioScoredFields> {
+  if (!env.GEMINI_API_KEY) throw new LlmError("GEMINI_API_KEY is not configured");
+  const audio = await fetchAudioForGemini(input.audio_url);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 25_000);
+  try {
+    const model = env.GEMINI_MODEL || "gemini-2.5-flash";
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`, {
+      method: "POST",
+      signal: controller.signal,
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ generation_config: { response_mime_type: "application/json" }, contents: [{ role: "user", parts: [{ text: buildAudioPrompt(input) }, { inline_data: { mime_type: audio.mediaType, data: audio.base64 } }] }] }),
+    });
+    if (!res.ok) throw new LlmError(`Gemini returned ${res.status}: ${(await res.text()).slice(0, 240)}`);
+    const data = await res.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+    const text = data.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("") || "{}";
+    return normalizeAudioScoredFields(JSON.parse(text) as Record<string, unknown>);
+  } catch (err) {
+    if (err instanceof LlmError) throw err;
+    if (err instanceof DOMException && err.name === "AbortError") throw new LlmError("Gemini audio request timed out");
+    throw new LlmError(err instanceof Error ? err.message : "Unknown Gemini audio error");
+  } finally { clearTimeout(timeout); }
+}
+
+async function fetchAudioForGemini(audioUrl: string): Promise<{ mediaType: string; base64: string }> {
+  const url = new URL(audioUrl);
+  if (url.protocol !== "https:") throw new LlmError("Only https audio URLs are supported");
+  const host = url.hostname.toLowerCase();
+  if ((host === "veracityapi.com" || host === "api.veracityapi.com" || host === "veracityapi.psyduckler.workers.dev") && url.pathname === DEMO_AUDIO_PATH) {
+    return { mediaType: DEMO_AUDIO_CONTENT_TYPE, base64: uint8ToBase64(demoAudioBytes()) };
+  }
+  if (host === "localhost" || host.endsWith(".localhost") || isPrivateIp(host)) throw new LlmError("Private or localhost audio URLs are not supported");
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12_000);
+  try {
+    const res = await fetch(audioUrl, { method: "GET", signal: controller.signal, headers: { "user-agent": "VeracityAPI/0.1 audio-analysis" } });
+    if (!res.ok) throw new LlmError(`Audio fetch returned ${res.status}`);
+    const mediaType = normalizeAudioMediaType(res.headers.get("content-type") || "");
+    const contentLength = Number(res.headers.get("content-length") || 0);
+    if (contentLength > 4_000_000) throw new LlmError("Audio is too large; max size is 4 MB");
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    if (bytes.byteLength > 4_000_000) throw new LlmError("Audio is too large; max size is 4 MB");
+    return { mediaType, base64: uint8ToBase64(bytes) };
+  } catch (err) {
+    if (err instanceof LlmError) throw err;
+    if (err instanceof DOMException && err.name === "AbortError") throw new LlmError("Audio fetch timed out");
+    throw new LlmError(err instanceof Error ? err.message : "Audio fetch failed");
+  } finally { clearTimeout(timeout); }
+}
+
+function normalizeAudioMediaType(contentType: string): string {
+  const mediaType = contentType.split(";")[0]?.trim().toLowerCase() || "";
+  if (["audio/mpeg", "audio/mp3", "audio/wav", "audio/x-wav", "audio/mp4", "audio/m4a", "audio/webm", "audio/ogg", "application/ogg"].includes(mediaType)) {
+    if (mediaType === "audio/mp3") return "audio/mpeg";
+    if (mediaType === "application/ogg") return "audio/ogg";
+    return mediaType;
+  }
+  throw new LlmError("Audio URL did not return a supported audio content-type");
+}
+
+function buildAudioPrompt(input: AnalyzeAudioRequest): string {
+  return `Score this short audio clip for synthetic-audio workflow triage. Return ONLY JSON with keys: synthetic_audio_risk, workflow_risk, confidence, evidence, recommended_fixes. This is not proof of AI generation, voice-clone proof, speaker identity verification, or forensic determination. Format: ${input.context.format}; intended use: ${input.context.intended_use}; domain: ${input.context.domain || "general"}; optional transcript: ${input.transcript || "none"}.`;
+}
+
+function normalizeAudioScoredFields(raw: Record<string, unknown>): AudioScoredFields {
+  const confidence = raw.confidence === "high" || raw.confidence === "medium" || raw.confidence === "low" ? raw.confidence : "low";
+  const evidenceRaw = Array.isArray(raw.evidence) ? raw.evidence.slice(0, 5) : [];
+  const evidence = evidenceRaw.map((item) => {
+    const obj = typeof item === "object" && item ? (item as Record<string, unknown>) : {};
+    const rawSeverity = obj.severity;
+    const severity: "low" | "medium" | "high" = rawSeverity === "high" || rawSeverity === "medium" || rawSeverity === "low" ? rawSeverity : "low";
+    return { type: String(obj.type || "audio_signal").slice(0, 80), severity, span: String(obj.span || "overall clip").slice(0, 200), explanation: String(obj.explanation || "").slice(0, 240) };
+  });
+  const fixes = Array.isArray(raw.recommended_fixes) ? raw.recommended_fixes.slice(0, 5).map((x) => String(x).slice(0, 240)) : [];
+  const syntheticAudioRisk = clamp01(raw.synthetic_audio_risk);
+  return { synthetic_audio_risk: syntheticAudioRisk, workflow_risk: clamp01(raw.workflow_risk), synthetic_risk: syntheticAudioRisk, confidence, evidence, recommended_fixes: fixes };
 }
 
 async function fetchImageForAnthropic(imageUrl: string): Promise<{ mediaType: string; base64: string }> {

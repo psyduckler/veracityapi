@@ -8,6 +8,8 @@ export interface Env {
   DB: D1Database;
   ANTHROPIC_API_KEY: string;
   ANTHROPIC_MODEL?: string;
+  GEMINI_API_KEY?: string;
+  GEMINI_MODEL?: string;
   /** @deprecated Legacy env keys are not accepted by paid endpoints; use D1-backed account API keys. */
   API_KEYS?: string;
   MODEL_VERSION?: string;
@@ -119,4 +121,36 @@ export interface AnalyzeImageResponse extends ImageScoredFields {
   model_version: string;
   limitations: string[];
   billing?: BillingMetadata;
+}
+
+
+export interface AnalyzeAudioRequest {
+  audio_url: string;
+  transcript?: string;
+  context: AnalyzeRequest["context"];
+  privacy_mode: boolean;
+}
+
+export interface AudioScoredFields {
+  synthetic_audio_risk: number;
+  workflow_risk: number;
+  synthetic_risk: number;
+  confidence: Confidence;
+  evidence: EvidenceItem[];
+  recommended_fixes: string[];
+}
+
+export interface AnalyzeAudioResponse extends AudioScoredFields {
+  analysis_id: string;
+  content_trust_score: number;
+  risk_level: RiskLevel;
+  recommended_action: RecommendedAction;
+  model_version: string;
+  limitations: string[];
+  billing?: {
+    units_analyzed: number;
+    bucket: string;
+    price_cents: number;
+    remaining_balance_cents: number;
+  };
 }

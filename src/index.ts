@@ -1,16 +1,17 @@
 import { ulid } from "ulid";
 import { sha256Hex } from "./auth";
 import { accountHtml, buildAccountView, cleanEmail, clearSessionCookie, consumeMagicLink, createApiKey, createMagicLink, getSessionAccount, parseForm, redirect, requireAccount, sendMagicLink, sessionCookie, validEmail } from "./account";
-import { authenticateUsageKey, BillingAuthError, creditCheckoutSession, CREDIT_PACKS, debitForBatchRequest, debitForImage, debitForRequest, getBalanceSummary, InsufficientBalanceError, refundUsage, verifyStripeWebhook } from "./billing";
+import { authenticateUsageKey, BillingAuthError, creditCheckoutSession, CREDIT_PACKS, debitForAudio, debitForBatchRequest, debitForImage, debitForRequest, getBalanceSummary, InsufficientBalanceError, refundUsage, verifyStripeWebhook } from "./billing";
 import { logAnalysis } from "./db";
-import { LlmError, scoreImage, scoreText } from "./llm";
-import { deriveAction, deriveImageRiskLevel, deriveImageTrustScore, deriveRiskLevel, deriveTrustSignals } from "./scoring";
+import { LlmError, scoreAudio, scoreImage, scoreText } from "./llm";
+import { deriveAction, deriveAudioRiskLevel, deriveAudioTrustScore, deriveImageRiskLevel, deriveImageTrustScore, deriveRiskLevel, deriveTrustSignals } from "./scoring";
 import { agentsJson, llmsTxt, ogSvg, openApiSpec, robotsTxt, sitemapXml } from "./discovery";
 import { DEMO_IMAGE_CONTENT_TYPE, DEMO_IMAGE_PATH, demoImageBytes } from "./demoImage";
+import { DEMO_AUDIO_CONTENT_TYPE, DEMO_AUDIO_PATH, demoAudioBytes } from "./demoAudio";
 import { docsHtml, evalsHtml, examplesHtml, howItWorksHtml, pricingHtml, privacyHtml, requestAccessHtml, useCaseHtml, useCasesIndexHtml } from "./pages";
 import { homepageHtml } from "./site";
-import type { AnalyzeBatchRequest, AnalyzeImageResponse, AnalyzeResponse, Env } from "./types";
-import { parseAnalyzeBatchRequest, parseAnalyzeImageRequest, parseAnalyzeRequest, ValidationError } from "./validate";
+import type { AnalyzeAudioResponse, AnalyzeBatchRequest, AnalyzeImageResponse, AnalyzeResponse, Env } from "./types";
+import { parseAnalyzeAudioRequest, parseAnalyzeBatchRequest, parseAnalyzeImageRequest, parseAnalyzeRequest, ValidationError } from "./validate";
 
 const LIMITATIONS = [
   "Scores are probabilistic workflow risk signals, not proof of AI authorship or truth.",
@@ -23,6 +24,12 @@ const IMAGE_LIMITATIONS = [
   "v0.1 image scoring uses a vision LLM, not a calibrated synthetic-image classifier.",
   "Evidence is limited to visible artifacts; VeracityAPI does not inspect EXIF, C2PA Content Credentials, or provenance metadata in v0.1.",
   "Missing metadata, social compression, screenshots, and edited exports can lower trust in real workflows but are not used as proof of synthetic generation here.",
+];
+
+const AUDIO_LIMITATIONS = [
+  "Gemini-powered audio workflow triage, not proof of AI generation.",
+  "Not voice-clone proof, speaker identity verification, or forensic determination.",
+  "Scores can be affected by compression, background noise, short clips, edits, music beds, and recording quality.",
 ];
 
 
@@ -121,6 +128,16 @@ export default {
       });
     }
 
+    if ((request.method === "GET" || request.method === "HEAD") && url.pathname === DEMO_AUDIO_PATH) {
+      return new Response(request.method === "HEAD" ? null : demoAudioBytes().buffer as ArrayBuffer, {
+        headers: {
+          "content-type": DEMO_AUDIO_CONTENT_TYPE,
+          "cache-control": "public, max-age=31536000, immutable",
+          "access-control-allow-origin": "*",
+        },
+      });
+    }
+
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/health") {
       return json(request.method === "HEAD" ? null : { status: "ok", service: "veracityapi", version: env.MODEL_VERSION || "v0.1" });
     }
@@ -133,6 +150,11 @@ export default {
     if (request.method === "POST" && url.pathname === "/demo/analyze-image") {
       await logSiteEvent(env, request, "image_demo_run", url.pathname);
       return handleDemoAnalyzeImage(request, env);
+    }
+
+    if (request.method === "POST" && url.pathname === "/demo/analyze-audio") {
+      await logSiteEvent(env, request, "audio_demo_run", url.pathname);
+      return handleDemoAnalyzeAudio(request, env);
     }
 
 
@@ -150,6 +172,10 @@ export default {
 
     if (request.method === "POST" && url.pathname === "/v1/analyze-image") {
       return handleAnalyzeImage(request, env);
+    }
+
+    if (request.method === "POST" && url.pathname === "/v1/analyze-audio") {
+      return handleAnalyzeAudio(request, env);
     }
 
 
@@ -280,6 +306,29 @@ async function handleDemoAnalyzeImage(request: Request, env: Env): Promise<Respo
     if (err instanceof LlmError) return json({ error: "llm_unavailable", message: "Scoring model unavailable. Retry shortly." }, 503, { "Retry-After": "10" });
     console.error(err);
     return json({ error: "internal_error" }, 500);
+  }
+}
+
+
+async function handleDemoAnalyzeAudio(request: Request, env: Env): Promise<Response> {
+  const start = Date.now();
+  try {
+    const ip = request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for") || "unknown";
+    const cookieKey = request.headers.get("cookie")?.match(/veracity_demo=([^;]+)/)?.[1] || "nocookie";
+    if (!consumeDemoQuota(`audio:${ip}:${cookieKey}`, Number(env.DEMO_RATE_LIMIT_PER_HOUR || 12))) return json({ error: "rate_limited", message: "Public audio demo limit reached. Try again later or create an account for API access." }, 429, { "Retry-After": "3600" });
+    let body: Record<string, unknown>;
+    try { body = await request.json() as Record<string, unknown>; } catch { throw new ValidationError("Request body must be valid JSON"); }
+    const parsed = await parseAnalyzeAudioRequest(jsonRequest(request.url, { audio_url: body.audio_url, transcript: body.transcript, context: body.context, privacy_mode: true }));
+    const scored = await scoreAudio(parsed, env);
+    const riskLevel = deriveAudioRiskLevel(scored.synthetic_audio_risk, scored.workflow_risk);
+    const response: AnalyzeAudioResponse = { analysis_id: `demo_aud_${ulid()}`, ...scored, content_trust_score: deriveAudioTrustScore(scored.synthetic_audio_risk, scored.workflow_risk), risk_level: riskLevel, recommended_action: deriveAction(riskLevel, parsed.context.intended_use), model_version: env.MODEL_VERSION || "v0.1", limitations: AUDIO_LIMITATIONS };
+    await logAnalysis({ env, analysisId: response.analysis_id, apiKeyHash: `demo-audio:${await sha256Hex(ip)}`, request: parsed, response, latencyMs: Date.now() - start, kind: "audio" });
+    return json(response, 200, { "Set-Cookie": `veracity_demo=${cookieKey === "nocookie" ? ulid() : cookieKey}; Path=/; Max-Age=86400; SameSite=Lax; Secure` });
+  } catch (err) {
+    if (err instanceof ValidationError) return json({ error: "bad_request", message: err.message }, 400);
+    if (err instanceof LlmError && /url|fetch|format|unsupported|too large|private|localhost|https|Gemini returned 400/i.test(err.message)) return json({ error: "bad_request", message: err.message.slice(0, 500) }, 400);
+    if (err instanceof LlmError) return json({ error: "llm_unavailable", message: "Scoring model unavailable. Retry shortly." }, 503, { "Retry-After": "10" });
+    console.error(err); return json({ error: "internal_error" }, 500);
   }
 }
 
@@ -433,6 +482,33 @@ async function handleAnalyzeImage(request: Request, env: Env): Promise<Response>
   }
 }
 
+
+
+async function handleAnalyzeAudio(request: Request, env: Env): Promise<Response> {
+  const start = Date.now();
+  let debit: { accountId: string; apiKeyId: string; billing: NonNullable<AnalyzeAudioResponse["billing"]>; analysisId: string } | null = null;
+  try {
+    const auth = await authenticateUsageKey(request, env);
+    const parsed = await parseAnalyzeAudioRequest(request);
+    const analysisId = `aud_${ulid()}`;
+    const rawBilling = await debitForAudio(env, auth.accountId, auth.apiKeyId, analysisId);
+    const billing = { units_analyzed: rawBilling.units_analyzed ?? 1, bucket: rawBilling.bucket, price_cents: rawBilling.price_cents, remaining_balance_cents: rawBilling.remaining_balance_cents };
+    debit = { accountId: auth.accountId, apiKeyId: auth.apiKeyId, billing, analysisId };
+    const scored = await scoreAudio(parsed, env);
+    const riskLevel = deriveAudioRiskLevel(scored.synthetic_audio_risk, scored.workflow_risk);
+    const response: AnalyzeAudioResponse = { analysis_id: analysisId, ...scored, content_trust_score: deriveAudioTrustScore(scored.synthetic_audio_risk, scored.workflow_risk), risk_level: riskLevel, recommended_action: deriveAction(riskLevel, parsed.context.intended_use), model_version: env.MODEL_VERSION || "v0.1", limitations: AUDIO_LIMITATIONS, billing };
+    await logAnalysis({ env, analysisId, apiKeyHash: auth.apiKeyHash, request: parsed, response, latencyMs: Date.now() - start, kind: "audio" });
+    return json(response);
+  } catch (err) {
+    if (debit && err instanceof LlmError) await refundUsage(env, debit.accountId, debit.apiKeyId, debit.analysisId, debit.billing, "llm_unavailable");
+    if (err instanceof BillingAuthError) return json({ error: "unauthorized" }, 401);
+    if (err instanceof InsufficientBalanceError) return json({ error: "insufficient_balance", message: `This audio analysis costs $${(err.requiredCents / 100).toFixed(2)}. Your balance is $${(err.balanceCents / 100).toFixed(2)}.`, required_cents: err.requiredCents, balance_cents: err.balanceCents, top_up_url: "https://veracityapi.com/account" }, 402);
+    if (err instanceof ValidationError) return json({ error: "bad_request", message: err.message }, 400);
+    if (err instanceof LlmError && /url|fetch|format|unsupported|too large|private|localhost|https/i.test(err.message)) return json({ error: "bad_request", message: err.message }, 400);
+    if (err instanceof LlmError) return json({ error: "llm_unavailable", message: "Scoring model unavailable. Retry shortly." }, 503, { "Retry-After": "10" });
+    console.error(err); return json({ error: "internal_error" }, 500);
+  }
+}
 
 async function handleLogin(request: Request, env: Env): Promise<Response> {
   try {

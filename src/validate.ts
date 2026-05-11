@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { AnalyzeBatchRequest, AnalyzeImageRequest, AnalyzeRequest } from "./types";
+import type { AnalyzeAudioRequest, AnalyzeBatchRequest, AnalyzeImageRequest, AnalyzeRequest } from "./types";
 
 const formatSchema = z.enum(["article", "social_post", "product_review", "caption", "other"]).default("other");
 const intendedUseSchema = z.enum(["publish", "train", "cite", "moderate", "other"]).default("other");
@@ -30,6 +30,19 @@ const batchRequestSchema = z.object({
   if (totalChars > 50_000) {
     ctx.addIssue({ code: "custom", path: ["items"], message: "batch total text must be 50,000 characters or less" });
   }
+});
+
+const audioRequestSchema = z.object({
+  audio_url: z.string().url().max(2000).refine((value) => {
+    try { return new URL(value).protocol === "https:"; } catch { return false; }
+  }, "audio_url must be an https URL"),
+  transcript: z.string().max(10000).optional(),
+  context: z.object({
+    format: formatSchema.optional(),
+    intended_use: intendedUseSchema.optional(),
+    domain: z.string().max(100).optional(),
+  }).optional(),
+  privacy_mode: z.boolean().optional().default(true),
 });
 
 const imageRequestSchema = z.object({
@@ -89,6 +102,26 @@ export async function parseAnalyzeBatchRequest(request: Request): Promise<Analyz
 
   return {
     items: parsed.data.items,
+    context: {
+      format: parsed.data.context?.format ?? "other",
+      intended_use: parsed.data.context?.intended_use ?? "other",
+      domain: parsed.data.context?.domain,
+    },
+    privacy_mode: parsed.data.privacy_mode,
+  };
+}
+
+export async function parseAnalyzeAudioRequest(request: Request): Promise<AnalyzeAudioRequest> {
+  let body: unknown;
+  try { body = await request.json(); } catch { throw new ValidationError("Request body must be valid JSON"); }
+  const parsed = audioRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    throw new ValidationError(`${issue.path.join(".") || "body"}: ${issue.message}`);
+  }
+  return {
+    audio_url: parsed.data.audio_url,
+    transcript: parsed.data.transcript,
     context: {
       format: parsed.data.context?.format ?? "other",
       intended_use: parsed.data.context?.intended_use ?? "other",

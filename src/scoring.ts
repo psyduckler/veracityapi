@@ -52,3 +52,15 @@ export function deriveAction(level: RiskLevel, intendedUse: IntendedUse): Recomm
   };
   return matrix[intendedUse][level];
 }
+
+
+export function deriveAudioRiskLevel(syntheticAudioRisk: number, workflowRisk: number): RiskLevel {
+  const combined = Math.max(clamp01(syntheticAudioRisk), clamp01(workflowRisk));
+  if (combined >= 0.72) return "high";
+  if (combined >= 0.38) return "medium";
+  return "low";
+}
+
+export function deriveAudioTrustScore(syntheticAudioRisk: number, workflowRisk: number): number {
+  return round2(1 - Math.max(clamp01(syntheticAudioRisk), clamp01(workflowRisk)));
+}

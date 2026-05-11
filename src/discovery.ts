@@ -1,4 +1,5 @@
 import { DEMO_IMAGE_URL } from "./demoImage";
+import { DEMO_AUDIO_TRANSCRIPT, DEMO_AUDIO_URL } from "./demoAudio";
 import { USE_CASES } from "./pages";
 
 const BASE_URL = "https://veracityapi.com";
@@ -10,8 +11,8 @@ export function openApiSpec(): Record<string, unknown> {
     info: {
       title: "VeracityAPI",
       version: "0.1.0",
-      summary: "Content and image trust scoring API for agents",
-      description: "Scores English text and image URLs for content trust, specificity/slop risk, synthetic-image risk, evidence, and recommended actions. Workflow risk scoring only; not proof of authorship or truth.",
+      summary: "Content, image, and audio trust scoring API for agents",
+      description: "Scores English text, image URLs, and audio URLs for content trust, specificity/slop risk, synthetic-image risk, evidence, and recommended actions. Workflow risk scoring only; not proof of authorship or truth.",
       contact: {
         name: "VeracityAPI beta access",
         email: "bernard@tabiji.ai",
@@ -26,7 +27,7 @@ export function openApiSpec(): Record<string, unknown> {
       { url: BASE_URL, description: "Public demo host" },
     ],
     tags: [
-      { name: "analysis", description: "Text and image content trust scoring" },
+      { name: "analysis", description: "Text, image, and audio content trust scoring" },
       { name: "demo", description: "No-key public demo endpoint" },
       { name: "health", description: "Service health" },
       { name: "access", description: "Credit-based API access requests" },
@@ -160,6 +161,24 @@ export function openApiSpec(): Record<string, unknown> {
           },
         },
       },
+
+      "/v1/analyze-audio": {
+        post: {
+          tags: ["analysis"],
+          operationId: "analyzeAudio",
+          summary: "Analyze an audio URL for synthetic-audio workflow triage",
+          description: "Requires a bearer API key. Fetches a capped HTTPS audio URL, sends bytes to Gemini for structured synthetic-audio risk scoring, and stores no audio bytes, base64, or full URL. Workflow triage only; not proof of AI generation, voice cloning, speaker identity, or forensic determination.",
+          security: [{ bearerAuth: [] }],
+          requestBody: { required: true, content: { "application/json": { schema: { "$ref": "#/components/schemas/AnalyzeAudioRequest" }, examples: { voiceMessage: { value: { audio_url: DEMO_AUDIO_URL, transcript: DEMO_AUDIO_TRANSCRIPT, context: { format: "social_post", intended_use: "publish", domain: "voice-message authenticity triage" }, privacy_mode: true } } } } } },
+          responses: {
+            "200": { description: "Audio workflow triage result", content: { "application/json": { schema: { "$ref": "#/components/schemas/AnalyzeAudioResponse" }, examples: { sample: { value: sampleAnalyzeAudioResponse("aud_01EXAMPLE") } } } } },
+            "400": { "$ref": "#/components/responses/BadRequest" },
+            "401": { "$ref": "#/components/responses/Unauthorized" },
+            "402": { "$ref": "#/components/responses/InsufficientBalance" },
+            "503": { "$ref": "#/components/responses/LlmUnavailable" },
+          },
+        },
+      },
       "/demo/analyze": {
         post: {
           tags: ["demo"],
@@ -192,6 +211,22 @@ export function openApiSpec(): Record<string, unknown> {
           requestBody: { required: true, content: { "application/json": { schema: { "$ref": "#/components/schemas/AnalyzeImageRequest" } } } },
           responses: {
             "200": { description: "Demo image scoring result", content: { "application/json": { schema: { "$ref": "#/components/schemas/AnalyzeImageResponse" } } } },
+            "400": { "$ref": "#/components/responses/BadRequest" },
+            "429": { "$ref": "#/components/responses/RateLimited" },
+            "503": { "$ref": "#/components/responses/LlmUnavailable" },
+          },
+        },
+      },
+
+      "/demo/analyze-audio": {
+        post: {
+          tags: ["demo"],
+          operationId: "demoAnalyzeAudio",
+          summary: "Analyze an audio URL with the public no-key demo",
+          description: "No API key required. Accepts an HTTPS audio URL, forces privacy_mode=true, logs no audio bytes/base64/full URL, and rate limits by IP/cookie.",
+          requestBody: { required: true, content: { "application/json": { schema: { "$ref": "#/components/schemas/AnalyzeAudioRequest" } } } },
+          responses: {
+            "200": { description: "Demo audio workflow triage result", content: { "application/json": { schema: { "$ref": "#/components/schemas/AnalyzeAudioResponse" } } } },
             "400": { "$ref": "#/components/responses/BadRequest" },
             "429": { "$ref": "#/components/responses/RateLimited" },
             "503": { "$ref": "#/components/responses/LlmUnavailable" },
@@ -284,6 +319,17 @@ export function openApiSpec(): Record<string, unknown> {
             privacy_mode: { type: "boolean", default: true, description: "When true, only the image URL hash and hostname are logged; image bytes and the full URL are not stored." },
           },
         },
+
+        AnalyzeAudioRequest: {
+          type: "object",
+          required: ["audio_url"],
+          properties: {
+            audio_url: { type: "string", format: "uri", maxLength: 2000, description: "HTTPS audio URL. Supported: mp3, wav, m4a/mp4 audio, webm/ogg. Max 4 MB." },
+            transcript: { type: "string", maxLength: 10000, description: "Optional caller-supplied transcript/context. Gemini still analyzes audio directly." },
+            context: { "$ref": "#/components/schemas/AnalyzeTextRequest/properties/context" },
+            privacy_mode: { type: "boolean", default: true, description: "When true, only the audio URL hash and hostname are logged; audio bytes/base64/full URL are not stored." },
+          },
+        },
         AnalyzeTextResponse: {
           type: "object",
           required: ["analysis_id", "synthetic_risk", "slop_risk", "risk_level", "recommended_action", "confidence", "evidence", "recommended_fixes", "model_version", "limitations"],
@@ -316,6 +362,26 @@ export function openApiSpec(): Record<string, unknown> {
           },
         },
 
+
+        AnalyzeAudioResponse: {
+          type: "object",
+          required: ["analysis_id", "content_trust_score", "synthetic_audio_risk", "workflow_risk", "synthetic_risk", "risk_level", "recommended_action", "confidence", "evidence", "recommended_fixes", "model_version", "limitations"],
+          properties: {
+            analysis_id: { type: "string", example: "aud_01KRA1EQPDJ7N2KHBXCQMGZYFJ" },
+            content_trust_score: { type: "number", minimum: 0, maximum: 1, example: 0.62 },
+            synthetic_audio_risk: { type: "number", minimum: 0, maximum: 1, example: 0.38, description: "Synthetic-audio risk signal; not proof of AI generation or voice cloning." },
+            workflow_risk: { type: "number", minimum: 0, maximum: 1, example: 0.44 },
+            synthetic_risk: { type: "number", minimum: 0, maximum: 1, example: 0.38, description: "Alias for synthetic_audio_risk for SDK consistency." },
+            risk_level: { type: "string", enum: ["low", "medium", "high"] },
+            recommended_action: { type: "string", enum: ["allow", "revise", "human_review", "reject"] },
+            confidence: { type: "string", enum: ["low", "medium", "high"] },
+            evidence: { type: "array", items: { "$ref": "#/components/schemas/EvidenceItem" } },
+            recommended_fixes: { type: "array", items: { type: "string" } },
+            model_version: { type: "string", example: "v0.1" },
+            limitations: { type: "array", items: { type: "string" } },
+            billing: { type: "object", properties: { units_analyzed: { type: "integer" }, bucket: { type: "string", example: "audio_v0" }, price_cents: { type: "integer", example: 1 }, remaining_balance_cents: { type: "integer" } } },
+          },
+        },
         AnalyzeImageResponse: {
           type: "object",
           required: ["analysis_id", "content_trust_score", "synthetic_image_risk", "synthetic_risk", "risk_level", "recommended_action", "confidence", "evidence", "recommended_fixes", "model_version", "limitations"],
@@ -395,6 +461,25 @@ export function sampleAnalyzeImageResponse(analysisId = "img_01KRA1IMAGEEXAMPLE"
 }
 
 
+
+export function sampleAnalyzeAudioResponse(analysisId = "aud_01KRA1AUDIOEXAMPLE"): Record<string, unknown> {
+  return {
+    analysis_id: analysisId,
+    content_trust_score: 0.62,
+    synthetic_audio_risk: 0.38,
+    workflow_risk: 0.44,
+    synthetic_risk: 0.38,
+    confidence: "medium",
+    evidence: [{ type: "prosody_consistency", severity: "medium", span: "overall clip", explanation: "Some delivery patterns are unusually even; treat as review signal, not proof." }],
+    recommended_fixes: ["Request provenance or raw recording context before high-stakes publication."],
+    risk_level: "medium",
+    recommended_action: "revise",
+    model_version: "v0.1",
+    limitations: ["Gemini-powered audio workflow triage, not proof of AI generation.", "Not voice-clone proof, speaker identity verification, or forensic determination."],
+    billing: { units_analyzed: 1, bucket: "audio_v0", price_cents: 1, remaining_balance_cents: 999 },
+  };
+}
+
 export function llmsTxt(): string {
   return `# VeracityAPI
 
@@ -418,14 +503,16 @@ ${BASE_URL}/openapi.json
 
 POST ${BASE_URL}/demo/analyze
 POST ${BASE_URL}/demo/analyze-image
+POST ${BASE_URL}/demo/analyze-audio
 
-No API key required. privacy_mode is forced true server-side. Text limit is 4,000 characters. Image demo accepts HTTPS image URLs and logs only URL hash + hostname. Rate limited by IP/cookie.
+No API key required. privacy_mode is forced true server-side. Text limit is 4,000 characters. Image demo accepts HTTPS image URLs and audio demo accepts HTTPS audio URLs. Media demos log only URL hash + hostname. Rate limited by IP/cookie.
 
 ## Production endpoints
 
 POST ${API_BASE_URL}/v1/analyze-text
 POST ${API_BASE_URL}/v1/analyze-batch
 POST ${API_BASE_URL}/v1/analyze-image
+POST ${API_BASE_URL}/v1/analyze-audio
 GET ${API_BASE_URL}/v1/balance
 
 Requires:
@@ -465,7 +552,12 @@ Content-Type: application/json
 ## Image endpoint
 
 POST ${API_BASE_URL}/v1/analyze-image
+POST ${API_BASE_URL}/v1/analyze-audio
 POST ${API_BASE_URL}/v1/analyze-image accepts {"image_url":"https://...","context":{"format":"social_post","intended_use":"publish","domain":"influencer product post"},"privacy_mode":true}. Demo fixture: ${DEMO_IMAGE_URL}. It returns content_trust_score, synthetic_image_risk, synthetic_risk alias, evidence, recommended_fixes, risk_level, recommended_action, limitations, and billing. VeracityAPI stores no image bytes and logs only a hash plus hostname. Price: $0.02/image.
+
+## Audio endpoint
+
+POST ${API_BASE_URL}/v1/analyze-audio accepts {"audio_url":"https://...","transcript":"optional","context":{"format":"social_post","intended_use":"publish","domain":"voice-message authenticity triage"},"privacy_mode":true}. It returns content_trust_score, synthetic_audio_risk, workflow_risk, synthetic_risk alias, evidence, recommended_fixes, risk_level, recommended_action, limitations, and billing. VeracityAPI stores no audio bytes/base64 and logs only a hash plus hostname. Price: $0.01/audio request. This is workflow triage, not proof of AI generation or voice-clone proof.
 
 ## Batch and balance endpoints
 
@@ -552,7 +644,7 @@ export function agentsJson(): Record<string, unknown> {
     },
     pricing: {
       model: "prepaid_credits",
-      billing: "New accounts get $1.50 free credit — enough for 150 short text analyses. No subscriptions. Text requests debit by character bucket; batch text is billed as the sum of per-item text prices; image analysis debits $0.02/image.",
+      billing: "New accounts get $1.50 free credit — enough for 150 short text analyses. No subscriptions. Text requests debit by character bucket; batch text is billed as the sum of per-item text prices; image analysis debits $0.02/image; audio analysis debits $0.01/request.",
       buckets: [
         { max_chars: 4000, price_usd: 0.01 },
         { max_chars: 20000, price_usd: 0.03 },
@@ -561,19 +653,22 @@ export function agentsJson(): Record<string, unknown> {
       ],
       above_100k: "chunk or contact us",
       image_analysis: { unit: "image", price_usd: 0.02, bucket: "image_v0" },
+      audio_analysis: { unit: "audio_request", price_usd: 0.01, bucket: "audio_v0" },
       batch_text: { max_items: 25, max_chars_per_item: 4000, max_total_chars: 50000, billing: "sum_per_item" },
     },
     demo: {
       endpoint: `${BASE_URL}/demo/analyze`,
       image_endpoint: `${BASE_URL}/demo/analyze-image`,
+      audio_endpoint: `${BASE_URL}/demo/analyze-audio`,
       method: "POST",
       auth_required: false,
       limits: "text demo: 4000 chars; image demo: HTTPS image URL; both rate limited and privacy_mode=true forced server-side",
       sample_image_url: DEMO_IMAGE_URL,
+      sample_audio_url: DEMO_AUDIO_URL,
     },
     recommended_use_cases: USE_CASES.map((u) => u.title),
-    capabilities: ["content_trust_score", "specificity_risk", "provenance_weakness", "synthetic_texture_risk", "synthetic_image_risk", "ai_slop_risk", "evidence_spans", "recommended_action", "privacy_mode", "synchronous_batch", "balance_preflight"],
-    limitations: ["Workflow risk score, not proof of authorship or truth", "English-calibrated text at MVP; non-English scoring is experimental", "Image v0.1 uses visible artifact scoring only and does not inspect EXIF/C2PA metadata"],
+    capabilities: ["content_trust_score", "specificity_risk", "provenance_weakness", "synthetic_texture_risk", "synthetic_image_risk", "synthetic_audio_risk", "audio_workflow_triage", "ai_slop_risk", "evidence_spans", "recommended_action", "privacy_mode", "synchronous_batch", "balance_preflight"],
+    limitations: ["Workflow risk score, not proof of authorship or truth", "English-calibrated text at MVP; non-English scoring is experimental", "Image v0.1 uses visible artifact scoring only and does not inspect EXIF/C2PA metadata", "Audio v0.1 is Gemini-powered workflow triage, not proof of AI generation or voice cloning"],
   };
 }
 
