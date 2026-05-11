@@ -77,7 +77,15 @@ describe("OpenAPI and agent discovery", () => {
     expect(JSON.stringify(spec)).toMatch(/not proof|workflow risk|workflow triage/i);
 
     expect(spec.paths["/v1/analyze-text"].post.responses["402"]).toBeTruthy();
+    expect(spec.paths["/v1/analyze-image"].post.operationId).toBe("analyzeImage");
+    expect(spec.paths["/v1/analyze-audio"].post.operationId).toBe("analyzeAudio");
+    expect(spec.paths["/v1/balance"].get.operationId).toBe("getBalance");
     expect(spec.components.schemas.AnalyzeTextResponse.properties.billing).toBeTruthy();
+    expect(spec.components.schemas.AnalyzeImageResponse.properties.billing).toBeTruthy();
+    expect(spec.components.schemas.AnalyzeAudioRequest.properties.audio_url.description).toMatch(/HTTPS audio URL/i);
+    expect(spec.components.schemas.AnalyzeAudioResponse.properties.billing.properties.bucket.example).toBe("audio_v0");
+    expect(spec.components.schemas.BalanceResponse.required).toContain("balance_cents");
+    expect(JSON.stringify(spec.components.schemas.AnalyzeAudioRequest)).not.toMatch(/metadata/i);
   });
 
   it("uses precise signup credit copy in machine-readable discovery", () => {

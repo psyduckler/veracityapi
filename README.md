@@ -1,8 +1,8 @@
 # VeracityAPI
 
-Content and image trust scoring for agents. VeracityAPI scores English-calibrated text for generic/slop risk, weak provenance, low specificity, and image URLs for visible synthetic-image risk, evidence, and recommended workflow action.
+Content, image, and audio trust scoring for agents. VeracityAPI scores English-calibrated text for generic/slop risk, weak provenance, and low specificity; image URLs for visible synthetic-image risk; and short HTTPS audio URLs for synthetic-audio workflow triage.
 
-VeracityAPI is **not** a binary AI detector. It does not prove whether content was written by a human or a model. It answers the agent workflow question: should this text or image be allowed, revised, reviewed, or rejected before publishing, citing, training, or moderation?
+VeracityAPI is **not** a binary AI detector. It does not prove whether content was written, generated, spoken, or edited by a human or a model. It answers the agent workflow question: should this text, image, or audio be allowed, revised, reviewed, or rejected before publishing, citing, training, or moderation?
 
 ## Live URLs
 
@@ -23,19 +23,21 @@ VeracityAPI is **not** a binary AI detector. It does not prove whether content w
 
 ## Pricing
 
-New accounts get $1.50 free credit — enough for 150 short text analyses credit — enough for 150 short text analyses. No subscriptions. Buy credits when you need more. Every request debits your balance.
+New accounts get $1.50 free credit — enough for 150 short text analyses. No subscriptions. Buy credits when you need more. Every request debits your balance.
 
 | Request size | Price |
 | --- | ---: |
 | ≤4k chars | $0.01 |
 | Synchronous text batch | Sum of per-item text prices |
 | Image URL analysis | $0.02/image |
+| Audio URL analysis | $0.01/audio |
+| Audio URL analysis | $0.01/request |
 | ≤20k chars | $0.03 |
 | ≤50k chars | $0.06 |
 | ≤100k chars | $0.12 |
 | >100k chars | chunk or contact us |
 
-Public text and image demos are free, no-key, privacy_mode=true, capped/rate limited, and include a hosted influencer-photo image fixture for the image demo. New accounts get $1.50 free credit — enough for 150 short text analyses credit — enough for 150 short text analyses for authenticated testing; production API access is credit-based after that.
+Public text, image, and audio demos are free, no-key, privacy_mode=true, capped/rate limited, and include hosted demo fixtures. New accounts get $1.50 free credit — enough for 150 short text analyses for authenticated testing; production API access is credit-based after that.
 
 ## Production endpoints
 
@@ -44,6 +46,7 @@ GET /v1/balance
 POST /v1/analyze-text
 POST /v1/analyze-batch
 POST /v1/analyze-image
+POST /v1/analyze-audio
 ```
 
 Public no-key demo endpoints:
@@ -51,10 +54,12 @@ Public no-key demo endpoints:
 ```text
 POST /demo/analyze
 POST /demo/analyze-image
+POST /demo/analyze-audio
 GET /demo/influencer-beauty-tonic.jpg
+GET /assets/demo-voice-message.mp3
 ```
 
-Auth: send a bearer token in the `Authorization` header for `/v1/*` endpoints. Create an account, get $1.50 free credit — enough for 150 short text analyses credit — enough for 150 short text analyses, and create an API key at `/account`.
+Auth: send a bearer token in the `Authorization` header for `/v1/*` endpoints. Create an account, get $1.50 free credit — enough for 150 short text analyses, and create an API key at `/account`.
 
 ## Request
 
@@ -88,6 +93,22 @@ curl https://api.veracityapi.com/v1/analyze-image \
 
 Image analysis is API-key-only at launch, costs $0.02/image, stores no image bytes, and logs only the image URL hash plus hostname. Response fields include `content_trust_score`, `synthetic_image_risk`, `synthetic_risk` alias, `risk_level`, `recommended_action`, `confidence`, `evidence`, `recommended_fixes`, `limitations`, and billing.
 
+## Audio request
+
+```bash
+curl https://api.veracityapi.com/v1/analyze-audio \
+  -H "Authorization: Bearer ***" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "audio_url": "https://veracityapi.com/assets/demo-voice-message.mp3",
+    "transcript": "optional caller-provided transcript",
+    "context": {"format": "social_post", "intended_use": "publish", "domain": "voice-message authenticity triage"},
+    "privacy_mode": true
+  }'
+```
+
+Audio analysis costs $0.01/request under billing bucket `audio_v0`. It accepts small HTTPS MP3/WAV/M4A/WebM/OGG URLs, sends capped bytes to Gemini for strict synthetic-audio workflow triage, stores no audio bytes/base64/full URLs, and returns `synthetic_audio_risk`, `workflow_risk`, `synthetic_risk` alias, `content_trust_score`, `risk_level`, `recommended_action`, `evidence`, `recommended_fixes`, `limitations`, and billing. It is not proof of AI generation, voice cloning, speaker identity, or forensic determination.
+
 ## Response shape
 
 ```json
@@ -117,7 +138,7 @@ Image analysis is API-key-only at launch, costs $0.02/image, stores no image byt
 
 `synthetic_risk` is retained for compatibility. New integrations should prefer `content_trust_score`, `specificity_risk`, `provenance_weakness`, and `synthetic_texture_risk`.
 
-For images, `synthetic_image_risk` is the canonical visible-artifact risk field and `synthetic_risk` is an alias for SDK consistency. v0.1 image scoring is a vision-LLM workflow signal, not proof of AI authorship and not EXIF/C2PA/provenance verification.
+For images, `synthetic_image_risk` is the canonical visible-artifact risk field and `synthetic_risk` is an alias for SDK consistency. v0.1 image scoring is a vision-LLM workflow signal, not proof of AI authorship and not EXIF/C2PA/provenance verification. For audio, `synthetic_audio_risk` is the canonical strict synthetic-audio triage signal and `workflow_risk` is the publication/provenance-review signal.
 
 ## Current threshold policy
 

@@ -250,7 +250,7 @@ function normalizeAudioMediaType(contentType: string): string {
 }
 
 function buildAudioPrompt(input: AnalyzeAudioRequest): string {
-  return `Score this short audio clip for synthetic-audio workflow triage. Return ONLY JSON with keys: synthetic_audio_risk, workflow_risk, confidence, evidence, recommended_fixes. Be calibrated for pre-publication review: if the clip has synthetic/TTS-like prosody, unusually smooth cadence, affect that feels performed or uncanny, low-noise studio texture inconsistent with a casual voice note, or transcript/audio mismatch, score it as a meaningful risk signal instead of giving it the benefit of the doubt. Use synthetic_audio_risk roughly as: 0.00-0.24 clearly natural, 0.25-0.44 weak signal, 0.45-0.64 likely review-worthy, 0.65-1.00 strong synthetic/audio-manipulation concern. Use workflow_risk for whether the clip should be held, revised, or provenance-checked before use; casual romantic/financial/identity voice messages with unnatural delivery should usually be at least 0.55 workflow risk. This remains triage: not proof of AI generation, voice-clone proof, speaker identity verification, or forensic determination. Format: ${input.context.format}; intended use: ${input.context.intended_use}; domain: ${input.context.domain || "general"}; optional transcript: ${input.transcript || "none"}.`;
+  return `Score this short audio clip for strict synthetic-audio workflow triage. Return ONLY JSON with keys: synthetic_audio_risk, workflow_risk, confidence, evidence, recommended_fixes. Be calibrated for catching suspicious audio before it ships, not for avoiding false positives. If the clip has synthetic/TTS-like prosody, unusually smooth cadence, uncanny or performed affect, low-noise studio texture inconsistent with a casual voice note, emotionally scripted delivery, compression-clean voice texture, or transcript/audio mismatch, score it as a strong risk signal. Use synthetic_audio_risk roughly as: 0.00-0.19 clearly natural, 0.20-0.39 weak signal, 0.40-0.64 review-worthy, 0.65-0.84 likely synthetic/manipulated, 0.85-1.00 obvious or highly suspicious synthetic/TTS/voice-clone-style audio. For obvious TTS-style or AI voice-note demos, target synthetic_audio_risk around 0.90. Use workflow_risk for whether the clip should be held, revised, or provenance-checked before use; casual romantic, financial, identity, testimonial, or publication voice messages with unnatural delivery should usually be at least 0.75 workflow risk. This remains triage: not proof of AI generation, voice-clone proof, speaker identity verification, or forensic determination. Format: ${input.context.format}; intended use: ${input.context.intended_use}; domain: ${input.context.domain || "general"}; optional transcript: ${input.transcript || "none"}.`;
 }
 
 function normalizeAudioScoredFields(raw: Record<string, unknown>): AudioScoredFields {
@@ -274,10 +274,12 @@ function calibrateAudioRisk(raw: unknown, confidence: "low" | "medium" | "high",
   const hasSyntheticCue = /synthetic|tts|voice clone|generated|artifact|prosody|cadence|uncanny|robotic|flat|smooth|studio|noise|mismatch|performed/i.test(evidenceText);
   const mediumOrBetter = confidence === "medium" || confidence === "high";
   let calibrated = risk;
-  if (risk >= 0.3 && mediumOrBetter) calibrated += kind === "workflow" ? 0.14 : 0.18;
-  if (risk >= 0.25 && hasSyntheticCue) calibrated += kind === "workflow" ? 0.05 : 0.07;
-  if (risk >= 0.55 && mediumOrBetter) calibrated += 0.06;
-  return round2(calibrated);
+  if (risk >= 0.5) calibrated += kind === "workflow" ? 0.2 : 0.32;
+  else if (risk >= 0.4) calibrated += kind === "workflow" ? 0.16 : 0.24;
+  else if (risk >= 0.3) calibrated += kind === "workflow" ? 0.12 : 0.18;
+  if (mediumOrBetter && risk >= 0.25) calibrated += kind === "workflow" ? 0.08 : 0.1;
+  if (hasSyntheticCue && risk >= 0.2) calibrated += kind === "workflow" ? 0.07 : 0.09;
+  return round2(Math.min(calibrated, kind === "workflow" ? 0.9 : 0.92));
 }
 
 async function fetchImageForAnthropic(imageUrl: string): Promise<{ mediaType: string; base64: string }> {
