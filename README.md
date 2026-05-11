@@ -35,16 +35,26 @@ New accounts get $1.50 in free credits. No subscriptions. Buy credits when you n
 | ≤100k chars | $0.12 |
 | >100k chars | chunk or contact us |
 
-Public demo is free, no-key, privacy_mode=true, capped at 4,000 characters, and rate limited. New accounts get $1.50 in free API credits for authenticated testing; production API access is credit-based after that.
+Public text and image demos are free, no-key, privacy_mode=true, capped/rate limited, and include a hosted influencer-photo image fixture for the image demo. New accounts get $1.50 in free API credits for authenticated testing; production API access is credit-based after that.
 
-## MVP endpoints
+## Production endpoints
 
 ```text
+GET /v1/balance
 POST /v1/analyze-text
+POST /v1/analyze-batch
 POST /v1/analyze-image
 ```
 
-Auth: send a bearer token in the `Authorization` header. Create an account, get $1.50 in free credits, and create an API key at `/account`.
+Public no-key demo endpoints:
+
+```text
+POST /demo/analyze
+POST /demo/analyze-image
+GET /demo/influencer-beauty-tonic.jpg
+```
+
+Auth: send a bearer token in the `Authorization` header for `/v1/*` endpoints. Create an account, get $1.50 in free credits, and create an API key at `/account`.
 
 ## Request
 
@@ -70,8 +80,8 @@ curl https://api.veracityapi.com/v1/analyze-image \
   -H "Authorization: Bearer ***" \
   -H "Content-Type: application/json" \
   -d '{
-    "image_url": "https://example.com/photo.jpg",
-    "context": {"format": "article", "intended_use": "publish", "domain": "news"},
+    "image_url": "https://veracityapi.com/demo/influencer-beauty-tonic.jpg",
+    "context": {"format": "social_post", "intended_use": "publish", "domain": "influencer product post"},
     "privacy_mode": true
   }'
 ```

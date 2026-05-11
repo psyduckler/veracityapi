@@ -6,6 +6,7 @@ import { logAnalysis } from "./db";
 import { LlmError, scoreImage, scoreText } from "./llm";
 import { deriveAction, deriveImageRiskLevel, deriveImageTrustScore, deriveRiskLevel, deriveTrustSignals } from "./scoring";
 import { agentsJson, llmsTxt, ogSvg, openApiSpec, robotsTxt, sitemapXml } from "./discovery";
+import { DEMO_IMAGE_CONTENT_TYPE, DEMO_IMAGE_PATH, demoImageBytes } from "./demoImage";
 import { docsHtml, evalsHtml, examplesHtml, howItWorksHtml, pricingHtml, privacyHtml, requestAccessHtml, useCaseHtml, useCasesIndexHtml } from "./pages";
 import { homepageHtml } from "./site";
 import type { AnalyzeBatchRequest, AnalyzeImageResponse, AnalyzeResponse, Env } from "./types";
@@ -106,6 +107,16 @@ export default {
 
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/og.svg") {
       return text(request.method === "HEAD" ? "" : ogSvg(), "image/svg+xml; charset=utf-8");
+    }
+
+    if ((request.method === "GET" || request.method === "HEAD") && url.pathname === DEMO_IMAGE_PATH) {
+      return new Response(request.method === "HEAD" ? null : demoImageBytes(), {
+        headers: {
+          "content-type": DEMO_IMAGE_CONTENT_TYPE,
+          "cache-control": "public, max-age=31536000, immutable",
+          "access-control-allow-origin": "*",
+        },
+      });
     }
 
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/health") {

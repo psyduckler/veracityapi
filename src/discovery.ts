@@ -1,3 +1,4 @@
+import { DEMO_IMAGE_URL } from "./demoImage";
 import { USE_CASES } from "./pages";
 
 const BASE_URL = "https://veracityapi.com";
@@ -132,7 +133,7 @@ export function openApiSpec(): Record<string, unknown> {
                 examples: {
                   imageUrl: {
                     value: {
-                      image_url: "https://example.com/photo.jpg",
+                      image_url: DEMO_IMAGE_URL,
                       context: { format: "article", intended_use: "publish", domain: "news" },
                       privacy_mode: true,
                     },
@@ -365,17 +366,19 @@ export function sampleAnalyzeResponse(analysisId = "demo_01KRA1EQPDJ7N2KHBXCQMGZ
 export function sampleAnalyzeImageResponse(analysisId = "img_01KRA1IMAGEEXAMPLE"): Record<string, unknown> {
   return {
     analysis_id: analysisId,
-    content_trust_score: 0.28,
-    synthetic_image_risk: 0.72,
-    synthetic_risk: 0.72,
+    content_trust_score: 0.75,
+    synthetic_image_risk: 0.25,
+    synthetic_risk: 0.25,
     confidence: "medium",
     evidence: [
-      { type: "hand_artifact", severity: "high", span: "subject left hand shows fused or extra fingers", explanation: "Visible anatomy artifact associated with generated imagery." },
-      { type: "text_signage_artifact", severity: "medium", span: "background sign contains letter-like but unreadable glyphs", explanation: "Malformed text/signage is a visible synthetic-image risk signal." },
+      { type: "skin_texture", severity: "low", span: "facial skin and neck area", explanation: "Skin appears slightly over-smoothed with minimal visible pore detail, consistent with beauty filters or light retouching rather than synthetic generation." },
+      { type: "hand_anatomy", severity: "low", span: "left hand holding product bottle", explanation: "Hand structure, finger joints, and nail definition appear anatomically plausible with natural proportions and realistic shadow detail." },
+      { type: "product_label_clarity", severity: "low", span: "Beauty Tonic bottle label text and design", explanation: "Product label text is readable and perspective-aligned, without obvious text distortion artifacts typical of generated images." },
+      { type: "lighting_consistency", severity: "low", span: "overall scene lighting from face to background fence", explanation: "Lighting direction and shadow placement appear consistent across the subject and environment." },
     ],
-    recommended_fixes: ["Verify provenance from a trusted source before publishing.", "Route to human review if the image is used as evidence for a claim."],
-    risk_level: "high",
-    recommended_action: "human_review",
+    recommended_fixes: ["No critical fixes needed; image appears consistent with professional photography or light post-processing.", "If publishing, standard influencer disclosure practices apply regardless of synthetic risk assessment.", "Verify original source/provenance if the image is used as evidence for a claim."],
+    risk_level: "low",
+    recommended_action: "allow",
     model_version: "v0.1",
     limitations: ["Scores are probabilistic workflow risk signals, not proof of AI authorship.", "v0.1 image scoring uses a vision LLM, not a calibrated synthetic-image classifier.", "VeracityAPI does not inspect EXIF, C2PA Content Credentials, or provenance metadata in v0.1."],
   };
@@ -450,7 +453,7 @@ Content-Type: application/json
 
 ## Image endpoint
 
-POST ${API_BASE_URL}/v1/analyze-image accepts {"image_url":"https://...","context":{"format":"article","intended_use":"publish","domain":"news"},"privacy_mode":true}. It returns content_trust_score, synthetic_image_risk, synthetic_risk alias, evidence, recommended_fixes, risk_level, recommended_action, limitations, and billing. VeracityAPI stores no image bytes and logs only a hash plus hostname. Price: $0.02/image.
+POST ${API_BASE_URL}/v1/analyze-image accepts {"image_url":"https://...","context":{"format":"social_post","intended_use":"publish","domain":"influencer product post"},"privacy_mode":true}. Demo fixture: ${DEMO_IMAGE_URL}. It returns content_trust_score, synthetic_image_risk, synthetic_risk alias, evidence, recommended_fixes, risk_level, recommended_action, limitations, and billing. VeracityAPI stores no image bytes and logs only a hash plus hostname. Price: $0.02/image.
 
 ## Batch and balance endpoints
 
@@ -554,6 +557,7 @@ export function agentsJson(): Record<string, unknown> {
       method: "POST",
       auth_required: false,
       limits: "text demo: 4000 chars; image demo: HTTPS image URL; both rate limited and privacy_mode=true forced server-side",
+      sample_image_url: DEMO_IMAGE_URL,
     },
     recommended_use_cases: USE_CASES.map((u) => u.title),
     capabilities: ["content_trust_score", "specificity_risk", "provenance_weakness", "synthetic_texture_risk", "synthetic_image_risk", "ai_slop_risk", "evidence_spans", "recommended_action", "privacy_mode", "synchronous_batch", "balance_preflight"],
