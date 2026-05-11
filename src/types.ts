@@ -8,9 +8,11 @@ export interface Env {
   DB: D1Database;
   ANTHROPIC_API_KEY: string;
   ANTHROPIC_MODEL?: string;
-  API_KEYS: string;
+  /** @deprecated Legacy env keys are not accepted by paid endpoints; use D1-backed account API keys. */
+  API_KEYS?: string;
   MODEL_VERSION?: string;
   DEMO_RATE_LIMIT_PER_HOUR?: string;
+  LOGIN_RATE_LIMIT_PER_HOUR?: string;
   RESEND_API_KEY?: string;
   RESEND_FROM?: string;
   STRIPE_SECRET_KEY?: string;

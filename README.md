@@ -23,7 +23,7 @@ VeracityAPI is **not** a binary AI detector. It does not prove whether content w
 
 ## Pricing
 
-New accounts get $1.50 in free credits. No subscriptions. Buy credits when you need more. Every request debits your balance.
+New accounts get $1.50 free credit — enough for 150 short text analyses credit — enough for 150 short text analyses. No subscriptions. Buy credits when you need more. Every request debits your balance.
 
 | Request size | Price |
 | --- | ---: |
@@ -35,7 +35,7 @@ New accounts get $1.50 in free credits. No subscriptions. Buy credits when you n
 | ≤100k chars | $0.12 |
 | >100k chars | chunk or contact us |
 
-Public text and image demos are free, no-key, privacy_mode=true, capped/rate limited, and include a hosted influencer-photo image fixture for the image demo. New accounts get $1.50 in free API credits for authenticated testing; production API access is credit-based after that.
+Public text and image demos are free, no-key, privacy_mode=true, capped/rate limited, and include a hosted influencer-photo image fixture for the image demo. New accounts get $1.50 free credit — enough for 150 short text analyses credit — enough for 150 short text analyses for authenticated testing; production API access is credit-based after that.
 
 ## Production endpoints
 
@@ -54,7 +54,7 @@ POST /demo/analyze-image
 GET /demo/influencer-beauty-tonic.jpg
 ```
 
-Auth: send a bearer token in the `Authorization` header for `/v1/*` endpoints. Create an account, get $1.50 in free credits, and create an API key at `/account`.
+Auth: send a bearer token in the `Authorization` header for `/v1/*` endpoints. Create an account, get $1.50 free credit — enough for 150 short text analyses credit — enough for 150 short text analyses, and create an API key at `/account`.
 
 ## Request
 

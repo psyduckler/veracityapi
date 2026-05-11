@@ -35,6 +35,7 @@ export function openApiSpec(): Record<string, unknown> {
       "/health": {
         get: {
           tags: ["health"],
+          operationId: "getHealth",
           summary: "Health check",
           responses: {
             "200": {
@@ -52,6 +53,7 @@ export function openApiSpec(): Record<string, unknown> {
       "/v1/analyze-text": {
         post: {
           tags: ["analysis"],
+          operationId: "analyzeText",
           summary: "Analyze text content risk",
           description: "Requires a bearer API key. Returns content trust, specificity/slop risk, weak-provenance signals, evidence, recommended fixes, and a deterministic recommended action.",
           security: [{ bearerAuth: [] }],
@@ -84,6 +86,7 @@ export function openApiSpec(): Record<string, unknown> {
             },
             "400": { "$ref": "#/components/responses/BadRequest" },
             "401": { "$ref": "#/components/responses/Unauthorized" },
+            "402": { "$ref": "#/components/responses/InsufficientBalance" },
             "503": { "$ref": "#/components/responses/LlmUnavailable" },
           },
         },
@@ -92,6 +95,7 @@ export function openApiSpec(): Record<string, unknown> {
       "/v1/analyze-batch": {
         post: {
           tags: ["analysis"],
+          operationId: "analyzeBatch",
           summary: "Analyze a synchronous batch of text items",
           description: "Requires a bearer API key. Scores 1-25 text items synchronously. Each item is capped at 4,000 characters and the batch total is capped at 50,000 characters. Billing is the sum of per-item text prices.",
           security: [{ bearerAuth: [] }],
@@ -109,6 +113,7 @@ export function openApiSpec(): Record<string, unknown> {
       "/v1/balance": {
         get: {
           tags: ["access"],
+          operationId: "getBalance",
           summary: "Get account credit balance and recent usage",
           description: "Requires an account bearer API key. Use this as a preflight check before autonomous agent pipelines call paid analysis endpoints.",
           security: [{ bearerAuth: [] }],
@@ -122,6 +127,7 @@ export function openApiSpec(): Record<string, unknown> {
       "/v1/analyze-image": {
         post: {
           tags: ["analysis"],
+          operationId: "analyzeImage",
           summary: "Analyze image synthetic risk",
           description: "Requires a bearer API key. Submit an https image URL and receive synthetic-image risk, content trust score, visible evidence, recommended fixes, and a deterministic recommended action. No image bytes are stored by VeracityAPI.",
           security: [{ bearerAuth: [] }],
@@ -134,7 +140,7 @@ export function openApiSpec(): Record<string, unknown> {
                   imageUrl: {
                     value: {
                       image_url: DEMO_IMAGE_URL,
-                      context: { format: "article", intended_use: "publish", domain: "news" },
+                      context: { format: "social_post", intended_use: "publish", domain: "influencer product post" },
                       privacy_mode: true,
                     },
                   },
@@ -157,6 +163,7 @@ export function openApiSpec(): Record<string, unknown> {
       "/demo/analyze": {
         post: {
           tags: ["demo"],
+          operationId: "demoAnalyzeText",
           summary: "Analyze text with the public no-key demo",
           description: "No API key required. privacy_mode is forced true server-side. Text is capped at 4,000 characters and requests are rate limited.",
           requestBody: {
@@ -179,6 +186,7 @@ export function openApiSpec(): Record<string, unknown> {
       "/demo/analyze-image": {
         post: {
           tags: ["demo"],
+          operationId: "demoAnalyzeImage",
           summary: "Analyze an image URL with the public no-key demo",
           description: "No API key required. Accepts an HTTPS image URL, forces privacy_mode=true, logs no image bytes or full URL, and rate limits by IP/cookie.",
           requestBody: { required: true, content: { "application/json": { schema: { "$ref": "#/components/schemas/AnalyzeImageRequest" } } } },
@@ -193,6 +201,7 @@ export function openApiSpec(): Record<string, unknown> {
       "/request-access": {
         post: {
           tags: ["access"],
+          operationId: "requestAccess",
           summary: "Request private beta API access",
           requestBody: {
             required: true,
@@ -207,7 +216,7 @@ export function openApiSpec(): Record<string, unknown> {
     },
     components: {
       securitySchemes: {
-        bearerAuth: { type: "http", scheme: "bearer", description: "VeracityAPI key. Send a bearer token in the Authorization header. New accounts get $1.50 in free credits at https://veracityapi.com/account." },
+        bearerAuth: { type: "http", scheme: "bearer", description: "VeracityAPI key. Send a bearer token in the Authorization header. New accounts get $1.50 free credit — enough for 150 short text analyses at https://veracityapi.com/account." },
       },
       schemas: {
         HealthResponse: {
@@ -293,6 +302,7 @@ export function openApiSpec(): Record<string, unknown> {
             recommended_fixes: { type: "array", items: { type: "string" } },
             model_version: { type: "string", example: "v0.1" },
             limitations: { type: "array", items: { type: "string" } },
+            billing: { type: "object", properties: { chars_analyzed: { type: "integer" }, bucket: { type: "string", example: "up_to_4k" }, price_cents: { type: "integer", example: 1 }, remaining_balance_cents: { type: "integer" } } },
           },
         },
 
@@ -384,10 +394,11 @@ export function sampleAnalyzeImageResponse(analysisId = "img_01KRA1IMAGEEXAMPLE"
   };
 }
 
+
 export function llmsTxt(): string {
   return `# VeracityAPI
 
-VeracityAPI is a content trust scoring API for agents. It scores English-calibrated text for specificity/slop/provenance risk and image URLs for visible synthetic-image risk, evidence, and recommended next actions.
+VeracityAPI is a content and image trust scoring API for agents. It scores English-calibrated text for specificity/slop/provenance risk and image URLs for visible synthetic-image risk, evidence, and recommended next actions.
 
 VeracityAPI is not an AI detector, truth oracle, or proof of authorship. Treat results as probabilistic workflow risk signals with evidence and recommendations.
 
@@ -453,6 +464,7 @@ Content-Type: application/json
 
 ## Image endpoint
 
+POST ${API_BASE_URL}/v1/analyze-image
 POST ${API_BASE_URL}/v1/analyze-image accepts {"image_url":"https://...","context":{"format":"social_post","intended_use":"publish","domain":"influencer product post"},"privacy_mode":true}. Demo fixture: ${DEMO_IMAGE_URL}. It returns content_trust_score, synthetic_image_risk, synthetic_risk alias, evidence, recommended_fixes, risk_level, recommended_action, limitations, and billing. VeracityAPI stores no image bytes and logs only a hash plus hostname. Price: $0.02/image.
 
 ## Batch and balance endpoints
@@ -486,7 +498,7 @@ ${USE_CASES.map((u) => `- ${u.title}: ${BASE_URL}/use-cases/${u.slug}`).join("\n
 
 ## Access
 
-Public demo is open. New accounts get $1.50 in free credits to test real workflows. Production API access uses prepaid credits. No subscriptions. Every request debits the account balance by character bucket. Create an account, get $1.50 in free credits, and create an API key at ${BASE_URL}/account.
+Public demo is open. New accounts get $1.50 free credit — enough for 150 short text analyses to test real workflows. Production API access uses prepaid credits. No subscriptions. Every request debits the account balance by character bucket. Create an account, get $1.50 free credit — enough for 150 short text analyses, and create an API key at ${BASE_URL}/account.
 
 ## Pricing
 
@@ -536,11 +548,11 @@ export function agentsJson(): Record<string, unknown> {
     auth: {
       type: "bearer",
       header: "Authorization header: Bearer token",
-      instructions: "Create an account at https://veracityapi.com/account, get $1.50 in free credits, and create an API key.",
+      instructions: "Create an account at https://veracityapi.com/account, get $1.50 free credit — enough for 150 short text analyses, and create an API key.",
     },
     pricing: {
       model: "prepaid_credits",
-      billing: "New accounts get $1.50 in free credits. No subscriptions. Text requests debit by character bucket; batch text is billed as the sum of per-item text prices; image analysis debits $0.02/image.",
+      billing: "New accounts get $1.50 free credit — enough for 150 short text analyses. No subscriptions. Text requests debit by character bucket; batch text is billed as the sum of per-item text prices; image analysis debits $0.02/image.",
       buckets: [
         { max_chars: 4000, price_usd: 0.01 },
         { max_chars: 20000, price_usd: 0.03 },

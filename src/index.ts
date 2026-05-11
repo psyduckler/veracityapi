@@ -25,7 +25,9 @@ const IMAGE_LIMITATIONS = [
   "Missing metadata, social compression, screenshots, and edited exports can lower trust in real workflows but are not used as proof of synthetic generation here.",
 ];
 
+
 const demoHits = new Map<string, { count: number; resetAt: number }>();
+const loginHits = new Map<string, { count: number; resetAt: number }>();
 const DEMO_MAX_CHARS = 4_000;
 const GOOGLE_ANALYTICS_TAG = `<script async src="https://www.googletagmanager.com/gtag/js?id=G-BMB8X59JBY"></script><script>window.dataLayer = window.dataLayer || [];function gtag(){dataLayer.push(arguments);}gtag('js', new Date());gtag('config', 'G-BMB8X59JBY');</script>`;
 
@@ -133,6 +135,7 @@ export default {
       return handleDemoAnalyzeImage(request, env);
     }
 
+
     if (request.method === "GET" && url.pathname === "/v1/balance") {
       return handleBalance(request, env);
     }
@@ -148,6 +151,7 @@ export default {
     if (request.method === "POST" && url.pathname === "/v1/analyze-image") {
       return handleAnalyzeImage(request, env);
     }
+
 
     return json({ error: "not_found" }, 404);
   },
@@ -181,7 +185,7 @@ async function handleDemoAnalyze(request: Request, env: Env): Promise<Response> 
   try {
     const ip = request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for") || "unknown";
     if (!consumeDemoQuota(ip, Number(env.DEMO_RATE_LIMIT_PER_HOUR || 12))) {
-      return json({ error: "rate_limited", message: "Public demo limit reached. Try again later or create an account for $1.50 in free API credits." }, 429, { "Retry-After": "3600" });
+      return json({ error: "rate_limited", message: "Public demo limit reached. Try again later or create an account for $1.50 free credit — enough for 150 short text analyses." }, 429, { "Retry-After": "3600" });
     }
 
     let body: Record<string, unknown>;
@@ -282,7 +286,6 @@ async function handleDemoAnalyzeImage(request: Request, env: Env): Promise<Respo
 async function handleBalance(request: Request, env: Env): Promise<Response> {
   try {
     const auth = await authenticateUsageKey(request, env);
-    if (auth.legacy || !auth.accountId) return json({ error: "account_required", message: "Use an account API key to query balance." }, 401);
     return json(await getBalanceSummary(env, auth.accountId));
   } catch (err) {
     if (err instanceof BillingAuthError) return json({ error: "unauthorized" }, 401);
@@ -298,8 +301,8 @@ async function handleAnalyzeBatch(request: Request, env: Env): Promise<Response>
     const auth = await authenticateUsageKey(request, env);
     const parsed = await parseAnalyzeBatchRequest(request);
     const batchId = `bat_${ulid()}`;
-    const billing = auth.legacy ? undefined : await debitForBatchRequest(env, auth.accountId!, auth.apiKeyId!, batchId, parsed);
-    if (billing) debit = { accountId: auth.accountId!, apiKeyId: auth.apiKeyId!, billing, batchId };
+    const billing = await debitForBatchRequest(env, auth.accountId, auth.apiKeyId, batchId, parsed);
+    debit = { accountId: auth.accountId, apiKeyId: auth.apiKeyId, billing, batchId };
     const results: AnalyzeResponse[] = [];
     for (const item of parsed.items) {
       const itemRequest = { text: item.text, context: parsed.context, privacy_mode: parsed.privacy_mode };
@@ -341,6 +344,7 @@ async function handleAnalyzeBatch(request: Request, env: Env): Promise<Response>
   }
 }
 
+
 async function handleAnalyzeText(request: Request, env: Env): Promise<Response> {
   const start = Date.now();
   let debit: { accountId: string; apiKeyId: string; billing: NonNullable<AnalyzeResponse["billing"]>; analysisId: string } | null = null;
@@ -348,8 +352,8 @@ async function handleAnalyzeText(request: Request, env: Env): Promise<Response> 
     const auth = await authenticateUsageKey(request, env);
     const parsed = await parseAnalyzeRequest(request);
     const analysisId = `ana_${ulid()}`;
-    const billing = auth.legacy ? undefined : await debitForRequest(env, auth.accountId!, auth.apiKeyId!, analysisId, parsed);
-    if (billing) debit = { accountId: auth.accountId!, apiKeyId: auth.apiKeyId!, billing, analysisId };
+    const billing = await debitForRequest(env, auth.accountId, auth.apiKeyId, analysisId, parsed);
+    debit = { accountId: auth.accountId, apiKeyId: auth.apiKeyId, billing, analysisId };
     const scored = await scoreText(parsed, env);
     const derived = deriveTrustSignals(scored.synthetic_risk, scored.slop_risk, scored.evidence);
     const riskLevel = deriveRiskLevel(scored.synthetic_risk, scored.slop_risk);
@@ -392,8 +396,8 @@ async function handleAnalyzeImage(request: Request, env: Env): Promise<Response>
     const auth = await authenticateUsageKey(request, env);
     const parsed = await parseAnalyzeImageRequest(request);
     const analysisId = `img_${ulid()}`;
-    const billing = auth.legacy ? undefined : await debitForImage(env, auth.accountId!, auth.apiKeyId!, analysisId);
-    if (billing) debit = { accountId: auth.accountId!, apiKeyId: auth.apiKeyId!, billing, analysisId };
+    const billing = await debitForImage(env, auth.accountId, auth.apiKeyId, analysisId);
+    debit = { accountId: auth.accountId, apiKeyId: auth.apiKeyId, billing, analysisId };
     const scored = await scoreImage(parsed, env);
     const riskLevel = deriveImageRiskLevel(scored.synthetic_image_risk);
     const action = deriveAction(riskLevel, parsed.context.intended_use);
@@ -429,11 +433,17 @@ async function handleAnalyzeImage(request: Request, env: Env): Promise<Response>
   }
 }
 
+
 async function handleLogin(request: Request, env: Env): Promise<Response> {
   try {
     const params = parseForm(await request.text());
     const email = cleanEmail(params.get("email") || "");
     if (!validEmail(email)) return html(accountHtml(null, "Enter a valid email address."), false);
+    const ip = request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for") || "unknown";
+    const emailHash = await sha256Hex(email);
+    if (!consumeLoginQuota(`ip:${ip}`, Number(env.LOGIN_RATE_LIMIT_PER_HOUR || 12)) || !consumeLoginQuota(`email:${emailHash}`, Number(env.LOGIN_RATE_LIMIT_PER_HOUR || 3))) {
+      return html(accountHtml(null, "Too many login link requests. Try again in about an hour."), false, 429);
+    }
     const link = await createMagicLink(email, request, env);
     await sendMagicLink(env, email, link);
     return html(accountHtml(null, "Login link sent. Check your email."), false);
@@ -555,15 +565,23 @@ function cleanText(value: unknown, maxLength: number): string {
   return value.trim().replace(/\s+/g, " ").slice(0, maxLength);
 }
 
+function consumeLoginQuota(key: string, limit: number): boolean {
+  return consumeWindowQuota(loginHits, key, limit);
+}
+
 function consumeDemoQuota(key: string, limit: number): boolean {
+  return consumeWindowQuota(demoHits, key, limit);
+}
+
+function consumeWindowQuota(store: Map<string, { count: number; resetAt: number }>, key: string, limit: number): boolean {
   const now = Date.now();
   const hour = 60 * 60 * 1000;
-  for (const [k, value] of demoHits.entries()) {
-    if (value.resetAt <= now) demoHits.delete(k);
+  for (const [k, value] of store.entries()) {
+    if (value.resetAt <= now) store.delete(k);
   }
-  const current = demoHits.get(key);
+  const current = store.get(key);
   if (!current || current.resetAt <= now) {
-    demoHits.set(key, { count: 1, resetAt: now + hour });
+    store.set(key, { count: 1, resetAt: now + hour });
     return true;
   }
   if (current.count >= limit) return false;
@@ -579,9 +597,10 @@ function jsonRequest(url: string, body: unknown): Request {
   });
 }
 
-function html(body: string, cache = true): Response {
+function html(body: string, cache = true, status = 200): Response {
   const htmlBody = injectGoogleAnalytics(body);
   return new Response(htmlBody, {
+    status,
     headers: {
       "content-type": "text/html; charset=utf-8",
       "cache-control": cache ? "public, max-age=120" : "no-store",

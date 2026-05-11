@@ -19,7 +19,8 @@ export function priceForImage(): { bucket: string; priceCents: number } {
   return { bucket: "image_v0", priceCents: 2 };
 }
 
-export async function authenticateUsageKey(request: Request, env: Env): Promise<{ accountId?: string; apiKeyId?: string; apiKeyHash: string; legacy: boolean }> {
+
+export async function authenticateUsageKey(request: Request, env: Env): Promise<{ accountId: string; apiKeyId: string; apiKeyHash: string; legacy: false }> {
   const header = request.headers.get("authorization") ?? "";
   const token = header.match(/^Bearer\s+(.+)$/i)?.[1]?.trim() ?? "";
   if (!token) throw new BillingAuthError();
@@ -28,8 +29,6 @@ export async function authenticateUsageKey(request: Request, env: Env): Promise<
   const row = await env.DB.prepare(`SELECT key_id, account_id, status FROM api_keys WHERE key_hash = ? AND status = 'active'`).bind(hash).first<{ key_id: string; account_id: string; status: string }>();
   if (row) return { accountId: row.account_id, apiKeyId: row.key_id, apiKeyHash: hash, legacy: false };
 
-  const validKeys = new Set((env.API_KEYS ?? "").split(",").map((k) => k.trim()).filter(Boolean));
-  if (validKeys.has(token)) return { apiKeyHash: hash, legacy: true };
   throw new BillingAuthError();
 }
 
