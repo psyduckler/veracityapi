@@ -1,6 +1,6 @@
 import { ulid } from "ulid";
 import { sha256Hex } from "./auth";
-import type { AnalyzeRequest, BillingMetadata, Env } from "./types";
+import type { AnalyzeBatchRequest, AnalyzeRequest, BalanceSummary, BillingMetadata, Env } from "./types";
 
 export const CREDIT_PACKS: Record<string, { amountCents: number; label: string }> = {
   starter: { amountCents: 1000, label: "$10 credits" },
@@ -50,6 +50,28 @@ export async function debitForRequest(env: Env, accountId: string, apiKeyId: str
   return { chars_analyzed: chars, bucket, price_cents: priceCents, remaining_balance_cents: account.balanceCents };
 }
 
+export async function debitForBatchRequest(env: Env, accountId: string, apiKeyId: string, batchId: string, parsed: AnalyzeBatchRequest): Promise<BillingMetadata> {
+  const totalChars = parsed.items.reduce((sum, item) => sum + item.text.length, 0);
+  const priceCents = parsed.items.reduce((sum, item) => sum + priceForChars(item.text.length).priceCents, 0);
+  const bucket = "batch_text_v0";
+  const updated = await env.DB.prepare(`UPDATE accounts SET balance_cents = balance_cents - ?, updated_at = ? WHERE account_id = ? AND deleted_at IS NULL AND balance_cents >= ?`)
+    .bind(priceCents, new Date().toISOString(), accountId, priceCents)
+    .run();
+  if (!updated.meta || updated.meta.changes < 1) {
+    const account = await getAccountBalance(env, accountId);
+    throw new InsufficientBalanceError(priceCents, account.balanceCents);
+  }
+  const account = await getAccountBalance(env, accountId);
+  const now = new Date().toISOString();
+  await env.DB.prepare(`INSERT INTO credit_ledger (ledger_id, account_id, type, amount_cents, balance_after_cents, reference_id, metadata_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+    .bind(`led_${ulid()}`, accountId, "batch_usage_debit", -priceCents, account.balanceCents, batchId, JSON.stringify({ api_key_id: apiKeyId, units_analyzed: parsed.items.length, chars_analyzed: totalChars, bucket }), now)
+    .run();
+  await env.DB.prepare(`INSERT INTO usage_events (usage_id, account_id, api_key_id, analysis_id, chars_analyzed, bucket, price_cents, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'debited', ?)`)
+    .bind(`use_${ulid()}`, accountId, apiKeyId, batchId, totalChars, bucket, priceCents, now)
+    .run();
+  return { units_analyzed: parsed.items.length, chars_analyzed: totalChars, bucket, price_cents: priceCents, remaining_balance_cents: account.balanceCents };
+}
+
 export async function debitForImage(env: Env, accountId: string, apiKeyId: string, analysisId: string): Promise<BillingMetadata> {
   const { bucket, priceCents } = priceForImage();
   const updated = await env.DB.prepare(`UPDATE accounts SET balance_cents = balance_cents - ?, updated_at = ? WHERE account_id = ? AND deleted_at IS NULL AND balance_cents >= ?`)
@@ -83,6 +105,38 @@ export async function refundUsage(env: Env, accountId: string, apiKeyId: string,
 export async function getAccountBalance(env: Env, accountId: string): Promise<{ balanceCents: number }> {
   const row = await env.DB.prepare(`SELECT balance_cents FROM accounts WHERE account_id = ?`).bind(accountId).first<{ balance_cents: number }>();
   return { balanceCents: Number(row?.balance_cents ?? 0) };
+}
+
+export async function getBalanceSummary(env: Env, accountId: string): Promise<BalanceSummary> {
+  const account = await getAccountBalance(env, accountId);
+  const lastUsage = await env.DB.prepare(`SELECT MAX(created_at) AS last_usage_at FROM usage_events WHERE account_id = ? AND status = 'debited'`)
+    .bind(accountId)
+    .first<{ last_usage_at: string | null }>();
+  const now = Date.now();
+  const day = 24 * 60 * 60 * 1000;
+  const [today, week, month] = await Promise.all([
+    usageSince(env, accountId, new Date(now - day).toISOString()),
+    usageSince(env, accountId, new Date(now - 7 * day).toISOString()),
+    usageSince(env, accountId, new Date(now - 30 * day).toISOString()),
+  ]);
+  return {
+    account_id: accountId,
+    balance_cents: account.balanceCents,
+    currency: "USD",
+    last_usage_at: lastUsage?.last_usage_at ?? null,
+    recent_usage: {
+      today_cents: today,
+      last_7_days_cents: week,
+      last_30_days_cents: month,
+    },
+  };
+}
+
+async function usageSince(env: Env, accountId: string, sinceIso: string): Promise<number> {
+  const rows = await env.DB.prepare(`SELECT SUM(price_cents) AS cents FROM usage_events WHERE account_id = ? AND status = 'debited' AND created_at >= ?`)
+    .bind(accountId, sinceIso)
+    .all<{ cents: number | null }>();
+  return Number(rows.results?.[0]?.cents ?? 0);
 }
 
 export async function creditCheckoutSession(env: Env, stripeSession: Record<string, unknown>): Promise<void> {

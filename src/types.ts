@@ -37,6 +37,29 @@ export interface AnalyzeRequest {
   privacy_mode: boolean;
 }
 
+export interface AnalyzeBatchItem {
+  id: string;
+  text: string;
+}
+
+export interface AnalyzeBatchRequest {
+  items: AnalyzeBatchItem[];
+  context: AnalyzeContext;
+  privacy_mode: boolean;
+}
+
+export interface BalanceSummary {
+  account_id: string;
+  balance_cents: number;
+  currency: "USD";
+  last_usage_at: string | null;
+  recent_usage: {
+    today_cents: number;
+    last_7_days_cents: number;
+    last_30_days_cents: number;
+  };
+}
+
 export interface AnalyzeImageRequest {
   image_url: string;
   context: AnalyzeContext;

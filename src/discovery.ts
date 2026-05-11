@@ -88,6 +88,36 @@ export function openApiSpec(): Record<string, unknown> {
         },
       },
 
+      "/v1/analyze-batch": {
+        post: {
+          tags: ["analysis"],
+          summary: "Analyze a synchronous batch of text items",
+          description: "Requires a bearer API key. Scores 1-25 text items synchronously. Each item is capped at 4,000 characters and the batch total is capped at 50,000 characters. Billing is the sum of per-item text prices.",
+          security: [{ bearerAuth: [] }],
+          requestBody: { required: true, content: { "application/json": { schema: { "$ref": "#/components/schemas/AnalyzeBatchRequest" } } } },
+          responses: {
+            "200": { description: "Batch scoring result", content: { "application/json": { schema: { "$ref": "#/components/schemas/AnalyzeBatchResponse" } } } },
+            "400": { "$ref": "#/components/responses/BadRequest" },
+            "401": { "$ref": "#/components/responses/Unauthorized" },
+            "402": { "$ref": "#/components/responses/InsufficientBalance" },
+            "503": { "$ref": "#/components/responses/LlmUnavailable" },
+          },
+        },
+      },
+
+      "/v1/balance": {
+        get: {
+          tags: ["access"],
+          summary: "Get account credit balance and recent usage",
+          description: "Requires an account bearer API key. Use this as a preflight check before autonomous agent pipelines call paid analysis endpoints.",
+          security: [{ bearerAuth: [] }],
+          responses: {
+            "200": { description: "Balance and usage summary", content: { "application/json": { schema: { "$ref": "#/components/schemas/BalanceResponse" } } } },
+            "401": { "$ref": "#/components/responses/Unauthorized" },
+          },
+        },
+      },
+
       "/v1/analyze-image": {
         post: {
           tags: ["analysis"],
@@ -145,6 +175,20 @@ export function openApiSpec(): Record<string, unknown> {
           },
         },
       },
+      "/demo/analyze-image": {
+        post: {
+          tags: ["demo"],
+          summary: "Analyze an image URL with the public no-key demo",
+          description: "No API key required. Accepts an HTTPS image URL, forces privacy_mode=true, logs no image bytes or full URL, and rate limits by IP/cookie.",
+          requestBody: { required: true, content: { "application/json": { schema: { "$ref": "#/components/schemas/AnalyzeImageRequest" } } } },
+          responses: {
+            "200": { description: "Demo image scoring result", content: { "application/json": { schema: { "$ref": "#/components/schemas/AnalyzeImageResponse" } } } },
+            "400": { "$ref": "#/components/responses/BadRequest" },
+            "429": { "$ref": "#/components/responses/RateLimited" },
+            "503": { "$ref": "#/components/responses/LlmUnavailable" },
+          },
+        },
+      },
       "/request-access": {
         post: {
           tags: ["access"],
@@ -191,6 +235,29 @@ export function openApiSpec(): Record<string, unknown> {
           },
         },
 
+        AnalyzeBatchRequest: {
+          type: "object",
+          required: ["items"],
+          properties: {
+            items: { type: "array", minItems: 1, maxItems: 25, items: { type: "object", required: ["id", "text"], properties: { id: { type: "string", minLength: 1, maxLength: 120 }, text: { type: "string", minLength: 20, maxLength: 4000 } } } },
+            context: { "$ref": "#/components/schemas/AnalyzeTextRequest/properties/context" },
+            privacy_mode: { type: "boolean", default: true },
+          },
+          description: "Synchronous batch request. Each item is capped at 4,000 chars; batch total max is 50,000 chars.",
+        },
+
+        BalanceResponse: {
+          type: "object",
+          required: ["account_id", "balance_cents", "currency", "last_usage_at", "recent_usage"],
+          properties: {
+            account_id: { type: "string", example: "acct_01K..." },
+            balance_cents: { type: "integer", example: 842 },
+            currency: { type: "string", enum: ["USD"] },
+            last_usage_at: { type: ["string", "null"], format: "date-time" },
+            recent_usage: { type: "object", properties: { today_cents: { type: "integer" }, last_7_days_cents: { type: "integer" }, last_30_days_cents: { type: "integer" } } },
+          },
+        },
+
         AnalyzeImageRequest: {
           type: "object",
           required: ["image_url"],
@@ -228,6 +295,16 @@ export function openApiSpec(): Record<string, unknown> {
           },
         },
 
+        AnalyzeBatchResponse: {
+          type: "object",
+          required: ["batch_id", "results"],
+          properties: {
+            batch_id: { type: "string", example: "bat_01K..." },
+            results: { type: "array", items: { allOf: [{ "$ref": "#/components/schemas/AnalyzeTextResponse" }, { type: "object", properties: { id: { type: "string" }, batch_id: { type: "string" } } }] } },
+            billing: { type: "object", properties: { units_analyzed: { type: "integer" }, chars_analyzed: { type: "integer" }, bucket: { type: "string", example: "batch_text_v0" }, price_cents: { type: "integer" }, remaining_balance_cents: { type: "integer" } } },
+          },
+        },
+
         AnalyzeImageResponse: {
           type: "object",
           required: ["analysis_id", "content_trust_score", "synthetic_image_risk", "synthetic_risk", "risk_level", "recommended_action", "confidence", "evidence", "recommended_fixes", "model_version", "limitations"],
@@ -243,35 +320,6 @@ export function openApiSpec(): Record<string, unknown> {
             recommended_fixes: { type: "array", items: { type: "string" } },
             model_version: { type: "string", example: "v0.1" },
             limitations: { type: "array", items: { type: "string" } },
-          },
-        },
-        EvidenceItem: {
-          type: "object",
-          required: ["type", "severity", "span", "explanation"],
-          properties: {
-            type: { type: "string", example: "generic_phrasing" },
-            severity: { type: "string", enum: ["low", "medium", "high"] },
-            span: { type: "string", example: "should always stay alert" },
-            explanation: { type: "string", example: "Vague, universally applicable advice lacking specificity." },
-          },
-        },
-        AccessRequest: {
-          type: "object",
-          required: ["name", "email", "use_case"],
-          properties: {
-            name: { type: "string", maxLength: 120 },
-            email: { type: "string", format: "email", maxLength: 180 },
-            company: { type: "string", maxLength: 160 },
-            use_case: { type: "string", maxLength: 1200 },
-            volume: { type: "string", enum: ["under 1k", "1k-10k", "10k-100k", "100k+"] }
-          }
-        },
-        ErrorResponse: {
-          type: "object",
-          required: ["error"],
-          properties: {
-            error: { type: "string" },
-            message: { type: "string" },
           },
         },
       },
@@ -355,13 +403,16 @@ ${BASE_URL}/openapi.json
 ## Public demo endpoint
 
 POST ${BASE_URL}/demo/analyze
+POST ${BASE_URL}/demo/analyze-image
 
-No API key required. privacy_mode is forced true server-side. Text limit is 4,000 characters. Rate limited.
+No API key required. privacy_mode is forced true server-side. Text limit is 4,000 characters. Image demo accepts HTTPS image URLs and logs only URL hash + hostname. Rate limited by IP/cookie.
 
 ## Production endpoints
 
 POST ${API_BASE_URL}/v1/analyze-text
+POST ${API_BASE_URL}/v1/analyze-batch
 POST ${API_BASE_URL}/v1/analyze-image
+GET ${API_BASE_URL}/v1/balance
 
 Requires:
 
@@ -401,6 +452,12 @@ Content-Type: application/json
 
 POST ${API_BASE_URL}/v1/analyze-image accepts {"image_url":"https://...","context":{"format":"article","intended_use":"publish","domain":"news"},"privacy_mode":true}. It returns content_trust_score, synthetic_image_risk, synthetic_risk alias, evidence, recommended_fixes, risk_level, recommended_action, limitations, and billing. VeracityAPI stores no image bytes and logs only a hash plus hostname. Price: $0.02/image.
 
+## Batch and balance endpoints
+
+POST ${API_BASE_URL}/v1/analyze-batch accepts {"items":[{"id":"post_001","text":"..."}],"context":{"format":"social_post","intended_use":"publish","domain":"travel_safety"},"privacy_mode":true}. Limits: 1-25 items, 4,000 chars per item, 50,000 chars total. It returns {"batch_id":"bat_...","results":[...],"billing":{"units_analyzed":25,"price_cents":25,"remaining_balance_cents":...}}.
+
+GET ${API_BASE_URL}/v1/balance returns account_id, balance_cents, currency, last_usage_at, and recent_usage windows so agents can preflight autonomous runs.
+
 ## Example curl
 
 curl ${API_BASE_URL}/v1/analyze-text \\
@@ -431,6 +488,7 @@ Public demo is open. New accounts get $1.50 in free credits to test real workflo
 ## Pricing
 
 - Text ≤4k chars: $0.01
+- Batch text: sum of per-item text prices; synchronous v0 allows 1-25 items, ≤4k chars each, ≤50k chars total
 - Text ≤20k chars: $0.03
 - Text ≤50k chars: $0.06
 - Text ≤100k chars: $0.12
@@ -479,7 +537,7 @@ export function agentsJson(): Record<string, unknown> {
     },
     pricing: {
       model: "prepaid_credits",
-      billing: "New accounts get $1.50 in free credits. No subscriptions. Text requests debit by character bucket; image analysis debits $0.02/image.",
+      billing: "New accounts get $1.50 in free credits. No subscriptions. Text requests debit by character bucket; batch text is billed as the sum of per-item text prices; image analysis debits $0.02/image.",
       buckets: [
         { max_chars: 4000, price_usd: 0.01 },
         { max_chars: 20000, price_usd: 0.03 },
@@ -488,15 +546,17 @@ export function agentsJson(): Record<string, unknown> {
       ],
       above_100k: "chunk or contact us",
       image_analysis: { unit: "image", price_usd: 0.02, bucket: "image_v0" },
+      batch_text: { max_items: 25, max_chars_per_item: 4000, max_total_chars: 50000, billing: "sum_per_item" },
     },
     demo: {
       endpoint: `${BASE_URL}/demo/analyze`,
+      image_endpoint: `${BASE_URL}/demo/analyze-image`,
       method: "POST",
       auth_required: false,
-      limits: "4000 chars, rate limited, privacy_mode=true forced server-side",
+      limits: "text demo: 4000 chars; image demo: HTTPS image URL; both rate limited and privacy_mode=true forced server-side",
     },
     recommended_use_cases: USE_CASES.map((u) => u.title),
-    capabilities: ["content_trust_score", "specificity_risk", "provenance_weakness", "synthetic_texture_risk", "synthetic_image_risk", "ai_slop_risk", "evidence_spans", "recommended_action", "privacy_mode"],
+    capabilities: ["content_trust_score", "specificity_risk", "provenance_weakness", "synthetic_texture_risk", "synthetic_image_risk", "ai_slop_risk", "evidence_spans", "recommended_action", "privacy_mode", "synchronous_batch", "balance_preflight"],
     limitations: ["Workflow risk score, not proof of authorship or truth", "English-calibrated text at MVP; non-English scoring is experimental", "Image v0.1 uses visible artifact scoring only and does not inspect EXIF/C2PA metadata"],
   };
 }

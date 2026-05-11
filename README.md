@@ -28,6 +28,8 @@ New accounts get $1.50 in free credits. No subscriptions. Buy credits when you n
 | Request size | Price |
 | --- | ---: |
 | ≤4k chars | $0.01 |
+| Synchronous text batch | Sum of per-item text prices |
+| Image URL analysis | $0.02/image |
 | ≤20k chars | $0.03 |
 | ≤50k chars | $0.06 |
 | ≤100k chars | $0.12 |

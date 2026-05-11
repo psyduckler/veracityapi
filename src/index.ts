@@ -1,15 +1,15 @@
 import { ulid } from "ulid";
 import { sha256Hex } from "./auth";
 import { accountHtml, buildAccountView, cleanEmail, clearSessionCookie, consumeMagicLink, createApiKey, createMagicLink, getSessionAccount, parseForm, redirect, requireAccount, sendMagicLink, sessionCookie, validEmail } from "./account";
-import { authenticateUsageKey, BillingAuthError, creditCheckoutSession, CREDIT_PACKS, debitForImage, debitForRequest, InsufficientBalanceError, refundUsage, verifyStripeWebhook } from "./billing";
+import { authenticateUsageKey, BillingAuthError, creditCheckoutSession, CREDIT_PACKS, debitForBatchRequest, debitForImage, debitForRequest, getBalanceSummary, InsufficientBalanceError, refundUsage, verifyStripeWebhook } from "./billing";
 import { logAnalysis } from "./db";
 import { LlmError, scoreImage, scoreText } from "./llm";
 import { deriveAction, deriveImageRiskLevel, deriveImageTrustScore, deriveRiskLevel, deriveTrustSignals } from "./scoring";
 import { agentsJson, llmsTxt, ogSvg, openApiSpec, robotsTxt, sitemapXml } from "./discovery";
 import { docsHtml, evalsHtml, examplesHtml, howItWorksHtml, pricingHtml, privacyHtml, requestAccessHtml, useCaseHtml, useCasesIndexHtml } from "./pages";
 import { homepageHtml } from "./site";
-import type { AnalyzeImageResponse, AnalyzeResponse, Env } from "./types";
-import { parseAnalyzeImageRequest, parseAnalyzeRequest, ValidationError } from "./validate";
+import type { AnalyzeBatchRequest, AnalyzeImageResponse, AnalyzeResponse, Env } from "./types";
+import { parseAnalyzeBatchRequest, parseAnalyzeImageRequest, parseAnalyzeRequest, ValidationError } from "./validate";
 
 const LIMITATIONS = [
   "Scores are probabilistic workflow risk signals, not proof of AI authorship or truth.",
@@ -117,8 +117,21 @@ export default {
       return handleDemoAnalyze(request, env);
     }
 
+    if (request.method === "POST" && url.pathname === "/demo/analyze-image") {
+      await logSiteEvent(env, request, "image_demo_run", url.pathname);
+      return handleDemoAnalyzeImage(request, env);
+    }
+
+    if (request.method === "GET" && url.pathname === "/v1/balance") {
+      return handleBalance(request, env);
+    }
+
     if (request.method === "POST" && url.pathname === "/v1/analyze-text") {
       return handleAnalyzeText(request, env);
+    }
+
+    if (request.method === "POST" && url.pathname === "/v1/analyze-batch") {
+      return handleAnalyzeBatch(request, env);
     }
 
     if (request.method === "POST" && url.pathname === "/v1/analyze-image") {
@@ -200,6 +213,116 @@ async function handleDemoAnalyze(request: Request, env: Env): Promise<Response> 
     });
     return json(response);
   } catch (err) {
+    if (err instanceof ValidationError) return json({ error: "bad_request", message: err.message }, 400);
+    if (err instanceof LlmError) return json({ error: "llm_unavailable", message: "Scoring model unavailable. Retry shortly." }, 503, { "Retry-After": "10" });
+    console.error(err);
+    return json({ error: "internal_error" }, 500);
+  }
+}
+
+async function handleDemoAnalyzeImage(request: Request, env: Env): Promise<Response> {
+  const start = Date.now();
+  try {
+    const ip = request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for") || "unknown";
+    const cookieKey = request.headers.get("cookie")?.match(/veracity_demo=([^;]+)/)?.[1] || "nocookie";
+    if (!consumeDemoQuota(`image:${ip}:${cookieKey}`, Number(env.DEMO_RATE_LIMIT_PER_HOUR || 12))) {
+      return json({ error: "rate_limited", message: "Public image demo limit reached. Try again later or create an account for API access." }, 429, { "Retry-After": "3600" });
+    }
+
+    let body: Record<string, unknown>;
+    try {
+      body = await request.json() as Record<string, unknown>;
+    } catch {
+      throw new ValidationError("Request body must be valid JSON");
+    }
+    const sanitized = { image_url: body.image_url, context: body.context, privacy_mode: true };
+    const parsed = await parseAnalyzeImageRequest(jsonRequest(request.url, sanitized));
+    const scored = await scoreImage(parsed, env);
+    const riskLevel = deriveImageRiskLevel(scored.synthetic_image_risk);
+    const action = deriveAction(riskLevel, parsed.context.intended_use);
+    const response: AnalyzeImageResponse = {
+      analysis_id: `demo_img_${ulid()}`,
+      ...scored,
+      content_trust_score: deriveImageTrustScore(scored.synthetic_image_risk),
+      risk_level: riskLevel,
+      recommended_action: action,
+      model_version: env.MODEL_VERSION || "v0.1",
+      limitations: IMAGE_LIMITATIONS,
+    };
+    await logAnalysis({
+      env,
+      analysisId: response.analysis_id,
+      apiKeyHash: `demo-image:${await sha256Hex(ip)}`,
+      request: parsed,
+      response,
+      latencyMs: Date.now() - start,
+      kind: "image",
+    });
+    return json(response, 200, { "Set-Cookie": `veracity_demo=${cookieKey === "nocookie" ? ulid() : cookieKey}; Path=/; Max-Age=86400; SameSite=Lax; Secure` });
+  } catch (err) {
+    if (err instanceof ValidationError) return json({ error: "bad_request", message: err.message }, 400);
+    if (err instanceof LlmError && /400|image|url|fetch|format|unsupported|too large|invalid/i.test(err.message)) return json({ error: "bad_request", message: "Image URL could not be analyzed. Check that it is a reachable supported image URL." }, 400);
+    if (err instanceof LlmError) return json({ error: "llm_unavailable", message: "Scoring model unavailable. Retry shortly." }, 503, { "Retry-After": "10" });
+    console.error(err);
+    return json({ error: "internal_error" }, 500);
+  }
+}
+
+async function handleBalance(request: Request, env: Env): Promise<Response> {
+  try {
+    const auth = await authenticateUsageKey(request, env);
+    if (auth.legacy || !auth.accountId) return json({ error: "account_required", message: "Use an account API key to query balance." }, 401);
+    return json(await getBalanceSummary(env, auth.accountId));
+  } catch (err) {
+    if (err instanceof BillingAuthError) return json({ error: "unauthorized" }, 401);
+    console.error(err);
+    return json({ error: "internal_error" }, 500);
+  }
+}
+
+async function handleAnalyzeBatch(request: Request, env: Env): Promise<Response> {
+  const start = Date.now();
+  let debit: { accountId: string; apiKeyId: string; billing: NonNullable<AnalyzeResponse["billing"]>; batchId: string } | null = null;
+  try {
+    const auth = await authenticateUsageKey(request, env);
+    const parsed = await parseAnalyzeBatchRequest(request);
+    const batchId = `bat_${ulid()}`;
+    const billing = auth.legacy ? undefined : await debitForBatchRequest(env, auth.accountId!, auth.apiKeyId!, batchId, parsed);
+    if (billing) debit = { accountId: auth.accountId!, apiKeyId: auth.apiKeyId!, billing, batchId };
+    const results: AnalyzeResponse[] = [];
+    for (const item of parsed.items) {
+      const itemRequest = { text: item.text, context: parsed.context, privacy_mode: parsed.privacy_mode };
+      const scored = await scoreText(itemRequest, env);
+      const derived = deriveTrustSignals(scored.synthetic_risk, scored.slop_risk, scored.evidence);
+      const riskLevel = deriveRiskLevel(scored.synthetic_risk, scored.slop_risk);
+      const action = deriveAction(riskLevel, parsed.context.intended_use);
+      const response: AnalyzeResponse & { id?: string; batch_id?: string } = {
+        id: item.id,
+        batch_id: batchId,
+        analysis_id: `ana_${ulid()}`,
+        ...scored,
+        ...derived,
+        risk_level: riskLevel,
+        recommended_action: action,
+        model_version: env.MODEL_VERSION || "v0.1",
+        limitations: LIMITATIONS,
+      };
+      await logAnalysis({
+        env,
+        analysisId: response.analysis_id,
+        apiKeyHash: auth.apiKeyHash,
+        request: itemRequest,
+        response,
+        latencyMs: Date.now() - start,
+        kind: "text",
+      });
+      results.push(response);
+    }
+    return json({ batch_id: batchId, results, ...(billing ? { billing } : {}) });
+  } catch (err) {
+    if (debit && (err instanceof LlmError)) await refundUsage(env, debit.accountId, debit.apiKeyId, debit.batchId, debit.billing, "llm_unavailable");
+    if (err instanceof BillingAuthError) return json({ error: "unauthorized" }, 401);
+    if (err instanceof InsufficientBalanceError) return json({ error: "insufficient_balance", message: `This batch costs $${(err.requiredCents / 100).toFixed(2)}. Your balance is $${(err.balanceCents / 100).toFixed(2)}.`, required_cents: err.requiredCents, balance_cents: err.balanceCents, top_up_url: "https://veracityapi.com/account" }, 402);
     if (err instanceof ValidationError) return json({ error: "bad_request", message: err.message }, 400);
     if (err instanceof LlmError) return json({ error: "llm_unavailable", message: "Scoring model unavailable. Retry shortly." }, 503, { "Retry-After": "10" });
     console.error(err);
