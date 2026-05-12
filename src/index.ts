@@ -14,7 +14,7 @@ import { aboutHtml, alternativesHtml, categoryHtml, changelogHtml, docsHtml, eva
 import { distributionPageHtml, distributionRedirectTarget } from "./distribution";
 import { homepageHtml } from "./site";
 import { welcomeHtml } from "./welcome";
-import { WELCOME_RESULT_PATH, WELCOME_RIGHT_CLICK_PATH, WELCOME_SCREENSHOT_CONTENT_TYPE, welcomeResultBytes, welcomeRightClickBytes } from "./welcomeAssets";
+import { WELCOME_IMAGE_STEP_1_PATH, WELCOME_IMAGE_STEP_2_PATH, WELCOME_RESULT_PATH, WELCOME_RIGHT_CLICK_PATH, WELCOME_SCREENSHOT_CONTENT_TYPE, welcomeImageStep1Bytes, welcomeImageStep2Bytes, welcomeResultBytes, welcomeRightClickBytes } from "./welcomeAssets";
 import type { AnalyzeAudioResponse, AnalyzeBatchRequest, AnalyzeImageRequest, AnalyzeImageResponse, AnalyzeResponse, Env } from "./types";
 import { parseAnalyzeAudioRequest, parseAnalyzeBatchRequest, parseAnalyzeImageRequest, parseAnalyzeRequest, parseUnifiedAnalyzeRequest, ValidationError } from "./validate";
 
@@ -195,8 +195,14 @@ export default {
       return new Response(request.method === "HEAD" ? null : (ogBytes.buffer.slice(ogBytes.byteOffset, ogBytes.byteOffset + ogBytes.byteLength) as ArrayBuffer), { headers: { "content-type": "image/png", "cache-control": "public, max-age=31536000, immutable", ...securityHeaders(), "x-request-id": requestId() } });
     }
 
-    if ((request.method === "GET" || request.method === "HEAD") && (url.pathname === WELCOME_RIGHT_CLICK_PATH || url.pathname === WELCOME_RESULT_PATH)) {
-      const bytes = url.pathname === WELCOME_RIGHT_CLICK_PATH ? welcomeRightClickBytes() : welcomeResultBytes();
+    if ((request.method === "GET" || request.method === "HEAD") && (url.pathname === WELCOME_RIGHT_CLICK_PATH || url.pathname === WELCOME_RESULT_PATH || url.pathname === WELCOME_IMAGE_STEP_1_PATH || url.pathname === WELCOME_IMAGE_STEP_2_PATH)) {
+      const bytes = url.pathname === WELCOME_RIGHT_CLICK_PATH
+        ? welcomeRightClickBytes()
+        : url.pathname === WELCOME_RESULT_PATH
+          ? welcomeResultBytes()
+          : url.pathname === WELCOME_IMAGE_STEP_1_PATH
+            ? welcomeImageStep1Bytes()
+            : welcomeImageStep2Bytes();
       return new Response(request.method === "HEAD" ? null : bytes, { headers: { "content-type": WELCOME_SCREENSHOT_CONTENT_TYPE, "cache-control": "public, max-age=31536000, immutable", ...securityHeaders(), "x-request-id": requestId() } });
     }
 

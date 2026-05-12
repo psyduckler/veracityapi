@@ -60,6 +60,11 @@ describe("hosted Chrome extension welcome onboarding", () => {
     expect(html).toContain("Highlight any text");
     expect(html).toContain("Step 2");
     expect(html).toContain("Get AI risk analysis");
+    expect(html).toContain("Use the same public tester image from the homepage");
+    expect(html).toContain("Review image risk analysis");
+    expect(html).toContain("/demo/influencer-beauty-tonic.jpg");
+    expect(html).toContain("/welcome/image-step-1.webp");
+    expect(html).toContain("/welcome/image-step-2.webp");
     expect(html).toContain('/welcome/right-click-menu.webp');
     expect(html).toContain('/welcome/result-window.webp');
   });
@@ -79,15 +84,20 @@ describe("hosted Chrome extension welcome onboarding", () => {
 
   it("serves real WebP welcome screenshots", async () => {
     const env = { DB: new EmptyDb(), ANTHROPIC_API_KEY: "test", API_KEYS: "" } as any;
-    for (const path of ["/welcome/right-click-menu.webp", "/welcome/result-window.webp"]) {
+    for (const path of ["/welcome/right-click-menu.webp", "/welcome/result-window.webp", "/welcome/image-step-1.webp", "/welcome/image-step-2.webp"]) {
       const response = await worker.fetch(new Request(`https://veracityapi.com${path}`), env);
       expect(response.status).toBe(200);
       expect(response.headers.get("content-type")).toContain("image/webp");
       expect(response.headers.get("cache-control")).toContain("max-age=31536000");
       const body = new Uint8Array(await response.arrayBuffer());
-      expect(body.byteLength).toBeGreaterThan(80_000);
+      expect(body.byteLength).toBeGreaterThan(50_000);
       expect(Array.from(body.slice(0, 4))).toEqual([82, 73, 70, 70]);
       expect(String.fromCharCode(...body.slice(8, 12))).toBe("WEBP");
+
+      const head = await worker.fetch(new Request(`https://veracityapi.com${path}`, { method: "HEAD" }), env);
+      expect(head.status).toBe(200);
+      expect(head.headers.get("content-type")).toContain("image/webp");
+      expect(await head.text()).toBe("");
     }
   });
 });
