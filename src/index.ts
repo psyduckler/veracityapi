@@ -6,6 +6,7 @@ import { logAnalysis } from "./db";
 import { LlmError, reviseText, scoreAudio, scoreImage, scoreText } from "./llm";
 import { deriveAction, deriveAudioRiskLevel, deriveAudioTrustScore, deriveImageRiskLevel, deriveImageTrustScore, derivePrimaryReason, deriveRiskLevel, deriveTrustSignals } from "./scoring";
 import { agentsJson, faviconSvg, INDEXNOW_KEY, llmsTxt, llmsFullTxt, ogSvg, openApiSpec, robotsTxt, sitemapXml } from "./discovery";
+import { authorizeExtension, exchangeExtensionCode, ExtensionAuthError, extensionConnectHtml, safeExtensionNextPath, safeRelativeNext, validateExtensionRedirectUri, validateExtensionState } from "./extensionAuth";
 import { DEMO_IMAGE_CONTENT_TYPE, DEMO_IMAGE_PATH, demoImageBytes } from "./demoImage";
 import { DEMO_AUDIO_CONTENT_TYPE, DEMO_AUDIO_PATH, demoAudioBytes } from "./demoAudio";
 import { categoryHtml, changelogHtml, docsHtml, evalsHtml, examplesHtml, forAgentsHtml, howItWorksHtml, methodologyHtml, trustModelHtml, mcpHtml, pricingHtml, privacyHtml, subprocessorsHtml, securityHtml, termsHtml, requestAccessHtml, statusHtml, useCaseHtml, useCasesIndexHtml } from "./pages";
@@ -44,7 +45,7 @@ export default {
     const url = new URL(request.url);
 
     if (request.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: { ...corsHeaders(), ...securityHeaders(), "x-request-id": requestId() } });
+      return new Response(null, { status: 204, headers: { ...corsHeadersForRequest(request), ...securityHeaders(), "x-request-id": requestId() } });
     }
 
     if ((request.method === "GET" || request.method === "HEAD") && (url.pathname === "/" || url.pathname === "/index.html")) {
@@ -109,6 +110,12 @@ export default {
       const view = account ? await buildAccountView(env, account.accountId, account.email) : null;
       return html(request.method === "HEAD" ? "" : accountHtml(view, url.searchParams.get("message") || ""), false);
     }
+
+    if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/extension/connect") {
+      return handleExtensionConnect(request, env, request.method === "HEAD");
+    }
+    if (request.method === "POST" && url.pathname === "/extension/connect/login") return handleExtensionConnectLogin(request, env);
+    if (request.method === "POST" && url.pathname === "/extension/connect/authorize") return handleExtensionAuthorize(request, env);
 
     if (request.method === "POST" && url.pathname === "/auth/login") return handleLogin(request, env);
     if (request.method === "GET" && url.pathname === "/auth/callback") return handleCallback(request, env);
@@ -220,6 +227,10 @@ export default {
 
     if (request.method === "GET" && url.pathname === "/v1/balance") {
       return handleBalance(request, env);
+    }
+
+    if (request.method === "POST" && url.pathname === "/v1/extension/exchange-token") {
+      return handleExtensionExchangeToken(request, env);
     }
 
     if (request.method === "POST" && url.pathname === "/v1/analyze") {
@@ -548,15 +559,15 @@ async function handleAnalyzeText(request: Request, env: Env): Promise<Response> 
       kind: "text",
     });
     await logApiCallSuccess(env, request, auth.accountId, auth.apiKeyId, "text", response.analysis_id);
-    return json(response);
+    return jsonForRequest(response, request);
   } catch (err) {
     if (debit && (err instanceof LlmError)) await refundUsage(env, debit.accountId, debit.apiKeyId, debit.analysisId, debit.billing, "llm_unavailable");
-    if (err instanceof BillingAuthError) return json({ error: "unauthorized" }, 401);
-    if (err instanceof InsufficientBalanceError) return json({ error: "insufficient_balance", message: `This request costs $${(err.requiredCents / 100).toFixed(2)}. Your balance is $${(err.balanceCents / 100).toFixed(2)}.`, required_cents: err.requiredCents, balance_cents: err.balanceCents, top_up_url: "https://veracityapi.com/account" }, 402);
-    if (err instanceof ValidationError) return json({ error: "bad_request", message: err.message }, 400);
-    if (err instanceof LlmError) return json({ error: "llm_unavailable", message: "Scoring model unavailable. Retry shortly." }, 503, { "Retry-After": "10" });
+    if (err instanceof BillingAuthError) return jsonForRequest({ error: "unauthorized" }, request, 401);
+    if (err instanceof InsufficientBalanceError) return jsonForRequest({ error: "insufficient_balance", message: `This request costs $${(err.requiredCents / 100).toFixed(2)}. Your balance is $${(err.balanceCents / 100).toFixed(2)}.`, required_cents: err.requiredCents, balance_cents: err.balanceCents, top_up_url: "https://veracityapi.com/account" }, request, 402);
+    if (err instanceof ValidationError) return jsonForRequest({ error: "bad_request", message: err.message }, request, 400);
+    if (err instanceof LlmError) return jsonForRequest({ error: "llm_unavailable", message: "Scoring model unavailable. Retry shortly." }, request, 503, { "Retry-After": "10" });
     console.error(err);
-    return json({ error: "internal_error" }, 500);
+    return jsonForRequest({ error: "internal_error" }, request, 500);
   }
 }
 
@@ -636,6 +647,71 @@ async function handleAnalyzeAudio(request: Request, env: Env): Promise<Response>
   }
 }
 
+async function handleExtensionConnect(request: Request, env: Env, head = false): Promise<Response> {
+  const url = new URL(request.url);
+  try {
+    const redirectUri = validateExtensionRedirectUri(url.searchParams.get("redirect_uri") || "");
+    const state = validateExtensionState(url.searchParams.get("state") || "");
+    const account = await getSessionAccount(request, env);
+    if (!head) await logSiteEvent(env, request, "extension_connect_view", "/extension/connect", account ? { account_id: account.accountId } : {});
+    return html(head ? "" : extensionConnectHtml({ redirectUri, state, loggedInEmail: account?.email, message: url.searchParams.get("message") || "" }), false);
+  } catch (err) {
+    if (err instanceof ExtensionAuthError) return html(head ? "" : extensionConnectHtml({ redirectUri: "", state: "", message: err.message }), false, 400);
+    console.error(err);
+    return html(head ? "" : "Could not start extension connection.", false, 500);
+  }
+}
+
+async function handleExtensionConnectLogin(request: Request, env: Env): Promise<Response> {
+  try {
+    const params = parseForm(await request.text());
+    const email = cleanEmail(params.get("email") || "");
+    const redirectUri = validateExtensionRedirectUri(params.get("redirect_uri") || "");
+    const state = validateExtensionState(params.get("state") || "");
+    if (!validEmail(email)) return html(extensionConnectHtml({ redirectUri, state, message: "Enter a valid email address." }), false, 400);
+    const ip = request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for") || "unknown";
+    const emailHash = await sha256Hex(email);
+    if (!consumeLoginQuota(`ip:${ip}`, Number(env.LOGIN_RATE_LIMIT_PER_HOUR || 12)) || !consumeLoginQuota(`email:${emailHash}`, Number(env.LOGIN_RATE_LIMIT_PER_HOUR || 3))) {
+      return html(extensionConnectHtml({ redirectUri, state, message: "Too many login link requests. Try again in about an hour." }), false, 429);
+    }
+    const nextPath = safeExtensionNextPath(redirectUri, state);
+    const link = await createMagicLink(email, request, env, nextPath);
+    await sendMagicLink(env, email, link);
+    await logSiteEvent(env, request, "extension_login_link_requested", "/extension/connect", { email_hash: emailHash });
+    return html(extensionConnectHtml({ redirectUri, state, message: "Login link sent. Check your email, then this connection window will continue." }), false);
+  } catch (err) {
+    if (err instanceof ExtensionAuthError) return html(extensionConnectHtml({ redirectUri: "", state: "", message: err.message }), false, 400);
+    console.error(err);
+    return html("Could not send extension login email yet. Try again shortly.", false, 500);
+  }
+}
+
+async function handleExtensionAuthorize(request: Request, env: Env): Promise<Response> {
+  try {
+    const response = await authorizeExtension(request, env);
+    await logSiteEvent(env, request, "extension_authorized", "/extension/connect");
+    return response;
+  } catch (err) {
+    if (err instanceof ExtensionAuthError) return jsonForRequest({ error: err.code, message: err.message }, request, 400);
+    console.error(err);
+    return jsonForRequest({ error: "internal_error" }, request, 500);
+  }
+}
+
+async function handleExtensionExchangeToken(request: Request, env: Env): Promise<Response> {
+  try {
+    const body = await request.json() as Record<string, unknown>;
+    const code = typeof body.code === "string" ? body.code : "";
+    const result = await exchangeExtensionCode(env, code);
+    await logSiteEvent(env, request, "extension_token_exchanged", "/v1/extension/exchange-token", { account_id: result.account_id, key_id: result.key_id });
+    return jsonForRequest(result, request);
+  } catch (err) {
+    if (err instanceof ExtensionAuthError) return jsonForRequest({ error: err.code, message: err.message }, request, 400);
+    console.error(err);
+    return jsonForRequest({ error: "internal_error" }, request, 500);
+  }
+}
+
 async function handleLogin(request: Request, env: Env): Promise<Response> {
   try {
     const params = parseForm(await request.text());
@@ -657,11 +733,13 @@ async function handleLogin(request: Request, env: Env): Promise<Response> {
 }
 
 async function handleCallback(request: Request, env: Env): Promise<Response> {
-  const token = new URL(request.url).searchParams.get("token") || "";
+  const url = new URL(request.url);
+  const token = url.searchParams.get("token") || "";
   try {
     const session = await consumeMagicLink(env, token);
     await logSiteEvent(env, request, "account_login", "/auth/callback", { account_id: session.accountId });
-    return redirect("/account?message=Logged+in", { "Set-Cookie": sessionCookie(session.sessionToken) });
+    const next = safeRelativeNext(url.searchParams.get("next") || "");
+    return redirect(next || "/account?message=Logged+in", { "Set-Cookie": sessionCookie(session.sessionToken) });
   } catch {
     return redirect("/account?message=Login+link+expired+or+invalid");
   }
@@ -1126,13 +1204,26 @@ function json(body: unknown, status = 200, headers: Record<string, string> = {})
   });
 }
 
+function jsonForRequest(body: unknown, request: Request, status = 200, headers: Record<string, string> = {}): Response {
+  return json(body, status, { ...corsHeadersForRequest(request), ...headers });
+}
+
 function requestId(): string {
   return `req_${ulid()}`;
 }
 
-function corsHeaders(): Record<string, string> {
+function corsHeadersForRequest(request: Request): Record<string, string> {
+  const origin = request.headers.get("Origin") || "";
+  return corsHeaders(isAllowedBrowserExtensionOrigin(origin) ? origin : undefined);
+}
+
+function isAllowedBrowserExtensionOrigin(origin: string): boolean {
+  return /^chrome-extension:\/\/[a-p]{32}$/.test(origin);
+}
+
+function corsHeaders(origin = "https://veracityapi.com"): Record<string, string> {
   return {
-    "Access-Control-Allow-Origin": "https://veracityapi.com",
+    "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
     "Access-Control-Allow-Headers": "Authorization,Content-Type,Mcp-Session-Id,MCP-Protocol-Version,X-Veracity-API-Key,X-Requested-With,Accept,X-Request-Id",
     "Access-Control-Expose-Headers": "X-Request-Id",

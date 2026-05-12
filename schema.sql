@@ -93,6 +93,19 @@ CREATE TABLE IF NOT EXISTS api_keys (
 CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash);
 CREATE INDEX IF NOT EXISTS idx_api_keys_account ON api_keys(account_id);
 
+CREATE TABLE IF NOT EXISTS extension_exchange_codes (
+  code_hash    TEXT PRIMARY KEY,
+  account_id   TEXT NOT NULL,
+  redirect_uri TEXT NOT NULL,
+  expires_at   TEXT NOT NULL,
+  used_at      TEXT,
+  created_at   TEXT NOT NULL,
+  FOREIGN KEY(account_id) REFERENCES accounts(account_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_extension_exchange_account ON extension_exchange_codes(account_id);
+CREATE INDEX IF NOT EXISTS idx_extension_exchange_expires ON extension_exchange_codes(expires_at);
+
 CREATE TABLE IF NOT EXISTS credit_ledger (
   ledger_id TEXT PRIMARY KEY,
   account_id TEXT NOT NULL,

@@ -63,13 +63,16 @@ export async function buildAccountView(env: Env, accountId: string, email: strin
   return { account_id: accountId, email, balance_cents: Number(acct?.balance_cents ?? 0), apiKeys: apiKeys.results ?? [], usage: usage.results ?? [] };
 }
 
-export async function createMagicLink(email: string, request: Request, env: Env): Promise<string> {
+export async function createMagicLink(email: string, request: Request, env: Env, nextPath?: string): Promise<string> {
   const token = randomToken("ml");
   const now = new Date();
   const expires = new Date(now.getTime() + MAGIC_LINK_MINUTES * 60_000).toISOString();
   await env.DB.prepare(`INSERT INTO magic_links (token_hash, email, expires_at, created_at) VALUES (?, ?, ?, ?)`).bind(await sha256Hex(token), email, expires, now.toISOString()).run();
   const url = new URL(request.url);
-  return `${url.origin}/auth/callback?token=${encodeURIComponent(token)}`;
+  const callback = new URL(`${url.origin}/auth/callback`);
+  callback.searchParams.set("token", token);
+  if (nextPath) callback.searchParams.set("next", nextPath);
+  return callback.toString();
 }
 
 export async function sendMagicLink(env: Env, to: string, link: string): Promise<void> {
