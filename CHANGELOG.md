@@ -7,7 +7,7 @@ Public product updates for VeracityAPI. Dates are UTC-ish and backfilled from th
 - Shipped installable SDK packages: `@veracityapi/sdk` for TypeScript and `veracityapi` for Python.
 - Updated homepage, docs, examples, and README around SDK-first integration paths.
 - Repositioned homepage around content trust infrastructure for AI products while keeping agent-native proof points.
-- Added Team/Pro and Enterprise pricing signals for production buyers.
+- Simplified pricing around self-serve prepaid credits and custom-volume contact paths.
 - Added public `/status` and `/changelog` surfaces to reduce ghost-project perception.
 - Promoted MCP as a primary agent-distribution path with local npm and hosted remote MCP details.
 - Reworked README into a developer landing page with curl, TypeScript, Python, MCP, pricing, privacy, and eval proof.

@@ -272,9 +272,10 @@ describe("developer examples and dashboard conversion", () => {
     expect(html).toContain("auto_revise:true");
     expect(html).toContain("$0.010 / 1k characters");
     expect(html).toContain("$0.01/request");
-    expect(html).toContain("Team / Pro");
-    expect(html).toContain("$99/mo");
-    expect(html).toContain("Enterprise");
+    expect(html).toContain("Prepaid usage");
+    expect(html).toContain("Custom volume");
+    expect(html).not.toContain("Team / Pro");
+    expect(html).not.toContain("$99/mo");
     expect(html).toContain("Contact sales");
     expect(html).not.toContain("Audio URL analysis</td><td><b>$0.005");
     expect(html).not.toContain("chars characters");

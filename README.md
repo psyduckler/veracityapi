@@ -133,10 +133,9 @@ Hosted remote MCP is live at `https://api.veracityapi.com/mcp` for clients that 
 | Text analyze + revise | $0.010 / 1k chars | Agent rewrite loops |
 | Image URL analysis | $0.02 / image | Async UGC/image review |
 | Audio URL analysis | $0.01 / request | Beta audio workflow triage |
-| **Team / Pro** | **$99/mo** | Shared production usage, invoices, priority support |
 | Enterprise | Contact sales | Volume, SLA, custom review workflow |
 
-Team/Pro is a commercial packaging signal for production buyers; usage-based API billing remains available for builders.
+Usage-based API billing is self-serve for builders; contact sales for volume, procurement, or custom workflow needs.
 
 ## Privacy guarantees
 

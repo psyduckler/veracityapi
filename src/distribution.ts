@@ -367,7 +367,7 @@ function renderComparison(page: DistributionPage): string {
     "/alternatives/copyleaks-api": [
       ["Primary buyer", "Builders needing lightweight content trust actions", "Enterprise/education authenticity and plagiarism programs"],
       ["Core output", "Workflow route: allow/revise/human_review/reject", "Broad authenticity/plagiarism/AI-detection suite"],
-      ["Procurement", "Self-serve usage-based + Team/Pro signal", "Enterprise-oriented procurement options"],
+      ["Procurement", "Self-serve usage-based credits + custom volume", "Enterprise-oriented procurement options"],
       ["Modalities", "Text, image URL, audio URL", "Vendor suite varies by product/module"],
       ["Agent support", "MCP and machine-readable discovery first-class", "API integration, less MCP-centric"],
       ["Best fit", "Pre-publish gates and autonomous pipelines", "Institutional compliance and plagiarism workflows"],
@@ -376,7 +376,7 @@ function renderComparison(page: DistributionPage): string {
       ["Primary buyer", "Developers needing async media/content triage", "Enterprise threat, fraud, and media-forensics teams"],
       ["Core output", "Action-first workflow risk with explicit limitations", "Deepfake/media-threat detection platform outputs"],
       ["Modalities", "Text, image URLs, audio URLs", "Media/deepfake-focused platform"],
-      ["Pricing posture", "Usage-based + $99/mo Team/Pro signal", "Sales-led enterprise pricing"],
+      ["Pricing posture", "Usage-based prepaid credits + custom volume", "Sales-led enterprise pricing"],
       ["Best fit", "Builder experiments, UGC review queues, agent preflight", "High-stakes investigations and enterprise programs"],
       ["Not a fit", "Forensic proof, identity verification, real-time fraud", "When you only need a simple content workflow gate"],
     ],
