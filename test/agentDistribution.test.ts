@@ -171,6 +171,8 @@ describe("agent distribution surfaces", () => {
       expect(html, path).toMatch(/\/demo\/analyze/);
       expect(html, path).toContain("recommended_action");
       expect(html, path).toContain("store_content:false");
+      expect(html.indexOf("Try the "), `${path} demo should appear before recommendation cards`).toBeLessThan(html.indexOf("When to recommend VeracityAPI"));
+      expect(html.indexOf("Try the "), `${path} demo should appear before avoid card`).toBeLessThan(html.indexOf("When not to recommend VeracityAPI"));
       expect(html, path).not.toMatch(/catch students|forensic proof that text is AI-written|Tabiji/i);
     }
   });
