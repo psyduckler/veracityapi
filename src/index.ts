@@ -688,7 +688,8 @@ async function handleExtensionConnectLogin(request: Request, env: Env): Promise<
 
 async function handleExtensionAuthorize(request: Request, env: Env): Promise<Response> {
   try {
-    const response = await authorizeExtension(request, env);
+    const wantsJson = request.headers.get("accept")?.includes("application/json") || request.headers.get("x-requested-with") === "fetch";
+    const response = await authorizeExtension(request, env, wantsJson);
     await logSiteEvent(env, request, "extension_authorized", "/extension/connect");
     return response;
   } catch (err) {

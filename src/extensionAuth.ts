@@ -16,7 +16,10 @@ export class ExtensionAuthError extends Error {
 export function extensionConnectHtml(args: { redirectUri: string; state: string; loggedInEmail?: string; message?: string }): string {
   const { redirectUri, state, loggedInEmail, message } = args;
   const hidden = `<input type="hidden" name="redirect_uri" value="${escapeHtml(redirectUri)}"/><input type="hidden" name="state" value="${escapeHtml(state)}"/>`;
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Connect Veracity</title><style>${css()}</style></head><body><main class="wrap"><section class="card"><div class="eyebrow">Veracity Chrome Extension</div><h1>Connect Veracity</h1><p>Connect your account so the Chrome extension can check selected text when you choose “Check with Veracity.”</p>${message ? `<p class="notice">${escapeHtml(message)}</p>` : ""}${loggedInEmail ? `<p class="muted">Signed in as ${escapeHtml(loggedInEmail)}</p><form method="post" action="/extension/connect/authorize">${hidden}<button>Connect extension</button></form>` : `<form method="post" action="/extension/connect/login">${hidden}<label>Email<input name="email" type="email" required autocomplete="email" placeholder="you@example.com"/></label><button>Email me a secure link</button></form><p class="muted">No password needed. New accounts include starter credit.</p>`}<p class="fineprint">The extension only sends text you explicitly select and check. Veracity provides workflow-risk triage, not proof of AI authorship or truth.</p></section></main></body></html>`;
+  const connectForm = loggedInEmail
+    ? `<p class="muted">Signed in as ${escapeHtml(loggedInEmail)}</p><form method="post" action="/extension/connect/authorize" data-extension-connect-form>${hidden}<button>Connect extension</button></form><p class="status" data-extension-status></p>`
+    : `<form method="post" action="/extension/connect/login">${hidden}<label>Email<input name="email" type="email" required autocomplete="email" placeholder="you@example.com"/></label><button>Email me a secure link</button></form><p class="muted">No password needed. New accounts include starter credit.</p>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Connect Veracity</title><style>${css()}</style></head><body><main class="wrap"><section class="card"><div class="eyebrow">Veracity Chrome Extension</div><h1>Connect Veracity</h1><p>Connect your account so the Chrome extension can check selected text when you choose “Check with Veracity.”</p>${message ? `<p class="notice">${escapeHtml(message)}</p>` : ""}${connectForm}<p class="fineprint">The extension only sends text you explicitly select and check. Veracity provides workflow-risk triage, not proof of AI authorship or truth.</p></section></main><script>${extensionConnectScript(redirectUri, state)}</script></body></html>`;
 }
 
 export function validateExtensionRedirectUri(value: string): string {
@@ -73,7 +76,7 @@ export async function exchangeExtensionCode(env: Env, code: string): Promise<{ a
   return { api_key: created.key, account_id: row.account_id, key_id: created.keyId, label: "Chrome Extension", created_at: now };
 }
 
-export async function authorizeExtension(request: Request, env: Env): Promise<Response> {
+export async function authorizeExtension(request: Request, env: Env, asJson = false): Promise<Response> {
   const account = await getSessionAccount(request, env);
   if (!account) return redirect("/account?message=Please+log+in");
   const params = new URLSearchParams(await request.text());
@@ -83,6 +86,11 @@ export async function authorizeExtension(request: Request, env: Env): Promise<Re
   const target = new URL(redirectUri);
   target.searchParams.set("code", code);
   target.searchParams.set("state", state);
+  if (asJson) {
+    return new Response(JSON.stringify({ redirect_url: target.toString(), state }), {
+      headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
+    });
+  }
   return redirect(target.toString());
 }
 
@@ -94,4 +102,11 @@ function randomToken(prefix: string): string {
 
 function escapeHtml(value: string): string { return value.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] || c)); }
 
-function css(): string { return `:root{color-scheme:dark;--bg:#08090a;--panel:#101114;--text:#f7f8f8;--muted:#a2a8b3;--line:rgba(255,255,255,.12);--accent:#7170ff}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 20% -10%,rgba(113,112,255,.2),transparent 32rem),var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif}.wrap{min-height:100vh;display:grid;place-items:center;padding:24px}.card{max-width:560px;border:1px solid var(--line);background:rgba(255,255,255,.045);border-radius:20px;padding:28px;box-shadow:0 24px 80px rgba(0,0,0,.32)}.eyebrow{font:12px ui-monospace,monospace;text-transform:uppercase;color:var(--muted);letter-spacing:.08em}h1{font-size:42px;line-height:.98;letter-spacing:-.045em;margin:12px 0}p{color:var(--muted);line-height:1.55}label{display:grid;gap:8px;color:var(--muted);margin-top:18px}input{width:100%;padding:14px;border-radius:12px;border:1px solid var(--line);background:#07080a;color:white}button{margin-top:16px;width:100%;border:0;border-radius:12px;background:linear-gradient(135deg,#5e6ad2,#7170ff);color:white;padding:13px 16px;font-weight:700;cursor:pointer}.notice{border:1px solid var(--line);background:rgba(113,112,255,.14);padding:12px;border-radius:12px}.fineprint{font-size:13px}`; }
+function extensionConnectScript(redirectUri: string, state: string): string {
+  const hasIntent = Boolean(redirectUri && state);
+  if (!hasIntent) return "";
+  const expectedState = JSON.stringify(state);
+  return `(function(){var key='veracity_extension_redirect';var expected=${expectedState};function go(url){if(url){window.location.href=url;}}window.addEventListener('storage',function(event){if(event.key!==key||!event.newValue)return;try{var data=JSON.parse(event.newValue);if(data&&data.state===expected&&data.redirect_url)go(data.redirect_url);}catch(_){}});var form=document.querySelector('[data-extension-connect-form]');if(!form)return;var status=document.querySelector('[data-extension-status]');var button=form.querySelector('button');form.addEventListener('submit',async function(event){event.preventDefault();try{if(button){button.disabled=true;button.textContent='Connecting…';}if(status)status.textContent='Finishing connection…';var response=await fetch(form.action,{method:'POST',body:new FormData(form),headers:{'accept':'application/json'},credentials:'same-origin'});if(!response.ok)throw new Error('Connection failed. Refresh and try again.');var data=await response.json();if(!data.redirect_url)throw new Error('Connection response was missing redirect URL.');localStorage.setItem(key,JSON.stringify({state:data.state,redirect_url:data.redirect_url,at:Date.now()}));go(data.redirect_url);}catch(error){if(button){button.disabled=false;button.textContent='Connect extension';}if(status)status.textContent=error&&error.message?error.message:'Connection failed. Refresh and try again.';}});})();`;
+}
+
+function css(): string { return `:root{color-scheme:dark;--bg:#08090a;--panel:#101114;--text:#f7f8f8;--muted:#a2a8b3;--line:rgba(255,255,255,.12);--accent:#7170ff}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 20% -10%,rgba(113,112,255,.2),transparent 32rem),var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif}.wrap{min-height:100vh;display:grid;place-items:center;padding:24px}.card{max-width:560px;border:1px solid var(--line);background:rgba(255,255,255,.045);border-radius:20px;padding:28px;box-shadow:0 24px 80px rgba(0,0,0,.32)}.eyebrow{font:12px ui-monospace,monospace;text-transform:uppercase;color:var(--muted);letter-spacing:.08em}h1{font-size:42px;line-height:.98;letter-spacing:-.045em;margin:12px 0}p{color:var(--muted);line-height:1.55}label{display:grid;gap:8px;color:var(--muted);margin-top:18px}input{width:100%;padding:14px;border-radius:12px;border:1px solid var(--line);background:#07080a;color:white}button{margin-top:16px;width:100%;border:0;border-radius:12px;background:linear-gradient(135deg,#5e6ad2,#7170ff);color:white;padding:13px 16px;font-weight:700;cursor:pointer}button:disabled{opacity:.72;cursor:wait}.notice{border:1px solid var(--line);background:rgba(113,112,255,.14);padding:12px;border-radius:12px}.status{min-height:1.4em}.fineprint{font-size:13px}`; }
