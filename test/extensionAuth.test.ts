@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { safeExtensionNextPath, safeRelativeNext, validateExtensionRedirectUri, validateExtensionState } from "../src/extensionAuth";
+import { extensionConnectHtml, safeExtensionNextPath, safeRelativeNext, validateExtensionRedirectUri, validateExtensionState } from "../src/extensionAuth";
 
 describe("extension auth helpers", () => {
   const redirectUri = "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.chromiumapp.org/veracity";
@@ -21,5 +21,12 @@ describe("extension auth helpers", () => {
     expect(safeRelativeNext(next)).toBe(next);
     expect(safeRelativeNext("https://evil.test/extension/connect?redirect_uri=" + encodeURIComponent(redirectUri) + "&state=x")).toBeNull();
     expect(safeRelativeNext("/account?message=hi")).toBeNull();
+  });
+
+  it("submits connect fetch as urlencoded form data", () => {
+    const html = extensionConnectHtml({ redirectUri, state: "state_abc", loggedInEmail: "user@example.com" });
+    expect(html).toContain("new URLSearchParams(new FormData(form))");
+    expect(html).toContain("'content-type':'application/x-www-form-urlencoded'");
+    expect(html).not.toContain("body:new FormData(form)");
   });
 });
