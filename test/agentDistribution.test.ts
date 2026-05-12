@@ -42,8 +42,6 @@ describe("agent distribution surfaces", () => {
       "/alternatives/gptzero-api",
       "/alternatives/originality-ai-api",
       "/alternatives/copyleaks-api",
-      "/alternatives/reality-defender",
-      "/alternatives/resemble-detect",
       "/integrations/openai-actions",
       "/integrations/mcp",
       "/integrations/claude",
@@ -156,8 +154,57 @@ describe("agent distribution surfaces", () => {
 
   it("lists new distribution pages in sitemap", () => {
     const sitemap = sitemapXml();
-    for (const path of ["/ai-detection-api", "/ai-audio-detection-api", "/alternatives/deepmedia", "/alternatives/reality-defender", "/integrations/mcp", "/integrations/claude", "/integrations/langgraph"]) {
+    for (const path of ["/ai-detection-api", "/ai-audio-detection-api", "/alternatives/deepmedia", "/integrations/mcp", "/integrations/claude", "/integrations/langgraph"]) {
       expect(sitemap).toContain(`https://veracityapi.com${path}`);
+    }
+  });
+
+  it("unpublishes risky/vaporware pages and removes them from discovery", async () => {
+    const unpublished = ["/alternatives/reality-defender", "/alternatives/resemble-detect", "/use-cases/audio-customer-support-call-qa"];
+    const sitemap = sitemapXml();
+    const agents = JSON.stringify(agentsJson());
+    const llms = llmsTxt();
+    for (const path of unpublished) {
+      const res = await worker.fetch(new Request(`https://veracityapi.com${path}`, { headers: { accept: "text/html" } }), env);
+      expect(res.status, path).toBe(404);
+      expect(res.headers.get("content-type"), path).toContain("text/html");
+      expect(sitemap, path).not.toContain(path);
+      expect(agents, path).not.toContain(path);
+      expect(llms, path).not.toContain(path);
+    }
+  });
+
+  it("ships Y2K redesign, consent gating, route content types, and no public Tabiji leaks", async () => {
+    const homepage = homepageHtml();
+    expect(homepage).toContain("Detect AI slop before it ships.");
+    expect(homepage).toContain("cookie_consent");
+    expect(homepage).toContain("accepted");
+    expect(homepage).toContain("Decline");
+    expect(homepage).toContain(":focus-visible");
+    expect(homepage).toContain("prefers-reduced-motion");
+    expect(homepage).not.toMatch(/Tabiji/i);
+
+    const pricing = await (await worker.fetch(new Request("https://veracityapi.com/pricing"), env)).text();
+    expect(pricing).toContain("text*.005");
+    expect(pricing).not.toContain("text*.01*mult");
+    expect(pricing).not.toMatch(/Tabiji/i);
+
+    const about = await worker.fetch(new Request("https://veracityapi.com/about"), env);
+    expect(about.status).toBe(200);
+    expect(await about.text()).toMatch(/Bernard Huang|Clearscope/);
+
+    const openapi = await worker.fetch(new Request("https://veracityapi.com/openapi.json"), env);
+    expect(openapi.status).toBe(200);
+    expect(openapi.headers.get("content-type")).toContain("application/json");
+    const llmsRes = await worker.fetch(new Request("https://veracityapi.com/llms.txt"), env);
+    expect(llmsRes.status).toBe(200);
+    expect(llmsRes.headers.get("content-type")).toContain("text/plain");
+
+    const spec = openApiSpec() as any;
+    expect(spec.components.schemas.UnifiedAnalyzeRequest.properties.content.oneOf[0].minLength).toBe(20);
+    expect(spec.paths["/v1/analyze"].post.responses["200"].content["application/json"].schema.discriminator.propertyName).toBe("modality");
+    for (const path of ["/v1/analyze", "/v1/analyze-text", "/v1/analyze-batch", "/v1/analyze-image", "/v1/analyze-audio"]) {
+      expect(spec.paths[path].post.responses["429"], path).toBeTruthy();
     }
   });
 });

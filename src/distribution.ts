@@ -76,7 +76,9 @@ const remoteMcpConfig = `{
   }
 }`;
 
-export const DISTRIBUTION_PAGES: DistributionPage[] = [
+const UNPUBLISHED_DISTRIBUTION_PATHS = new Set(["/alternatives/reality-defender", "/alternatives/resemble-detect"]);
+
+const ALL_DISTRIBUTION_PAGES: DistributionPage[] = [
   {
     path: "/ai-detection-api",
     title: "AI Detection API for Agent Workflows | VeracityAPI",
@@ -315,6 +317,8 @@ ${remoteMcpConfig}`,
   },
 ];
 
+export const DISTRIBUTION_PAGES: DistributionPage[] = ALL_DISTRIBUTION_PAGES.filter((page) => !UNPUBLISHED_DISTRIBUTION_PATHS.has(page.path));
+
 export function distributionRedirectTarget(path: string): string | null {
   return DISTRIBUTION_REDIRECTS[path] || null;
 }
@@ -413,6 +417,7 @@ function renderSections(page: DistributionPage): string {
 }
 
 export function distributionPageHtml(path: string): string | null {
+  if (UNPUBLISHED_DISTRIBUTION_PATHS.has(path)) return null;
   const page = DISTRIBUTION_PAGES.find((item) => item.path === path);
   if (!page) return null;
   const url = `${BASE_URL}${page.path}`;

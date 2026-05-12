@@ -9,7 +9,8 @@ import { agentsJson, faviconSvg, INDEXNOW_KEY, llmsTxt, llmsFullTxt, ogSvg, open
 import { authorizeExtension, exchangeExtensionCode, ExtensionAuthError, extensionConnectHtml, safeExtensionNextPath, safeRelativeNext, validateExtensionRedirectUri, validateExtensionState } from "./extensionAuth";
 import { DEMO_IMAGE_CONTENT_TYPE, DEMO_IMAGE_PATH, demoImageBytes } from "./demoImage";
 import { DEMO_AUDIO_CONTENT_TYPE, DEMO_AUDIO_PATH, demoAudioBytes } from "./demoAudio";
-import { categoryHtml, changelogHtml, docsHtml, evalsHtml, examplesHtml, forAgentsHtml, howItWorksHtml, methodologyHtml, trustModelHtml, mcpHtml, pricingHtml, privacyHtml, subprocessorsHtml, securityHtml, termsHtml, requestAccessHtml, statusHtml, useCaseHtml, useCasesIndexHtml } from "./pages";
+import { ogPngBytes } from "./ogPng";
+import { aboutHtml, categoryHtml, changelogHtml, docsHtml, evalsHtml, examplesHtml, forAgentsHtml, howItWorksHtml, methodologyHtml, trustModelHtml, mcpHtml, pricingHtml, privacyHtml, subprocessorsHtml, securityHtml, termsHtml, requestAccessHtml, statusHtml, useCaseHtml, useCasesIndexHtml } from "./pages";
 import { distributionPageHtml, distributionRedirectTarget } from "./distribution";
 import { homepageHtml } from "./site";
 import type { AnalyzeAudioResponse, AnalyzeBatchRequest, AnalyzeImageResponse, AnalyzeResponse, Env } from "./types";
@@ -38,7 +39,7 @@ const AUDIO_LIMITATIONS = [
 const demoHits = new Map<string, { count: number; resetAt: number }>();
 const loginHits = new Map<string, { count: number; resetAt: number }>();
 const DEMO_MAX_CHARS = 4_000;
-const GOOGLE_ANALYTICS_TAG = `<script async src="https://www.googletagmanager.com/gtag/js?id=G-BMB8X59JBY"></script><script>window.dataLayer = window.dataLayer || [];function gtag(){dataLayer.push(arguments);}gtag('js', new Date());gtag('config', 'G-BMB8X59JBY');</script>`;
+const GOOGLE_ANALYTICS_TAG = `<script>(function(){var id='cookie_consent';function load(){if(window.__vapGaLoaded)return;window.__vapGaLoaded=true;var s=document.createElement('script');s.async=true;s.src='https://www.googletagmanager.com/gtag/js?id=G-BMB8X59JBY';document.head.appendChild(s);window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}window.gtag=gtag;gtag('js',new Date());gtag('config','G-BMB8X59JBY',{anonymize_ip:true})}function ready(){if(localStorage.getItem(id)==='accepted')load()}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',ready);else ready();})();</script>`;
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -70,6 +71,7 @@ export default {
       "/mcp": mcpHtml,
       "/use-cases": useCasesIndexHtml,
       "/pricing": pricingHtml,
+      "/about": aboutHtml,
       "/status": statusHtml,
       "/changelog": changelogHtml,
       "/privacy": privacyHtml,
@@ -86,7 +88,7 @@ export default {
 
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname.startsWith("/use-cases/")) {
       const useCase = useCaseHtml(url.pathname.replace("/use-cases/", ""));
-      if (!useCase) return json({ error: "not_found" }, 404);
+      if (!useCase) return notFound(request);
       if (request.method === "GET") await logSiteEvent(env, request, "page_view", url.pathname);
       return html(request.method === "HEAD" ? "" : useCase);
     }
@@ -177,6 +179,11 @@ export default {
       return text(request.method === "HEAD" ? "" : ogSvg(), "image/svg+xml; charset=utf-8");
     }
 
+    if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/og.png") {
+      const ogBytes = ogPngBytes();
+      return new Response(request.method === "HEAD" ? null : (ogBytes.buffer.slice(ogBytes.byteOffset, ogBytes.byteOffset + ogBytes.byteLength) as ArrayBuffer), { headers: { "content-type": "image/png", "cache-control": "public, max-age=31536000, immutable", ...securityHeaders(), "x-request-id": requestId() } });
+    }
+
     if ((request.method === "GET" || request.method === "HEAD") && (url.pathname === "/favicon.svg" || url.pathname === "/favicon.ico")) {
       return text(request.method === "HEAD" ? "" : faviconSvg(), "image/svg+xml; charset=utf-8", { "cache-control": "public, max-age=31536000, immutable" });
     }
@@ -254,12 +261,20 @@ export default {
     }
 
 
-    return json({ error: "not_found" }, 404);
+    return notFound(request);
   },
 };
 
+function notFound(request: Request): Response {
+  const accept = request.headers.get("accept") || "";
+  const url = new URL(request.url);
+  const apiClient = url.pathname.startsWith("/v1/") || url.pathname.startsWith("/demo/") || accept.includes("application/json") || !accept.includes("text/html");
+  if (apiClient) return json({ error: "not_found" }, 404);
+  return html(`<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>404 | VeracityAPI</title><meta name="robots" content="noindex"/><style>body{font-family:system-ui,sans-serif;margin:0;background:#f6f1df;color:#15120d}.wrap{max-width:760px;margin:12vh auto;padding:24px}.card{border:2px solid #15120d;background:#fffdf4;box-shadow:6px 6px 0 #15120d;padding:28px}a{color:inherit}</style></head><body><main class="wrap"><section class="card"><p>404</p><h1>That page is unpublished or does not exist.</h1><p>Try the <a href="/docs">docs</a>, <a href="/use-cases">use cases</a>, or <a href="/">homepage</a>.</p></section></main></body></html>`, false, 404);
+}
+
 function securityTxt(): string {
-  return `Contact: mailto:bernard@tabiji.ai
+  return `Contact: mailto:security@veracityapi.com
 Preferred-Languages: en
 Canonical: https://veracityapi.com/.well-known/security.txt
 Policy: https://veracityapi.com/security
