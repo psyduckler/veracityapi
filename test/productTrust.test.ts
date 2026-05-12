@@ -76,7 +76,7 @@ describe("hosted Chrome extension welcome onboarding", () => {
       const response = await worker.fetch(new Request(`https://veracityapi.com${path}`), env);
       expect(response.status).toBe(200);
       expect(response.headers.get("content-type")).toContain("image/svg+xml");
-      expect(response.headers.get("cache-control")).toContain("max-age=31536000");
+      expect(response.headers.get("cache-control")).toContain("max-age=300");
       const body = await response.text();
       expect(body).toContain("<svg");
       expect(body).toContain("Temporary Veracity welcome screenshot placeholder");

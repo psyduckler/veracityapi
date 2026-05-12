@@ -189,7 +189,7 @@ export default {
 
     if ((request.method === "GET" || request.method === "HEAD") && (url.pathname === WELCOME_RIGHT_CLICK_PATH || url.pathname === WELCOME_RESULT_PATH)) {
       const body = url.pathname === WELCOME_RIGHT_CLICK_PATH ? welcomeRightClickSvg() : welcomeResultSvg();
-      return text(request.method === "HEAD" ? "" : body, WELCOME_PLACEHOLDER_CONTENT_TYPE, { "cache-control": "public, max-age=31536000, immutable" });
+      return text(request.method === "HEAD" ? "" : body, WELCOME_PLACEHOLDER_CONTENT_TYPE, { "cache-control": "public, max-age=300" });
     }
 
     if ((request.method === "GET" || request.method === "HEAD") && (url.pathname === "/favicon.svg" || url.pathname === "/favicon.ico")) {
