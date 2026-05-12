@@ -15,7 +15,7 @@ import { distributionPageHtml, distributionRedirectTarget } from "./distribution
 import { homepageHtml } from "./site";
 import { welcomeHtml } from "./welcome";
 import { WELCOME_RESULT_PATH, WELCOME_RIGHT_CLICK_PATH, WELCOME_SCREENSHOT_CONTENT_TYPE, welcomeResultBytes, welcomeRightClickBytes } from "./welcomeAssets";
-import type { AnalyzeAudioResponse, AnalyzeBatchRequest, AnalyzeImageResponse, AnalyzeResponse, Env } from "./types";
+import type { AnalyzeAudioResponse, AnalyzeBatchRequest, AnalyzeImageRequest, AnalyzeImageResponse, AnalyzeResponse, Env } from "./types";
 import { parseAnalyzeAudioRequest, parseAnalyzeBatchRequest, parseAnalyzeImageRequest, parseAnalyzeRequest, parseUnifiedAnalyzeRequest, ValidationError } from "./validate";
 
 const LIMITATIONS = [
@@ -604,10 +604,12 @@ async function handleAnalyzeText(request: Request, env: Env): Promise<Response> 
 
 async function handleAnalyzeImage(request: Request, env: Env): Promise<Response> {
   const start = Date.now();
+  let auth: Awaited<ReturnType<typeof authenticateUsageKey>> | null = null;
+  let parsed: AnalyzeImageRequest | null = null;
   let debit: { accountId: string; apiKeyId: string; billing: NonNullable<AnalyzeImageResponse["billing"]>; analysisId: string } | null = null;
   try {
-    const auth = await authenticateUsageKey(request, env);
-    const parsed = await parseAnalyzeImageRequest(request);
+    auth = await authenticateUsageKey(request, env);
+    parsed = await parseAnalyzeImageRequest(request);
     const analysisId = `img_${ulid()}`;
     const billing = await debitForImage(env, auth.accountId, auth.apiKeyId, analysisId);
     debit = { accountId: auth.accountId, apiKeyId: auth.apiKeyId, billing, analysisId };
@@ -636,16 +638,17 @@ async function handleAnalyzeImage(request: Request, env: Env): Promise<Response>
       kind: "image",
     });
     await logApiCallSuccess(env, request, auth.accountId, auth.apiKeyId, "image", response.analysis_id);
-    return json(response);
+    return jsonForRequest(response, request);
   } catch (err) {
     if (debit && (err instanceof LlmError)) await refundUsage(env, debit.accountId, debit.apiKeyId, debit.analysisId, debit.billing, "llm_unavailable");
-    if (err instanceof BillingAuthError) return json({ error: "unauthorized" }, 401);
-    if (err instanceof InsufficientBalanceError) return json({ error: "insufficient_balance", message: `This request costs $${(err.requiredCents / 100).toFixed(2)}. Your balance is $${(err.balanceCents / 100).toFixed(2)}.`, required_cents: err.requiredCents, balance_cents: err.balanceCents, top_up_url: "https://veracityapi.com/account" }, 402);
-    if (err instanceof ValidationError) return json({ error: "bad_request", message: err.message }, 400);
-    if (err instanceof LlmError && /400|image|url|fetch|format|unsupported|too large|invalid/i.test(err.message)) return json({ error: "bad_request", message: "Image URL could not be analyzed. Check that it is a reachable supported image URL." }, 400);
-    if (err instanceof LlmError) return json({ error: "llm_unavailable", message: "Scoring model unavailable. Retry shortly." }, 503, { "Retry-After": "10" });
+    if (auth && parsed) await logImageAnalysisFailure(env, request, auth, parsed, err);
+    if (err instanceof BillingAuthError) return jsonForRequest({ error: "unauthorized" }, request, 401);
+    if (err instanceof InsufficientBalanceError) return jsonForRequest({ error: "insufficient_balance", message: `This request costs $${(err.requiredCents / 100).toFixed(2)}. Your balance is $${(err.balanceCents / 100).toFixed(2)}.`, required_cents: err.requiredCents, balance_cents: err.balanceCents, top_up_url: "https://veracityapi.com/account" }, request, 402);
+    if (err instanceof ValidationError) return jsonForRequest({ error: "bad_request", message: err.message }, request, 400);
+    if (err instanceof LlmError && /400|image|url|fetch|format|unsupported|too large|invalid/i.test(err.message)) return jsonForRequest({ error: "bad_request", message: "Image URL could not be analyzed. Check that it is a reachable supported image URL." }, request, 400);
+    if (err instanceof LlmError) return jsonForRequest({ error: "llm_unavailable", message: "Scoring model unavailable. Retry shortly." }, request, 503, { "Retry-After": "10" });
     console.error(err);
-    return json({ error: "internal_error" }, 500);
+    return jsonForRequest({ error: "internal_error" }, request, 500);
   }
 }
 
@@ -862,6 +865,33 @@ async function handleStripeWebhook(request: Request, env: Env): Promise<Response
   if (event.type === "checkout.session.completed" && event.data?.object) await creditCheckoutSession(env, event.data.object);
   if (event.type === "checkout.session.expired" && event.data?.object?.id) await env.DB.prepare(`UPDATE checkout_sessions SET status = 'expired' WHERE stripe_session_id = ?`).bind(String(event.data.object.id)).run();
   return json({ received: true });
+}
+
+async function logImageAnalysisFailure(env: Env, request: Request, auth: Awaited<ReturnType<typeof authenticateUsageKey>>, parsed: AnalyzeImageRequest, err: unknown): Promise<void> {
+  await logSiteEvent(env, request, "image_analysis_failed", "/v1/analyze-image", {
+    account_id: auth.accountId,
+    api_key_id: auth.apiKeyId,
+    image_url_domain: imageUrlDomain(parsed.image_url),
+    error_code: imageAnalysisErrorCode(err),
+  });
+}
+
+function imageUrlDomain(imageUrl: string): string | null {
+  try {
+    const url = new URL(imageUrl);
+    if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+    return url.hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+function imageAnalysisErrorCode(err: unknown): string {
+  if (err instanceof InsufficientBalanceError) return "insufficient_balance";
+  if (err instanceof ValidationError) return "bad_request";
+  if (err instanceof LlmError && /400|image|url|fetch|format|unsupported|too large|invalid/i.test(err.message)) return "bad_image_url";
+  if (err instanceof LlmError) return "llm_unavailable";
+  return "internal_error";
 }
 
 async function logApiCallSuccess(env: Env, request: Request, accountId: string, apiKeyId: string, modality: string, analysisId: string): Promise<void> {

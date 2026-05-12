@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseAnalyzeRequest, parseUnifiedAnalyzeRequest, ValidationError } from "../src/validate";
+import { parseAnalyzeImageRequest, parseAnalyzeRequest, parseUnifiedAnalyzeRequest, ValidationError } from "../src/validate";
 
 function req(body: unknown) {
   return new Request("https://example.com/v1/analyze-text", {
@@ -110,7 +110,23 @@ describe("parseUnifiedAnalyzeRequest", () => {
     expect(Array.isArray(parsed.content)).toBe(true);
   });
 
-  it("rejects non-https media content", async () => {
-    await expect(parseUnifiedAnalyzeRequest(req({ type: "image", content: "http://example.com/image.jpg" }))).rejects.toBeInstanceOf(ValidationError);
+  it("rejects non-public media URLs before provider fetch", async () => {
+    await expect(parseUnifiedAnalyzeRequest(req({ type: "image", content: "https://localhost/image.jpg" }))).rejects.toBeInstanceOf(ValidationError);
+    await expect(parseUnifiedAnalyzeRequest(req({ type: "image", content: "https://192.168.1.10/image.jpg" }))).rejects.toBeInstanceOf(ValidationError);
+    await expect(parseUnifiedAnalyzeRequest(req({ type: "image", content: "https://[::1]/image.jpg" }))).rejects.toBeInstanceOf(ValidationError);
+    await expect(parseUnifiedAnalyzeRequest(req({ type: "image", content: "https://[::ffff:192.168.1.10]/image.jpg" }))).rejects.toBeInstanceOf(ValidationError);
+    await expect(parseUnifiedAnalyzeRequest(req({
+      type: "asset",
+      content: [{ type: "image", source: { kind: "url", url: "https://10.0.0.3/image.jpg" } }],
+    }))).rejects.toBeInstanceOf(ValidationError);
+  });
+});
+
+describe("parseAnalyzeImageRequest", () => {
+  it("rejects non-public image URLs before image scoring", async () => {
+    await expect(parseAnalyzeImageRequest(req({ image_url: "https://127.0.0.1/image.jpg" }))).rejects.toBeInstanceOf(ValidationError);
+    await expect(parseAnalyzeImageRequest(req({ image_url: "https://[::ffff:127.0.0.1]/image.jpg" }))).rejects.toBeInstanceOf(ValidationError);
+    await expect(parseAnalyzeImageRequest(req({ image_url: "https://metadata.google.internal/image.jpg" }))).rejects.toBeInstanceOf(ValidationError);
+    await expect(parseAnalyzeImageRequest(req({ source: { kind: "url", url: "https://172.16.1.20/image.jpg" } }))).rejects.toBeInstanceOf(ValidationError);
   });
 });
