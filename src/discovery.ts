@@ -755,9 +755,42 @@ Current seed benchmark: 500 text samples across human firsthand, dry factual hum
 `;
 }
 
+export function llmsFullTxt(): string {
+  return `${llmsTxt()}
+
+## Full website map for agents
+
+- Homepage: ${BASE_URL}/
+- Docs: ${BASE_URL}/docs
+- Methodology and trust model: ${BASE_URL}/methodology
+- Trust model alias: ${BASE_URL}/trust-model
+- Evals/proof: ${BASE_URL}/evals
+- For agents: ${BASE_URL}/for-agents
+- Examples: ${BASE_URL}/examples
+- MCP: ${BASE_URL}/mcp
+- Pricing: ${BASE_URL}/pricing
+- Privacy: ${BASE_URL}/privacy
+- Security: ${BASE_URL}/security
+- Subprocessors: ${BASE_URL}/subprocessors
+- Terms: ${BASE_URL}/terms
+- Status: ${BASE_URL}/status
+- Changelog: ${BASE_URL}/changelog
+- OpenAPI: ${BASE_URL}/openapi.json
+- agents.json: ${BASE_URL}/agents.json and ${BASE_URL}/.well-known/agents.json
+
+## Use case URLs
+
+${USE_CASES.map((u) => `- ${u.title}: ${BASE_URL}/use-cases/${u.slug} — ${u.summary}`).join("\n")}
+
+## Distribution URLs
+
+${DISTRIBUTION_PAGES.map((p) => `- ${p.title}: ${BASE_URL}${p.path} — ${p.description}`).join("\n")}
+`;
+}
+
 export function sitemapXml(): string {
   const updated = new Date().toISOString();
-  const urls = ["/", "/docs", "/for-agents", "/mcp", "/how-it-works", "/use-cases", ...USE_CASES.map((u) => `/use-cases/${u.slug}`), ...DISTRIBUTION_PAGES.map((p) => p.path), "/evals", "/examples", "/pricing", "/status", "/changelog", "/privacy", "/terms", "/request-access", "/openapi.json", "/llms.txt", "/agents.json", "/.well-known/agents.json", "/sitemap.xml", "/robots.txt"];
+  const urls = ["/", "/docs", "/methodology", "/trust-model", "/for-agents", "/mcp", "/how-it-works", "/use-cases", ...USE_CASES.map((u) => `/use-cases/${u.slug}`), ...DISTRIBUTION_PAGES.map((p) => p.path), "/evals", "/examples", "/pricing", "/status", "/changelog", "/privacy", "/terms", "/request-access", "/openapi.json", "/llms.txt", "/llms-full.txt", "/agents.json", "/.well-known/agents.json", "/sitemap.xml", "/robots.txt"];
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${urls.map((path) => `  <url><loc>${BASE_URL}${path}</loc><lastmod>${updated}</lastmod><changefreq>weekly</changefreq><priority>${path === "/" ? "1.0" : "0.7"}</priority></url>`).join("\n")}
@@ -773,6 +806,9 @@ export function agentsJson(): Record<string, unknown> {
     api_base: API_BASE_URL,
     openapi: `${BASE_URL}/openapi.json`,
     llms_txt: `${BASE_URL}/llms.txt`,
+    llms_full_txt: `${BASE_URL}/llms-full.txt`,
+    methodology: `${BASE_URL}/methodology`,
+    trust_model: `${BASE_URL}/trust-model`,
     sitemap: `${BASE_URL}/sitemap.xml`,
     docs: `${BASE_URL}/docs`,
     for_agents: `${BASE_URL}/for-agents`,
@@ -886,6 +922,7 @@ Sitemap: ${BASE_URL}/sitemap.xml
 # VeracityAPI is intended to be discoverable by search engines and agent crawlers.
 # Agent-readable service docs:
 # - ${BASE_URL}/llms.txt
+# - ${BASE_URL}/llms-full.txt
 # - ${BASE_URL}/openapi.json
 # - ${BASE_URL}/.well-known/agents.json
 `;

@@ -5,10 +5,10 @@ import { authenticateUsageKey, BillingAuthError, creditCheckoutSession, CREDIT_P
 import { logAnalysis } from "./db";
 import { LlmError, reviseText, scoreAudio, scoreImage, scoreText } from "./llm";
 import { deriveAction, deriveAudioRiskLevel, deriveAudioTrustScore, deriveImageRiskLevel, deriveImageTrustScore, derivePrimaryReason, deriveRiskLevel, deriveTrustSignals } from "./scoring";
-import { agentsJson, faviconSvg, INDEXNOW_KEY, llmsTxt, ogSvg, openApiSpec, robotsTxt, sitemapXml } from "./discovery";
+import { agentsJson, faviconSvg, INDEXNOW_KEY, llmsTxt, llmsFullTxt, ogSvg, openApiSpec, robotsTxt, sitemapXml } from "./discovery";
 import { DEMO_IMAGE_CONTENT_TYPE, DEMO_IMAGE_PATH, demoImageBytes } from "./demoImage";
 import { DEMO_AUDIO_CONTENT_TYPE, DEMO_AUDIO_PATH, demoAudioBytes } from "./demoAudio";
-import { categoryHtml, changelogHtml, docsHtml, evalsHtml, examplesHtml, forAgentsHtml, howItWorksHtml, mcpHtml, pricingHtml, privacyHtml, subprocessorsHtml, securityHtml, termsHtml, requestAccessHtml, statusHtml, useCaseHtml, useCasesIndexHtml } from "./pages";
+import { categoryHtml, changelogHtml, docsHtml, evalsHtml, examplesHtml, forAgentsHtml, howItWorksHtml, methodologyHtml, trustModelHtml, mcpHtml, pricingHtml, privacyHtml, subprocessorsHtml, securityHtml, termsHtml, requestAccessHtml, statusHtml, useCaseHtml, useCasesIndexHtml } from "./pages";
 import { distributionPageHtml, distributionRedirectTarget } from "./distribution";
 import { homepageHtml } from "./site";
 import type { AnalyzeAudioResponse, AnalyzeBatchRequest, AnalyzeImageResponse, AnalyzeResponse, Env } from "./types";
@@ -61,6 +61,8 @@ export default {
     const pageRoutes: Record<string, () => string> = {
       "/docs": docsHtml,
       "/how-it-works": howItWorksHtml,
+      "/methodology": methodologyHtml,
+      "/trust-model": trustModelHtml,
       "/evals": evalsHtml,
       "/examples": examplesHtml,
       "/for-agents": forAgentsHtml,
@@ -146,6 +148,10 @@ export default {
 
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/llms.txt") {
       return text(request.method === "HEAD" ? "" : llmsTxt(), "text/plain; charset=utf-8");
+    }
+
+    if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/llms-full.txt") {
+      return text(request.method === "HEAD" ? "" : llmsFullTxt(), "text/plain; charset=utf-8");
     }
 
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/sitemap.xml") {
@@ -1143,6 +1149,6 @@ function securityHeaders(): Record<string, string> {
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
     "Cross-Origin-Opener-Policy": "same-origin",
-    "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; media-src 'self' https:; connect-src 'self' https://api.veracityapi.com https://www.google-analytics.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://checkout.stripe.com",
+    "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; media-src 'self' https:; connect-src 'self' https://api.veracityapi.com https://www.google-analytics.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://checkout.stripe.com",
   };
 }
