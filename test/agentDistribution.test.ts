@@ -207,4 +207,54 @@ describe("agent distribution surfaces", () => {
       expect(spec.paths[path].post.responses["429"], path).toBeTruthy();
     }
   });
+
+  it("keeps Phase C distribution pages visually coherent and legally safe", async () => {
+    const paths = [
+      "/alternatives/gptzero-api",
+      "/alternatives/copyleaks-api",
+      "/alternatives/originality-ai-api",
+      "/alternatives/deepmedia",
+      "/ai-detection-api",
+      "/ai-content-detector-api",
+      "/synthetic-media-detection-api",
+      "/ai-image-detection-api",
+      "/ai-audio-detection-api",
+      "/integrations/openai-actions",
+      "/integrations/mcp",
+      "/integrations/claude",
+      "/integrations/langgraph",
+    ];
+    for (const path of paths) {
+      const res = await worker.fetch(new Request(`https://veracityapi.com${path}`), env);
+      const html = await res.text();
+      expect(res.status, path).toBe(200);
+      expect(html, path).toContain("--bg:#f6f1df");
+      expect(html, path).not.toMatch(/--bg:#08090a|background:#0f1011|✅|og\.svg/);
+      expect(html, path).toContain("og.png");
+    }
+    const gptzero = await (await worker.fetch(new Request("https://veracityapi.com/alternatives/gptzero-api"), env)).text();
+    expect(gptzero).not.toMatch(/student accusations|Student discipline|employee surveillance|GPTZero-style tools/i);
+    for (const path of ["/alternatives/gptzero-api", "/alternatives/copyleaks-api", "/alternatives/originality-ai-api", "/alternatives/deepmedia"]) {
+      const html = await (await worker.fetch(new Request(`https://veracityapi.com${path}`), env)).text();
+      expect(html, path).toContain("Last updated: 2026-05-12");
+      expect(html, path).toContain("Trademarks belong to their owners");
+    }
+  });
+
+  it("does not require deprecated synthetic_risk in OpenAPI response schemas", () => {
+    const spec = openApiSpec() as any;
+    for (const schemaName of ["AnalyzeTextResponse", "AnalyzeImageResponse", "AnalyzeAudioResponse"]) {
+      expect(spec.components.schemas[schemaName].required, schemaName).not.toContain("synthetic_risk");
+      expect(spec.components.schemas[schemaName].properties.synthetic_risk, schemaName).toBeTruthy();
+    }
+  });
+
+  it("documents pricing FAQ details without changing billing truth", async () => {
+    const pricing = await (await worker.fetch(new Request("https://veracityapi.com/pricing"), env)).text();
+    for (const topic of ["What counts as a character", "failed requests", "sandbox key", "invoices", "annual pricing", "VAT", "refund policy"]) {
+      expect(pricing, topic).toMatch(new RegExp(topic, "i"));
+    }
+    expect(pricing).toContain("JavaScript string length");
+    expect(pricing).not.toContain("UTF-8 codepoints");
+  });
 });

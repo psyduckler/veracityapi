@@ -300,7 +300,8 @@ describe("developer examples and dashboard conversion", () => {
     expect(html).toContain("Side-by-side comparison");
     expect(html).toContain("recommended_action");
     expect(html).toContain("MCP, OpenAPI, llms.txt, agents.json");
-    expect(html).toContain("Classroom or authorship-likelihood checks");
+    expect(html).toContain("Authorship-likelihood checks where a team will interpret a probability");
+    expect(html).not.toMatch(/student accusations|Student discipline|employee surveillance|GPTZero-style tools/i);
   });
 
   it("keeps unified endpoint examples in docs and framework pages on {type, content}", async () => {

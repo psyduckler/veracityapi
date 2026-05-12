@@ -429,7 +429,7 @@ export function openApiSpec(): Record<string, unknown> {
         },
         AnalyzeTextResponse: {
           type: "object",
-          required: ["analysis_id", "modality", "synthetic_risk", "slop_risk", "risk_level", "recommended_action", "primary_reason", "confidence", "evidence", "recommended_fixes", "model_version", "limitations"],
+          required: ["analysis_id", "modality", "slop_risk", "risk_level", "recommended_action", "primary_reason", "confidence", "evidence", "recommended_fixes", "model_version", "limitations"],
           properties: {
             request_id: { type: "string", description: "Stable request identifier also emitted as X-Request-Id for debugging." },
             analysis_id: { type: "string", example: "ana_01KRA1EQPDJ7N2KHBXCQMGZYFJ" },
@@ -473,7 +473,7 @@ export function openApiSpec(): Record<string, unknown> {
 
         AnalyzeAudioResponse: {
           type: "object",
-          required: ["analysis_id", "modality", "transcript", "content_trust_score", "synthetic_audio_risk", "workflow_risk", "synthetic_risk", "risk_level", "recommended_action", "primary_reason", "confidence", "evidence", "recommended_fixes", "model_version", "limitations"],
+          required: ["analysis_id", "modality", "transcript", "content_trust_score", "synthetic_audio_risk", "workflow_risk", "risk_level", "recommended_action", "primary_reason", "confidence", "evidence", "recommended_fixes", "model_version", "limitations"],
           properties: {
             request_id: { type: "string", description: "Stable request identifier also emitted as X-Request-Id for debugging." },
             analysis_id: { type: "string", example: "aud_01KRA1EQPDJ7N2KHBXCQMGZYFJ" },
@@ -496,7 +496,7 @@ export function openApiSpec(): Record<string, unknown> {
         },
         AnalyzeImageResponse: {
           type: "object",
-          required: ["analysis_id", "modality", "content_trust_score", "synthetic_image_risk", "synthetic_risk", "risk_level", "recommended_action", "primary_reason", "confidence", "evidence", "recommended_fixes", "model_version", "limitations"],
+          required: ["analysis_id", "modality", "content_trust_score", "synthetic_image_risk", "risk_level", "recommended_action", "primary_reason", "confidence", "evidence", "recommended_fixes", "model_version", "limitations"],
           properties: {
             request_id: { type: "string", description: "Stable request identifier also emitted as X-Request-Id for debugging." },
             analysis_id: { type: "string", example: "img_01KRA1EQPDJ7N2KHBXCQMGZYFJ" },
