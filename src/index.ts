@@ -14,7 +14,7 @@ import { aboutHtml, categoryHtml, changelogHtml, docsHtml, evalsHtml, examplesHt
 import { distributionPageHtml, distributionRedirectTarget } from "./distribution";
 import { homepageHtml } from "./site";
 import { welcomeHtml } from "./welcome";
-import { WELCOME_PLACEHOLDER_CONTENT_TYPE, WELCOME_RESULT_PATH, WELCOME_RIGHT_CLICK_PATH, welcomeResultSvg, welcomeRightClickSvg } from "./welcomeAssets";
+import { WELCOME_RESULT_PATH, WELCOME_RIGHT_CLICK_PATH, WELCOME_SCREENSHOT_CONTENT_TYPE, welcomeResultBytes, welcomeRightClickBytes } from "./welcomeAssets";
 import type { AnalyzeAudioResponse, AnalyzeBatchRequest, AnalyzeImageResponse, AnalyzeResponse, Env } from "./types";
 import { parseAnalyzeAudioRequest, parseAnalyzeBatchRequest, parseAnalyzeImageRequest, parseAnalyzeRequest, parseUnifiedAnalyzeRequest, ValidationError } from "./validate";
 
@@ -188,8 +188,8 @@ export default {
     }
 
     if ((request.method === "GET" || request.method === "HEAD") && (url.pathname === WELCOME_RIGHT_CLICK_PATH || url.pathname === WELCOME_RESULT_PATH)) {
-      const body = url.pathname === WELCOME_RIGHT_CLICK_PATH ? welcomeRightClickSvg() : welcomeResultSvg();
-      return text(request.method === "HEAD" ? "" : body, WELCOME_PLACEHOLDER_CONTENT_TYPE, { "cache-control": "public, max-age=300" });
+      const bytes = url.pathname === WELCOME_RIGHT_CLICK_PATH ? welcomeRightClickBytes() : welcomeResultBytes();
+      return new Response(request.method === "HEAD" ? null : bytes, { headers: { "content-type": WELCOME_SCREENSHOT_CONTENT_TYPE, "cache-control": "public, max-age=31536000, immutable", ...securityHeaders(), "x-request-id": requestId() } });
     }
 
     if ((request.method === "GET" || request.method === "HEAD") && (url.pathname === "/favicon.svg" || url.pathname === "/favicon.ico")) {

@@ -70,16 +70,17 @@ describe("hosted Chrome extension welcome onboarding", () => {
     expect(await head.text()).toBe("");
   });
 
-  it("serves tiny SVG placeholders for welcome screenshot URLs until real WebP assets are available", async () => {
+  it("serves real WebP welcome screenshots", async () => {
     const env = { DB: new EmptyDb(), ANTHROPIC_API_KEY: "test", API_KEYS: "" } as any;
     for (const path of ["/welcome/right-click-menu.webp", "/welcome/result-window.webp"]) {
       const response = await worker.fetch(new Request(`https://veracityapi.com${path}`), env);
       expect(response.status).toBe(200);
-      expect(response.headers.get("content-type")).toContain("image/svg+xml");
-      expect(response.headers.get("cache-control")).toContain("max-age=300");
-      const body = await response.text();
-      expect(body).toContain("<svg");
-      expect(body).toContain("Temporary Veracity welcome screenshot placeholder");
+      expect(response.headers.get("content-type")).toContain("image/webp");
+      expect(response.headers.get("cache-control")).toContain("max-age=31536000");
+      const body = new Uint8Array(await response.arrayBuffer());
+      expect(body.byteLength).toBeGreaterThan(80_000);
+      expect(Array.from(body.slice(0, 4))).toEqual([82, 73, 70, 70]);
+      expect(String.fromCharCode(...body.slice(8, 12))).toBe("WEBP");
     }
   });
 });
