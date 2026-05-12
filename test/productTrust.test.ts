@@ -5,6 +5,7 @@ import { authenticateUsageKey, BillingAuthError } from "../src/billing";
 import { logAnalysis } from "../src/db";
 import { openApiSpec, llmsTxt, agentsJson, sampleAnalyzeResponse, sampleAnalyzeImageResponse, sampleAnalyzeAudioResponse } from "../src/discovery";
 import { homepageHtml } from "../src/site";
+import { welcomeHtml } from "../src/welcome";
 import { EVIDENCE_TYPES, type AnalyzeRequest, type AnalyzeResponse } from "../src/types";
 
 class EmptyStatement {
@@ -39,6 +40,49 @@ class LogDb {
 }
 
 afterEach(() => vi.restoreAllMocks());
+
+describe("hosted Chrome extension welcome onboarding", () => {
+  it("renders the hosted Chrome extension welcome onboarding page", () => {
+    const html = welcomeHtml();
+    expect(html).toContain("Veracity is installed");
+    expect(html).toContain("Highlight text");
+    expect(html).toContain("Right-click");
+    expect(html).toContain("Check with Veracity");
+    expect(html).toContain("Try it out here");
+    expect(html).toContain("chrome.runtime.sendMessage");
+    expect(html).toContain("check-connection");
+    expect(html).toContain("connect");
+    expect(html).toContain("workflow-risk triage");
+    expect(html).toContain('/welcome/right-click-menu.webp');
+    expect(html).toContain('/welcome/result-window.webp');
+  });
+
+  it("serves /welcome via static pageRoutes for GET and HEAD", async () => {
+    const env = { DB: new EmptyDb(), ANTHROPIC_API_KEY: "test", API_KEYS: "" } as any;
+    const response = await worker.fetch(new Request("https://veracityapi.com/welcome"), env);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/html");
+    expect(await response.text()).toContain("Veracity is installed");
+
+    const head = await worker.fetch(new Request("https://veracityapi.com/welcome", { method: "HEAD" }), env);
+    expect(head.status).toBe(200);
+    expect(head.headers.get("content-type")).toContain("text/html");
+    expect(await head.text()).toBe("");
+  });
+
+  it("serves tiny SVG placeholders for welcome screenshot URLs until real WebP assets are available", async () => {
+    const env = { DB: new EmptyDb(), ANTHROPIC_API_KEY: "test", API_KEYS: "" } as any;
+    for (const path of ["/welcome/right-click-menu.webp", "/welcome/result-window.webp"]) {
+      const response = await worker.fetch(new Request(`https://veracityapi.com${path}`), env);
+      expect(response.status).toBe(200);
+      expect(response.headers.get("content-type")).toContain("image/svg+xml");
+      expect(response.headers.get("cache-control")).toContain("max-age=31536000");
+      const body = await response.text();
+      expect(body).toContain("<svg");
+      expect(body).toContain("Temporary Veracity welcome screenshot placeholder");
+    }
+  });
+});
 
 describe("paid endpoint auth", () => {
   it("rejects legacy env API_KEYS instead of allowing an unbilled bypass", async () => {

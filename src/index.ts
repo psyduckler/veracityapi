@@ -13,6 +13,8 @@ import { ogPngBytes } from "./ogPng";
 import { aboutHtml, categoryHtml, changelogHtml, docsHtml, evalsHtml, examplesHtml, forAgentsHtml, howItWorksHtml, methodologyHtml, trustModelHtml, mcpHtml, pricingHtml, privacyHtml, subprocessorsHtml, securityHtml, termsHtml, requestAccessHtml, statusHtml, useCaseHtml, useCasesIndexHtml } from "./pages";
 import { distributionPageHtml, distributionRedirectTarget } from "./distribution";
 import { homepageHtml } from "./site";
+import { welcomeHtml } from "./welcome";
+import { WELCOME_PLACEHOLDER_CONTENT_TYPE, WELCOME_RESULT_PATH, WELCOME_RIGHT_CLICK_PATH, welcomeResultSvg, welcomeRightClickSvg } from "./welcomeAssets";
 import type { AnalyzeAudioResponse, AnalyzeBatchRequest, AnalyzeImageResponse, AnalyzeResponse, Env } from "./types";
 import { parseAnalyzeAudioRequest, parseAnalyzeBatchRequest, parseAnalyzeImageRequest, parseAnalyzeRequest, parseUnifiedAnalyzeRequest, ValidationError } from "./validate";
 
@@ -62,6 +64,7 @@ export default {
 
     const pageRoutes: Record<string, () => string> = {
       "/docs": docsHtml,
+      "/welcome": welcomeHtml,
       "/how-it-works": howItWorksHtml,
       "/methodology": methodologyHtml,
       "/trust-model": trustModelHtml,
@@ -182,6 +185,11 @@ export default {
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/og.png") {
       const ogBytes = ogPngBytes();
       return new Response(request.method === "HEAD" ? null : (ogBytes.buffer.slice(ogBytes.byteOffset, ogBytes.byteOffset + ogBytes.byteLength) as ArrayBuffer), { headers: { "content-type": "image/png", "cache-control": "public, max-age=31536000, immutable", ...securityHeaders(), "x-request-id": requestId() } });
+    }
+
+    if ((request.method === "GET" || request.method === "HEAD") && (url.pathname === WELCOME_RIGHT_CLICK_PATH || url.pathname === WELCOME_RESULT_PATH)) {
+      const body = url.pathname === WELCOME_RIGHT_CLICK_PATH ? welcomeRightClickSvg() : welcomeResultSvg();
+      return text(request.method === "HEAD" ? "" : body, WELCOME_PLACEHOLDER_CONTENT_TYPE, { "cache-control": "public, max-age=31536000, immutable" });
     }
 
     if ((request.method === "GET" || request.method === "HEAD") && (url.pathname === "/favicon.svg" || url.pathname === "/favicon.ico")) {
