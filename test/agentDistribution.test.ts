@@ -154,8 +154,24 @@ describe("agent distribution surfaces", () => {
 
   it("lists new distribution pages in sitemap", () => {
     const sitemap = sitemapXml();
-    for (const path of ["/ai-detection-api", "/ai-audio-detection-api", "/alternatives/deepmedia", "/integrations/mcp", "/integrations/claude", "/integrations/langgraph"]) {
+    for (const path of ["/ai-detection-api", "/ai-content-detector-api", "/ai-written-content-detection", "/ai-generated-content-detection", "/ai-written-content-detector", "/ai-generated-text-detector", "/ai-image-detection-api", "/ai-audio-detection-api", "/alternatives/deepmedia", "/integrations/mcp", "/integrations/claude", "/integrations/langgraph"]) {
       expect(sitemap).toContain(`https://veracityapi.com${path}`);
+    }
+  });
+
+  it("overhauls exact-match SEO pages with live demos and safe claim language", async () => {
+    const paths = ["/ai-written-content-detection", "/ai-generated-content-detection", "/ai-written-content-detector", "/ai-generated-text-detector", "/ai-image-detection-api"];
+    for (const path of paths) {
+      const res = await worker.fetch(new Request(`https://veracityapi.com${path}`), env);
+      const html = await res.text();
+      expect(res.status, path).toBe(200);
+      expect(html, path).toContain(`href="https://veracityapi.com${path}`);
+      expect(html, path).toContain("og.png");
+      expect(html, path).toMatch(/Try the (text|image) demo/);
+      expect(html, path).toMatch(/\/demo\/analyze/);
+      expect(html, path).toContain("recommended_action");
+      expect(html, path).toContain("store_content:false");
+      expect(html, path).not.toMatch(/catch students|forensic proof that text is AI-written|Tabiji/i);
     }
   });
 

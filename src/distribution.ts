@@ -15,12 +15,14 @@ export type DistributionPage = {
   sections?: Array<{ title: string; body: string }>;
   faq?: Array<{ q: string; a: string }>;
   code?: string;
-  demo?: "image" | "audio";
+  demo?: "text" | "image" | "audio";
 };
 
 export const DISTRIBUTION_REDIRECTS: Record<string, string> = {
   "/categories/ai-detector-api": "/ai-detection-api",
   "/categories/ai-slop-detection-api": "/ai-content-detector-api",
+  "/ai-written-content-detection-api": "/ai-written-content-detection",
+  "/ai-generated-content-detector": "/ai-generated-content-detection",
   "/categories/content-trust-api": "/how-it-works",
   "/categories/image-ai-detector-api": "/ai-image-detection-api",
   "/image-ai-detection-api": "/ai-image-detection-api",
@@ -100,17 +102,95 @@ const ALL_DISTRIBUTION_PAGES: DistributionPage[] = [
   {
     path: "/ai-content-detector-api",
     title: "AI Content Detector API for Pre-Publish and Ingestion | VeracityAPI",
-    description: "Detect AI slop, weak specificity, unsupported claims, and provenance gaps before agents publish, cite, or train on text.",
+    description: "Detect AI-written slop, weak specificity, unsupported claims, and provenance gaps before agents publish, cite, or train on text.",
     eyebrow: "SEO category · AI content detector API",
     h1: "AI Content Detector API for pre-publish and ingestion workflows.",
-    lead: "Check generated drafts, scraped pages, citations, reviews, and training-data candidates for AI slop, weak specificity, unsupported claims, and provenance gaps.",
+    lead: "Check generated drafts, scraped pages, citations, reviews, and training-data candidates for AI-written content risk: vague claims, weak provenance, unsupported assertions, and low-specificity slop.",
     recommend: ["Agent-written posts, landing pages, captions, and summaries", "RAG source filtering and citation review", "Training-data hygiene before fine-tuning or indexing", "UGC/review moderation queues"],
-    avoid: ["Catching students", "Plagiarism adjudication", "Proof that a specific model wrote the text"],
-    cta: "Route high-risk text to revise or human_review before it enters production workflows.",
+    avoid: ["Academic misconduct workflows", "Plagiarism adjudication", "Authorship proof that a specific model wrote the text", "Legal or forensic decisions without independent review"],
+    cta: "Route high-risk text to revise or human_review before it enters production workflows. VeracityAPI is a workflow-risk API, not authorship proof.",
     sections: [
       { title: "Pre-publish QA", body: "Run VeracityAPI after generation and before CMS publish, social scheduling, email send, or agent citation." },
       { title: "RAG and training-data hygiene", body: "Filter low-specificity synthetic sludge before it becomes context, training data, or a cited source." },
+      { title: "Pricing", body: "Text analyze-only costs $0.005 / 1k characters. Analyze + revise with auto_revise:true costs $0.010 / 1k characters and may return revised_text when recommended_action=revise." },
+      { title: "Safe claim standard", body: "Use the output as evidence-backed workflow triage, not proof of authorship, identity, truth, or legality." },
     ],
+    demo: "text",
+    code: policyCode,
+  },
+  {
+    path: "/ai-written-content-detection",
+    title: "AI-Written Content Detection API for Publishing Workflows | VeracityAPI",
+    description: "AI-written content detection for teams that need evidence-backed workflow actions, live demos, and safe pre-publish routing.",
+    eyebrow: "SEO use case · AI-written content detection",
+    h1: "AI-written content detection for production workflows.",
+    lead: "Detect AI-written content risk before agents publish, cite, index, or train on a draft. VeracityAPI returns recommended_action, evidence, limitations, and optional revised_text — not authorship proof.",
+    recommend: ["Pre-publish checks for AI-written blog posts, landing pages, emails, and captions", "Editorial QA where generic claims need evidence before publication", "Autonomous agents that need allow, revise, human_review, or reject", "Teams that want a live demo and API-ready workflow policy"],
+    avoid: ["Punitive academic decisions", "Employee surveillance", "Forensic authorship determinations", "Claims about the exact model or person that wrote a document"],
+    cta: "Use this page when the query is AI-written content detection, but route decisions by recommended_action rather than accusation language.",
+    sections: [
+      { title: "What to submit", body: "Submit the publishable text: article body, caption, review, product description, source excerpt, or generated answer. Strip nav/footer boilerplate first." },
+      { title: "What the API returns", body: "The response includes content_trust_score, specificity_risk, provenance_weakness, evidence, recommended_fixes, limitations, and recommended_action." },
+      { title: "Pricing", body: "Analyze-only text is $0.005 / 1k characters. Analyze + revise is $0.010 / 1k characters with auto_revise:true." },
+      { title: "Quality standard", body: "Use VeracityAPI as workflow triage and not authorship proof. High-risk results should trigger revision or human_review, not accusations." },
+    ],
+    faq: [
+      { q: "Can this prove content was AI-written?", a: "No. VeracityAPI flags workflow risk, weak specificity, provenance gaps, and synthetic-content cues. It is not authorship proof." },
+      { q: "Can I test it before creating an account?", a: "Yes. Use the live text demo on this page. It forces store_content:false and is rate limited." },
+    ],
+    demo: "text",
+    code: policyCode,
+  },
+  {
+    path: "/ai-generated-content-detection",
+    title: "AI-Generated Content Detection API for Agents | VeracityAPI",
+    description: "AI-generated content detection with evidence, recommended fixes, and action-first routing for publishing and ingestion workflows.",
+    eyebrow: "SEO use case · AI-generated content detection",
+    h1: "AI-generated content detection with workflow actions.",
+    lead: "Run AI-generated content detection where it matters: before content is published, cited, accepted into a knowledge base, or used as training data. VeracityAPI converts risk signals into recommended_action values your system can execute.",
+    recommend: ["Generated article QA", "RAG source and citation triage", "Dataset cleanup before fine-tuning", "Agent pipelines that need deterministic routing"],
+    avoid: ["Authorship accusations", "Academic misconduct workflows", "Legal attribution", "Replacing human review in high-stakes disputes"],
+    cta: "Start with analyze-only at $0.005 / 1k characters, then use Analyze + revise at $0.010 / 1k characters when your workflow wants revised_text.",
+    sections: [
+      { title: "Workflow policy", body: "allow means continue; revise means send evidence back to the generator or editor; human_review means queue for QA; reject means quarantine by local policy." },
+      { title: "Live demo", body: "The demo calls /demo/analyze, forces store_content:false, and shows recommended_action, evidence, and limitations before you create an account." },
+      { title: "API shape", body: "Production calls use POST /v1/analyze with type:text, content, context, store_content:false, and optional auto_revise:true." },
+    ],
+    demo: "text",
+    code: policyCode,
+  },
+  {
+    path: "/ai-written-content-detector",
+    title: "AI-Written Content Detector for Agent Workflows | VeracityAPI",
+    description: "A practical AI-written content detector for pre-publish QA, evidence spans, and safe human_review routing.",
+    eyebrow: "SEO use case · AI-written content detector",
+    h1: "AI-written content detector for teams shipping content with agents.",
+    lead: "Use VeracityAPI as an AI-written content detector when your product needs evidence and a next action, not a bare probability score. The output is designed for allow, revise, human_review, and reject routing.",
+    recommend: ["Editorial agents", "SEO content factories", "UGC review queues", "Support/help-center content QA"],
+    avoid: ["Punitive workflows", "Identity or authorship proof", "One-score decisions without context", "Legal claims about generation"],
+    cta: "Treat high risk as a reason to inspect evidence and queue human_review, not proof that someone used AI.",
+    sections: [
+      { title: "Evidence-first output", body: "Every useful result should show why the workflow is risky: vague claims, missing provenance, unsupported specifics, or suspicious texture." },
+      { title: "Revision loop", body: "Set auto_revise:true when you want Analyze + revise. The API can return revised_text when recommended_action=revise." },
+    ],
+    demo: "text",
+    code: policyCode,
+  },
+  {
+    path: "/ai-generated-text-detector",
+    title: "AI-Generated Text Detector API with Revise Actions | VeracityAPI",
+    description: "AI-generated text detector API for agent workflows with auto_revise, revised_text, evidence, and routing actions.",
+    eyebrow: "SEO use case · AI-generated text detector",
+    h1: "AI-generated text detector API with revise workflows.",
+    lead: "Detect generated-text workflow risk, then decide what to do next. VeracityAPI supports analyze-only checks and Analyze + revise with auto_revise:true so agents can improve weak drafts instead of only flagging them.",
+    recommend: ["Draft rewrites before publish", "Automated QA loops", "Citation/source cleanup", "Content workflows that need revised_text"],
+    avoid: ["Forensic proof", "Student surveillance", "Binary human vs AI labels", "Blocking content without evidence review"],
+    cta: "Use auto_revise when the right next step is improving the draft. Keep store_content:false for privacy-conscious checks.",
+    sections: [
+      { title: "Analyze-only vs Analyze + revise", body: "Analyze-only is $0.005 / 1k characters. Analyze + revise is $0.010 / 1k characters and can return revised_text when recommended_action=revise." },
+      { title: "Agent integration", body: "Branch on recommended_action and pass evidence plus recommended_fixes to your rewrite or review node." },
+    ],
+    demo: "text",
     code: policyCode,
   },
   {
@@ -140,9 +220,9 @@ const ALL_DISTRIBUTION_PAGES: DistributionPage[] = [
     avoid: ["Forensic proof that an image is AI-generated", "Face identity or person verification", "Legal attribution of a generated image", "C2PA/EXIF provenance verification in v0.1"],
     cta: "Submit an HTTPS image URL; receive synthetic_image_risk, evidence, content_trust_score, risk_level, and recommended_action. Use the action field to route uploads, not to accuse people.",
     sections: [
-      { title: "Live image demo", body: "Paste a public HTTPS image URL or use the sample fixture. The public demo forces store_content=false, stores no image bytes, and logs only hostname plus URL hash." },
-      { title: "What the image endpoint returns", body: "The response prioritizes recommended_action and evidence. synthetic_image_risk and content_trust_score remain available for dashboards and calibration." },
-      { title: "Known limits", body: "Screenshots, social compression, crops, edits, low resolution, and missing provenance can all reduce confidence. v0.1 does not inspect EXIF or C2PA metadata." },
+      { title: "Live image demo", body: "Paste a public HTTPS image URL or use the sample fixture. The public demo forces store_content:false, stores no image bytes, and logs only hostname plus URL hash." },
+      { title: "What the image endpoint returns", body: "The response prioritizes recommended_action and evidence. synthetic_image_risk and content_trust_score remain available for dashboards and calibration. Pricing is $0.02 / image." },
+      { title: "Known limits", body: "Screenshots, social compression, crops, edits, low resolution, and missing provenance can all reduce confidence. v0.1 does not inspect EXIF or C2PA metadata. It is workflow triage, not proof of generation or authorship." },
     ],
     faq: [
       { q: "Can VeracityAPI detect AI-generated images?", a: "It can flag visible synthetic-media cues as probabilistic workflow-risk signals. It does not prove generation or authorship." },
@@ -334,6 +414,13 @@ function list(items: string[]): string {
 }
 
 function renderDemo(page: DistributionPage): string {
+  if (page.demo === "text") {
+    return `<section class="card"><h2>Try the text demo</h2><p>Paste AI-written, human-written, or mixed draft content. The public demo is rate limited, capped, and forces <code>store_content:false</code>.</p><form id="text-demo"><label>Text to check<textarea name="text" required>Our revolutionary platform helps everyone do everything better with seamless innovation and unmatched results. It is designed for modern teams that need powerful insights fast.</textarea></label><label><input name="auto_revise" type="checkbox"/> Analyze + revise with <code>auto_revise:true</code></label><button class="btn primary" type="submit">Analyze text</button></form><pre id="text-demo-out">{
+  "recommended_action": "revise",
+  "risk_level": "medium",
+  "primary_reason": "generic claims need evidence"
+}</pre></section><script>document.getElementById('text-demo')?.addEventListener('submit',async(e)=>{e.preventDefault();const f=e.currentTarget;const out=document.getElementById('text-demo-out');out.textContent='Analyzing…';const r=await fetch('/demo/analyze',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text:f.text.value,auto_revise:f.auto_revise.checked,context:{format:'article',intended_use:'publish',domain:'AI-written content detection'},store_content:false})});out.textContent=JSON.stringify(await r.json(),null,2);});</script>`;
+  }
   if (page.demo === "image") {
     return `<section class="card"><h2>Try the image demo</h2><p>Use the sample fixture or paste a public HTTPS image URL. Demo requests are rate limited and force <code>store_content:false</code>.</p><form id="image-demo"><label>Image URL<input name="image_url" value="https://veracityapi.com/demo/influencer-beauty-tonic.jpg" required /></label><button class="btn primary" type="submit">Analyze image</button></form><pre id="image-demo-out">{
   "recommended_action": "human_review",
