@@ -377,10 +377,11 @@ describe("developer examples and dashboard conversion", () => {
 
   it("renders corrected privacy/storage copy", async () => {
     const html = await (await worker.fetch(new Request("https://veracityapi.com/privacy"), { DB: new EmptyDb(), ANTHROPIC_API_KEY: "test", API_KEYS: "" } as any)).text();
-    expect(html).toContain("Raw text, image bytes, audio bytes, base64, and full media URLs are off by default");
-    expect(html).toContain("Audio privacy");
-    expect(html).toContain("store_content=true");
-    expect(html).toContain("text-only client opt-in");
+    expect(html).toContain("Veracity runs only when you or your app explicitly submit content");
+    expect(html).toContain("Chrome extension data");
+    expect(html).toContain("Extension storage");
+    expect(html).toContain("public HTTPS image URL");
+    expect(html).toContain("cleaned up after 24 hours");
     expect(html).not.toContain("<h3>store_content=false</h3><p>Reserved for explicit client opt-in");
   });
 });
