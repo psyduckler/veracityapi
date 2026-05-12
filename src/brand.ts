@@ -4,7 +4,7 @@ export function apiCubeLogoSvg(size = 64): string {
   <g transform="translate(0 10)">
     <path d="M256 92 389 169v154L256 400 123 323V169l133-77Z" fill="#0B1220" stroke="url(#apiCubeGradient)" stroke-width="20" stroke-linejoin="round"/>
     <path d="M256 92v154m133-77-133 77-133-77m133 77v154" fill="none" stroke="#1E293B" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M193 248 245 300 352 186" fill="none" stroke="#F8FAFC" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M176 246 232 302 340 186" fill="none" stroke="#F8FAFC" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
     <circle cx="256" cy="92" r="9" fill="#7C3AED"/><circle cx="389" cy="169" r="9" fill="#0EA5E9"/><circle cx="256" cy="400" r="9" fill="#10B981"/><circle cx="123" cy="169" r="9" fill="#38BDF8"/>
   </g>
 </svg>`;

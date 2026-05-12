@@ -48,6 +48,9 @@ describe("hosted Chrome extension welcome onboarding", () => {
     expect(html).toContain("Highlight text");
     expect(html).toContain("Right-click");
     expect(html).toContain("Check with Veracity");
+    expect(html).toContain("Right-click a public image");
+    expect(html).toContain("Check image with Veracity");
+    expect(html).toContain("public image URLs");
     expect(html).toContain("Try it out here");
     expect(html).toContain("chrome.runtime.sendMessage");
     expect(html).toContain("check-connection");

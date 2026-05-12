@@ -9,11 +9,10 @@ export function welcomeHtml(): string {
     "@context": "https://schema.org",
     "@type": "HowTo",
     name: "How to use the Veracity Chrome extension",
-    description: "Highlight text, right-click, and choose Check with Veracity from Chrome's context menu.",
+    description: "Highlight text or right-click a public image, then choose Check with Veracity from Chrome's context menu.",
     step: [
-      { "@type": "HowToStep", name: "Highlight text", text: "Highlight text on any webpage or draft." },
-      { "@type": "HowToStep", name: "Right-click", text: "Right-click the highlighted text." },
-      { "@type": "HowToStep", name: "Check with Veracity", text: "Choose Check with Veracity from the context menu." },
+      { "@type": "HowToStep", name: "Text workflow", text: "Highlight text, right-click, and choose Check with Veracity." },
+      { "@type": "HowToStep", name: "Image workflow", text: "Right-click a public image and choose Check image with Veracity." },
     ],
   });
 
@@ -32,6 +31,11 @@ ${canonicalNav("loud")}
       <li><span>2</span><b>Right-click</b> the highlighted text.</li>
       <li><span>3</span>Choose <b>Check with Veracity</b>.</li>
     </ol>
+    <div class="workflowGrid" aria-label="Veracity extension workflows">
+      <div class="workflowBlock text-workflow"><div class="label">Text workflow</div><p><strong>Text workflow:</strong> Highlight text -> right-click -> Check with Veracity.</p></div>
+      <div class="workflowBlock image-workflow"><div class="label">Image workflow</div><p><strong>Image workflow:</strong> Right-click a public image -> Check image with Veracity.</p></div>
+    </div>
+    <p class="hint imageLimit">Image checks work best on public image URLs; Instagram, Slack, Facebook, LinkedIn often require login and may fail in URL-only version.</p>
     <div class="actions">
       <button id="primaryCta" class="btn primary" type="button" disabled aria-busy="true">Checking extension…</button>
       <a class="btn" href="#try-it-now">Practice workflow</a>
@@ -43,12 +47,12 @@ ${canonicalNav("loud")}
     <div class="shotIntro card">
       <div class="label">What these screenshots show</div>
       <div class="miniSteps" aria-label="Two-step Veracity browser workflow">
-        <p><span>Step 1</span> Highlight any text</p>
+        <p><span>Step 1</span><strong>Highlight any text, then right&#8209;click</strong></p>
         <p><span>Step 2</span> Get AI risk analysis</p>
       </div>
     </div>
     <div class="shots">
-      <figure class="card shot"><img src="/welcome/right-click-menu.webp" width="720" height="480" alt="Right-click menu showing Check with Veracity" loading="lazy"/><figcaption>Right-click any highlighted passage and choose <strong>Check with Veracity</strong>.</figcaption></figure>
+      <figure class="card shot"><img src="/welcome/right-click-menu.webp" width="720" height="480" alt="Right-click menu showing Check with Veracity" loading="lazy"/><figcaption><strong>Step 1:</strong> Highlight any text, then right&#8209;click and choose <strong>Check with Veracity</strong>.</figcaption></figure>
       <figure class="card shot"><img src="/welcome/result-window.webp" width="720" height="480" alt="Veracity result window showing risk, evidence, trust score, and analysis ID" loading="lazy"/><figcaption>Review the risk level, recommended action, evidence, trust score, and analysis ID.</figcaption></figure>
     </div>
   </section>
@@ -72,7 +76,7 @@ ${canonicalFooter()}
 }
 
 function css(): string {
-  return y2kCss() + `.welcome{padding-top:32px;padding-bottom:48px}.welcomeHero{padding:28px;position:relative;overflow:hidden}.welcomeHero:after{content:"";position:absolute;right:-90px;top:-90px;width:260px;height:260px;border:3px solid var(--line);background:radial-gradient(circle,var(--cyan),transparent 58%),var(--yellow);border-radius:999px;opacity:.75}.welcomeHero>*{position:relative;z-index:1}.welcomeHero h1{font-size:clamp(42px,8vw,92px);line-height:.88;margin:12px 0;letter-spacing:-.07em}.welcomeHero .lead{max-width:780px}.steps{display:grid;gap:12px;margin:24px 0;padding:0;list-style:none;max-width:780px}.steps li{display:flex;gap:12px;align-items:flex-start;border:2px solid var(--line);background:var(--chrome2);box-shadow:3px 3px 0 var(--line);padding:12px 14px;font-size:20px}.steps span{display:inline-grid;place-items:center;min-width:32px;height:32px;border:2px solid var(--line);background:var(--acid-green);font:900 14px var(--mono);box-shadow:2px 2px 0 var(--line)}.actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center}.actions .btn[disabled]{opacity:.72;cursor:wait}.caveat{font-weight:800;max-width:840px}.screenshotGuide{display:grid;gap:18px}.shotIntro{padding:18px 20px}.miniSteps{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px}.miniSteps p{margin:0;border:2px solid var(--line);background:var(--yellow);box-shadow:3px 3px 0 var(--line);padding:14px 16px;font-size:clamp(22px,3vw,34px);font-weight:950;letter-spacing:-.04em}.miniSteps span{display:block;font:900 13px var(--mono);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}.shots{display:grid;grid-template-columns:1fr 1fr;gap:18px}.shot{margin:0}.shot img{width:100%;height:auto;display:block;border:2px solid var(--line);box-shadow:4px 4px 0 var(--line);background:#fffdf4}.shot figcaption{margin-top:12px;font-weight:800}.practice .practiceLead{font-size:18px;font-weight:800}.practice .sampleText{border:2px dashed var(--line);background:#fffdf4;padding:18px;font-size:18px;line-height:1.55;box-shadow:inset 3px 3px #eadfc9;user-select:text}.state-good{color:#006a3a}.state-warn{color:#935100}.state-bad{color:#9b1010}@media(max-width:900px){.shots,.miniSteps{grid-template-columns:1fr}.welcomeHero h1{font-size:46px}.steps li{font-size:17px}}`;
+  return y2kCss() + `.welcome{padding-top:32px;padding-bottom:48px}.welcomeHero{padding:28px;position:relative;overflow:hidden}.welcomeHero:after{content:"";position:absolute;right:-90px;top:-90px;width:260px;height:260px;border:3px solid var(--line);background:radial-gradient(circle,var(--cyan),transparent 58%),var(--yellow);border-radius:999px;opacity:.75}.welcomeHero>*{position:relative;z-index:1}.welcomeHero h1{font-size:clamp(42px,8vw,92px);line-height:.88;margin:12px 0;letter-spacing:-.07em}.welcomeHero .lead{max-width:780px}.steps{display:grid;gap:12px;margin:24px 0;padding:0;list-style:none;max-width:780px}.steps li{display:flex;gap:12px;align-items:flex-start;border:2px solid var(--line);background:var(--chrome2);box-shadow:3px 3px 0 var(--line);padding:12px 14px;font-size:20px}.steps span{display:inline-grid;place-items:center;min-width:32px;height:32px;border:2px solid var(--line);background:var(--acid-green);font:900 14px var(--mono);box-shadow:2px 2px 0 var(--line)}.workflowGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:900px;margin:18px 0 10px}.workflowBlock{border:2px solid var(--line);background:#fffdf4;box-shadow:3px 3px 0 var(--line);padding:14px 16px}.workflowBlock p{margin:8px 0 0;font-size:18px;font-weight:850}.image-workflow{background:var(--cyan)}.imageLimit{max-width:900px;font-weight:800}@media(max-width:760px){.workflowGrid{grid-template-columns:1fr}}.actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center}.actions .btn[disabled]{opacity:.72;cursor:wait}.caveat{font-weight:800;max-width:840px}.screenshotGuide{display:grid;gap:18px}.shotIntro{padding:18px 20px}.miniSteps{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px}.miniSteps p{margin:0;border:2px solid var(--line);background:var(--yellow);box-shadow:3px 3px 0 var(--line);padding:14px 16px;font-size:clamp(22px,3vw,34px);font-weight:950;letter-spacing:-.04em}.miniSteps strong{display:block;line-height:1.02;word-spacing:.08em}.miniSteps span{display:block;font:900 13px var(--mono);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}.shots{display:grid;grid-template-columns:1fr 1fr;gap:18px}.shot{margin:0}.shot img{width:100%;height:auto;display:block;border:2px solid var(--line);box-shadow:4px 4px 0 var(--line);background:#fffdf4}.shot figcaption{margin-top:12px;font-weight:800}.practice .practiceLead{font-size:18px;font-weight:800}.practice .sampleText{border:2px dashed var(--line);background:#fffdf4;padding:18px;font-size:18px;line-height:1.55;box-shadow:inset 3px 3px #eadfc9;user-select:text}.state-good{color:#006a3a}.state-warn{color:#935100}.state-bad{color:#9b1010}@media(max-width:900px){.shots,.miniSteps{grid-template-columns:1fr}.welcomeHero h1{font-size:46px}.steps li{font-size:17px}}`;
 }
 
 function js(): string {
