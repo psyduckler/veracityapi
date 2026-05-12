@@ -439,3 +439,34 @@ describe("dashboard activation", () => {
     expect(html).toContain("terminal");
   });
 });
+
+
+describe("patches 1-4 audit remediations", () => {
+  it("keeps request-access success notice hidden until a real submission", async () => {
+    const res = await worker.fetch(new Request("https://veracityapi.com/request-access"), { DB: new EmptyDb(), ANTHROPIC_API_KEY: "test", API_KEYS: "" } as any);
+    const html = await res.text();
+    expect(html).toContain('id="notice" class="notice" hidden');
+    expect(html).toContain("notice.hidden=false");
+    expect(html).not.toContain('style="display:block"');
+  });
+
+  it("keeps account/auth surfaces noindex and free of GA injection", async () => {
+    const res = await worker.fetch(new Request("https://veracityapi.com/account"), { DB: new EmptyDb(), ANTHROPIC_API_KEY: "test", API_KEYS: "" } as any);
+    const html = await res.text();
+    expect(res.headers.get("x-robots-tag")).toContain("noindex");
+    expect(html).not.toContain("googletagmanager.com/gtag/js");
+    expect(html).not.toContain("G-BMB8X59JBY");
+  });
+
+  it("serves alternatives hub and canonicalizes trust aliases to methodology", async () => {
+    const env = { DB: new EmptyDb(), ANTHROPIC_API_KEY: "test", API_KEYS: "" } as any;
+    const alternatives = await worker.fetch(new Request("https://veracityapi.com/alternatives"), env);
+    expect(alternatives.status).toBe(200);
+    expect(await alternatives.text()).toContain("Compare AI detector APIs by workflow job");
+    for (const path of ["/trust", "/trust-model"]) {
+      const res = await worker.fetch(new Request(`https://veracityapi.com${path}`, { redirect: "manual" }), env);
+      expect(res.status, path).toBe(301);
+      expect(res.headers.get("location"), path).toBe("https://veracityapi.com/methodology");
+    }
+  });
+});

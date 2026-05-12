@@ -55,7 +55,7 @@ export function deriveAction(level: RiskLevel, intendedUse: IntendedUse): Recomm
     publish: { low: "allow", medium: "revise", high: "human_review" },
     train: { low: "allow", medium: "human_review", high: "reject" },
     cite: { low: "allow", medium: "human_review", high: "reject" },
-    moderate: { low: "allow", medium: "allow", high: "revise" },
+    moderate: { low: "allow", medium: "human_review", high: "reject" },
     other: { low: "allow", medium: "revise", high: "human_review" },
   };
   return matrix[intendedUse][level];

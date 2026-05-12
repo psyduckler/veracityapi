@@ -10,7 +10,7 @@ import { authorizeExtension, exchangeExtensionCode, ExtensionAuthError, extensio
 import { DEMO_IMAGE_CONTENT_TYPE, DEMO_IMAGE_PATH, demoImageBytes } from "./demoImage";
 import { DEMO_AUDIO_CONTENT_TYPE, DEMO_AUDIO_PATH, demoAudioBytes } from "./demoAudio";
 import { ogPngBytes } from "./ogPng";
-import { aboutHtml, categoryHtml, changelogHtml, docsHtml, evalsHtml, examplesHtml, forAgentsHtml, howItWorksHtml, methodologyHtml, trustModelHtml, mcpHtml, pricingHtml, privacyHtml, subprocessorsHtml, securityHtml, termsHtml, requestAccessHtml, statusHtml, useCaseHtml, useCasesIndexHtml } from "./pages";
+import { aboutHtml, alternativesHtml, categoryHtml, changelogHtml, docsHtml, evalsHtml, examplesHtml, forAgentsHtml, howItWorksHtml, methodologyHtml, trustModelHtml, mcpHtml, pricingHtml, privacyHtml, subprocessorsHtml, securityHtml, termsHtml, requestAccessHtml, statusHtml, useCaseHtml, useCasesIndexHtml } from "./pages";
 import { distributionPageHtml, distributionRedirectTarget } from "./distribution";
 import { homepageHtml } from "./site";
 import { welcomeHtml } from "./welcome";
@@ -47,6 +47,10 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
+    if (url.hostname === "www.veracityapi.com") {
+      return Response.redirect(`https://veracityapi.com${url.pathname}${url.search}`, 301);
+    }
+
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: { ...corsHeadersForRequest(request), ...securityHeaders(), "x-request-id": requestId() } });
     }
@@ -67,7 +71,6 @@ export default {
       "/welcome": welcomeHtml,
       "/how-it-works": howItWorksHtml,
       "/methodology": methodologyHtml,
-      "/trust-model": trustModelHtml,
       "/evals": evalsHtml,
       "/examples": examplesHtml,
       "/for-agents": forAgentsHtml,
@@ -82,7 +85,12 @@ export default {
       "/security": securityHtml,
       "/terms": termsHtml,
       "/request-access": requestAccessHtml,
+      "/alternatives": alternativesHtml,
     };
+    if ((request.method === "GET" || request.method === "HEAD") && (url.pathname === "/trust" || url.pathname === "/trust-model")) {
+      return Response.redirect(`${url.origin}/methodology`, 301);
+    }
+
     const pageRenderer = pageRoutes[url.pathname];
     if ((request.method === "GET" || request.method === "HEAD") && pageRenderer) {
       if (request.method === "GET") await logSiteEvent(env, request, "page_view", url.pathname);
@@ -113,7 +121,7 @@ export default {
       const account = await getSessionAccount(request, env);
       if (request.method === "GET") await logSiteEvent(env, request, account ? "account_view" : "signup_page_view", url.pathname, account ? { account_id: account.accountId } : {});
       const view = account ? await buildAccountView(env, account.accountId, account.email) : null;
-      return html(request.method === "HEAD" ? "" : accountHtml(view, url.searchParams.get("message") || ""), false);
+      return html(request.method === "HEAD" ? "" : accountHtml(view, url.searchParams.get("message") || ""), false, 200, { "X-Robots-Tag": "noindex, nofollow" });
     }
 
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/extension/connect") {
@@ -133,11 +141,11 @@ export default {
     if (request.method === "POST" && url.pathname === "/billing/webhook") return handleStripeWebhook(request, env);
 
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/openapi.json") {
-      return json(request.method === "HEAD" ? null : openApiSpec(), 200, { "cache-control": "public, max-age=300" });
+      return text(request.method === "HEAD" ? "" : JSON.stringify(openApiSpec(), null, 2), "application/json; charset=utf-8", { "cache-control": "public, max-age=300" });
     }
 
     if ((request.method === "GET" || request.method === "HEAD") && (url.pathname === "/.well-known/agents.json" || url.pathname === "/agents.json")) {
-      return json(request.method === "HEAD" ? null : agentsJson(), 200, { "cache-control": "public, max-age=300" });
+      return text(request.method === "HEAD" ? "" : JSON.stringify(agentsJson(), null, 2), "application/json; charset=utf-8", { "cache-control": "public, max-age=300" });
     }
 
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/.well-known/openai-apps-challenge") {
@@ -1178,13 +1186,14 @@ function mcpHttpResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json; charset=utf-8", ...corsHeaders(), ...securityHeaders(), "x-request-id": requestId() } });
 }
 
-function html(body: string, cache = true, status = 200): Response {
+function html(body: string, cache = true, status = 200, extraHeaders: Record<string, string> = {}): Response {
   const htmlBody = injectGoogleAnalytics(body);
   return new Response(htmlBody, {
     status,
     headers: {
       "content-type": "text/html; charset=utf-8",
       "cache-control": cache ? "public, max-age=120" : "no-store",
+      ...extraHeaders,
       ...corsHeaders(),
       ...securityHeaders(),
       "x-request-id": requestId(),
@@ -1194,6 +1203,7 @@ function html(body: string, cache = true, status = 200): Response {
 
 function injectGoogleAnalytics(body: string): string {
   if (!body || body.includes("G-BMB8X59JBY")) return body;
+  if (body.includes("<title>VeracityAPI Account</title>") || body.includes("<title>Connect Veracity</title>")) return body;
   if (body.includes("</head>")) return body.replace("</head>", `${GOOGLE_ANALYTICS_TAG}</head>`);
   return body;
 }

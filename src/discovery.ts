@@ -606,7 +606,7 @@ export function sampleAnalyzeAudioResponse(analysisId = "aud_01KRA1AUDIOEXAMPLE"
 export function llmsTxt(): string {
   return `# VeracityAPI
 
-VeracityAPI is a content verification API for AI agents. It scores English-calibrated text for specificity/slop/provenance risk, image URLs for visible synthetic-image risk, and short HTTPS audio URLs for synthetic-audio workflow triage.
+VeracityAPI is a workflow-risk and content trust routing API for AI agents. It scores English-calibrated text for specificity/slop/provenance risk, image URLs for visible synthetic-image risk, and short HTTPS audio URLs for synthetic-audio workflow triage.
 
 Use VeracityAPI as an input and pre-publish guardrail: agents get evidence-backed routing actions (allow, revise, human_review, reject), not ambiguous detector percentages or forensic verdicts.
 
@@ -713,7 +713,7 @@ curl ${API_BASE_URL}/v1/analyze \\
 - For agents: ${BASE_URL}/for-agents
 - MCP integration: ${BASE_URL}/mcp
 - Claude connector: ${BASE_URL}/integrations/claude
-- Evals/proof: ${BASE_URL}/evals
+- Routing evals: ${BASE_URL}/evals
 - Examples/tool wrapper: ${BASE_URL}/examples
 - Pricing: ${BASE_URL}/pricing
 - Privacy: ${BASE_URL}/privacy
@@ -769,7 +769,7 @@ export function llmsFullTxt(): string {
 - Docs: ${BASE_URL}/docs
 - Methodology and trust model: ${BASE_URL}/methodology
 - Trust model alias: ${BASE_URL}/trust-model
-- Evals/proof: ${BASE_URL}/evals
+- Routing evals: ${BASE_URL}/evals
 - For agents: ${BASE_URL}/for-agents
 - Examples: ${BASE_URL}/examples
 - MCP: ${BASE_URL}/mcp
@@ -794,11 +794,10 @@ ${DISTRIBUTION_PAGES.map((p) => `- ${p.title}: ${BASE_URL}${p.path} — ${p.desc
 }
 
 export function sitemapXml(): string {
-  const updated = new Date().toISOString();
-  const urls = ["/", "/docs", "/methodology", "/trust-model", "/for-agents", "/mcp", "/how-it-works", "/use-cases", ...USE_CASES.map((u) => `/use-cases/${u.slug}`), ...DISTRIBUTION_PAGES.map((p) => p.path), "/evals", "/examples", "/pricing", "/status", "/changelog", "/privacy", "/terms", "/request-access", "/openapi.json", "/llms.txt", "/llms-full.txt", "/agents.json", "/.well-known/agents.json", "/sitemap.xml", "/robots.txt"];
+  const urls = ["/", "/docs", "/methodology", "/for-agents", "/mcp", "/how-it-works", "/use-cases", ...USE_CASES.map((u) => `/use-cases/${u.slug}`), ...DISTRIBUTION_PAGES.map((p) => p.path), "/evals", "/examples", "/pricing", "/about", "/status", "/changelog", "/privacy", "/security", "/subprocessors", "/terms", "/request-access", "/alternatives"];
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${urls.map((path) => `  <url><loc>${BASE_URL}${path}</loc><lastmod>${updated}</lastmod><changefreq>weekly</changefreq><priority>${path === "/" ? "1.0" : "0.7"}</priority></url>`).join("\n")}
+${urls.map((path) => `  <url><loc>${BASE_URL}${path}</loc><changefreq>weekly</changefreq><priority>${path === "/" ? "1.0" : "0.7"}</priority></url>`).join("\n")}
 </urlset>
 `;
 }
@@ -813,7 +812,7 @@ export function agentsJson(): Record<string, unknown> {
     llms_txt: `${BASE_URL}/llms.txt`,
     llms_full_txt: `${BASE_URL}/llms-full.txt`,
     methodology: `${BASE_URL}/methodology`,
-    trust_model: `${BASE_URL}/trust-model`,
+    trust_model: `${BASE_URL}/methodology`,
     sitemap: `${BASE_URL}/sitemap.xml`,
     docs: `${BASE_URL}/docs`,
     for_agents: `${BASE_URL}/for-agents`,

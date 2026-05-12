@@ -137,7 +137,7 @@ describe("agent distribution surfaces", () => {
     expect(html).toContain("Input and pre-publish guardrails");
     expect(html).toContain("How agents use VeracityAPI");
     expect(html).toContain("Example workflow costs");
-    expect(html).toContain("Operational proof");
+    expect(html).toContain("Operational evidence");
     expect(html).toContain('rel="icon"');
     expect(html).toContain("apiCubeGradient");
     expect(html).toContain("/terms");
@@ -260,5 +260,30 @@ describe("agent distribution surfaces", () => {
     }
     expect(pricing).toContain("JavaScript string length");
     expect(pricing).not.toContain("UTF-8 codepoints");
+  });
+});
+
+
+describe("static discovery hygiene", () => {
+  it("serves static discovery bodies without dynamic request ids and deterministic sitemap", async () => {
+    const env = { DB: new EmptyDb(), ANTHROPIC_API_KEY: "test", API_KEYS: "" } as any;
+    for (const path of ["/openapi.json", "/agents.json", "/.well-known/agents.json"]) {
+      const res = await worker.fetch(new Request(`https://veracityapi.com${path}`), env);
+      const body = await res.text();
+      expect(res.status, path).toBe(200);
+      expect(body, path).not.toMatch(/req_[A-Za-z0-9]/);
+    }
+    const a = sitemapXml();
+    const b = sitemapXml();
+    expect(a).toBe(b);
+    expect(a).not.toContain("<lastmod>");
+    expect(a).toContain("https://veracityapi.com/alternatives");
+    expect(a).not.toContain("https://veracityapi.com/trust-model");
+  });
+
+  it("redirects www host to canonical apex", async () => {
+    const res = await worker.fetch(new Request("https://www.veracityapi.com/docs", { redirect: "manual" }), { DB: new EmptyDb(), ANTHROPIC_API_KEY: "test", API_KEYS: "" } as any);
+    expect(res.status).toBe(301);
+    expect(res.headers.get("location")).toBe("https://veracityapi.com/docs");
   });
 });
