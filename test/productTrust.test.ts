@@ -53,6 +53,10 @@ describe("hosted Chrome extension welcome onboarding", () => {
     expect(html).toContain("check-connection");
     expect(html).toContain("connect");
     expect(html).toContain("workflow-risk triage");
+    expect(html).toContain("Step 1");
+    expect(html).toContain("Highlight any text");
+    expect(html).toContain("Step 2");
+    expect(html).toContain("Get AI risk analysis");
     expect(html).toContain('/welcome/right-click-menu.webp');
     expect(html).toContain('/welcome/result-window.webp');
   });
