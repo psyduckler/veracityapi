@@ -10,7 +10,7 @@ import { authorizeExtension, exchangeExtensionCode, ExtensionAuthError, extensio
 import { DEMO_IMAGE_CONTENT_TYPE, DEMO_IMAGE_PATH, demoImageBytes } from "./demoImage";
 import { DEMO_AUDIO_CONTENT_TYPE, DEMO_AUDIO_PATH, demoAudioBytes } from "./demoAudio";
 import { ogPngBytes } from "./ogPng";
-import { aboutHtml, alternativesHtml, categoryHtml, changelogHtml, docsHtml, docsErrorsHtml, evalsHtml, examplesHtml, forAgentsHtml, howItWorksHtml, methodologyHtml, trustModelHtml, mcpHtml, pricingHtml, privacyHtml, subprocessorsHtml, securityHtml, termsHtml, requestAccessHtml, statusHtml, useCaseHtml, useCasesIndexHtml, whatWeDetectHtml } from "./pages";
+import { aboutHtml, alternativesHtml, benchmark2026Html, blogIndexHtml, blogPostHtml, categoryHtml, changelogHtml, comparisonHtml, docsHtml, docsErrorsHtml, evalsHtml, examplesHtml, forAgentsHtml, howItWorksHtml, methodologyHtml, trustModelHtml, mcpHtml, pricingHtml, privacyHtml, subprocessorsHtml, securityHtml, termsHtml, requestAccessHtml, statusHtml, useCaseHtml, useCasesIndexHtml, vsIndexHtml, whatWeDetectHtml } from "./pages";
 import { distributionPageHtml, distributionRedirectTarget } from "./distribution";
 import { homepageHtml } from "./site";
 import { welcomeHtml } from "./welcome";
@@ -74,6 +74,9 @@ export default {
       "/how-it-works": howItWorksHtml,
       "/methodology": methodologyHtml,
       "/evals": evalsHtml,
+      "/evals/2026-benchmark": benchmark2026Html,
+      "/blog": blogIndexHtml,
+      "/vs": vsIndexHtml,
       "/examples": examplesHtml,
       "/for-agents": forAgentsHtml,
       "/mcp": mcpHtml,
@@ -96,7 +99,22 @@ export default {
     const pageRenderer = pageRoutes[url.pathname];
     if ((request.method === "GET" || request.method === "HEAD") && pageRenderer) {
       if (request.method === "GET") await logSiteEvent(env, request, "page_view", url.pathname);
-      return html(request.method === "HEAD" ? "" : pageRenderer());
+      const noindex = url.pathname === "/evals/2026-benchmark" || url.pathname === "/vs";
+      return html(request.method === "HEAD" ? "" : pageRenderer(), true, 200, noindex ? { "X-Robots-Tag": "noindex, follow" } : {});
+    }
+
+    if ((request.method === "GET" || request.method === "HEAD") && url.pathname.startsWith("/vs/")) {
+      const page = comparisonHtml(url.pathname.replace("/vs/", ""));
+      if (!page) return notFound(request);
+      if (request.method === "GET") await logSiteEvent(env, request, "page_view", url.pathname);
+      return html(request.method === "HEAD" ? "" : page, true, 200, { "X-Robots-Tag": "noindex, follow" });
+    }
+
+    if ((request.method === "GET" || request.method === "HEAD") && url.pathname.startsWith("/blog/")) {
+      const page = blogPostHtml(url.pathname.replace("/blog/", ""));
+      if (!page) return notFound(request);
+      if (request.method === "GET") await logSiteEvent(env, request, "page_view", url.pathname);
+      return html(request.method === "HEAD" ? "" : page);
     }
 
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname.startsWith("/use-cases/")) {

@@ -15,7 +15,7 @@ export type DistributionPage = {
   sections?: Array<{ title: string; body: string }>;
   faq?: Array<{ q: string; a: string }>;
   code?: string;
-  demo?: "text" | "image" | "audio";
+  demo?: "text" | "image" | "audio" | "video";
 };
 
 export const DISTRIBUTION_REDIRECTS: Record<string, string> = {
@@ -27,6 +27,8 @@ export const DISTRIBUTION_REDIRECTS: Record<string, string> = {
   "/categories/image-ai-detector-api": "/ai-image-detection-api",
   "/image-ai-detection-api": "/ai-image-detection-api",
   "/ai-generated-image-detector-api": "/ai-image-detection-api",
+  "/video-ai-detection-api": "/ai-video-detection-api",
+  "/ai-generated-video-detector-api": "/ai-video-detection-api",
 };
 
 const policyCode = `switch (result.recommended_action) {
@@ -199,15 +201,42 @@ const ALL_DISTRIBUTION_PAGES: DistributionPage[] = [
     description: "Analyze image and audio URLs for synthetic-media cues and route suspicious uploads to review.",
     eyebrow: "SEO category · synthetic media detection API",
     h1: "Synthetic media detection API for agent workflows.",
-    lead: "Analyze uploaded images and audio for synthetic-media cues, weak provenance, and review-worthy risk before agents publish, accept, cite, or trust them.",
-    recommend: ["Uploaded image review", "Voice memo and podcast screening", "Async UGC moderation", "Suspicious media quarantine before publication"],
+    lead: "Analyze uploaded images, audio, and private-beta video for synthetic-media cues, weak provenance, and review-worthy risk before agents publish, accept, cite, or trust them.",
+    recommend: ["Uploaded image review", "Voice memo, podcast, and short-video screening", "Async UGC moderation", "Suspicious media quarantine before publication"],
     avoid: ["Forensic attribution", "Speaker identity verification", "Court-ready deepfake claims", "Real-time call-center fraud prevention"],
     cta: "Use VeracityAPI as a practical async media triage layer for uploads and review queues.",
     sections: [
-      { title: "Image + audio under one policy", body: "Use one recommended_action contract across text, image, and audio so your agent workflow stays simple." },
+      { title: "Image + audio under one policy", body: "Use one recommended_action contract across text, image, audio, and private-beta video so your agent workflow stays simple." },
       { title: "Where C2PA fits", body: "C2PA signs content at source. VeracityAPI helps when signatures are absent, stripped, broken, or not enough for your workflow decision." },
     ],
     code: policyCode,
+  },
+
+  {
+    path: "/ai-video-detection-api",
+    title: "AI Video Detection API for Workflow Triage | VeracityAPI",
+    description: "Private-beta video authenticity-risk API: analyze short HTTPS video URLs with a 3x2 contact sheet, metadata, evidence, and recommended_action.",
+    eyebrow: "SEO category · AI video detection API",
+    h1: "AI Video Detection API for private-beta workflow triage.",
+    lead: "Analyze short direct HTTPS video URLs for authenticity risk before agents publish, moderate, cite, or trust them. VeracityAPI returns synthetic_video_risk, evidence, limitations, billing metadata, and recommended_action — not forensic proof.",
+    recommend: ["Short-form UGC moderation and review queues", "Social video preflight before publishing", "Marketplace or dating-profile video intake", "Agent workflows that need an action instead of a raw detector score"],
+    avoid: ["Court-ready deepfake claims", "Identity verification", "Real-time call-center fraud", "Binary accusations that a video is AI-generated"],
+    cta: "Use /v1/analyze-video when the operational question is whether a video should be allowed, reviewed, rejected, or handled with provenance follow-up.",
+    sections: [
+      { title: "MVP input", body: "POST /v1/analyze-video accepts a direct downloadable HTTPS video URL plus context and store_content:false. The initial private-beta cap is designed for short clips, not long-form video archives." },
+      { title: "How scoring works", body: "A zero-idle ffmpeg extractor samples six representative frames into a 3x2 contact sheet and returns safe metadata. Claude Haiku vision scores visual synthetic-video cues and metadata risk in one structured call." },
+      { title: "Privacy posture", body: "VeracityAPI stores no raw video, extracted frames, contact sheet, or full URL. D1 analysis logs keep only URL hash, hostname, safe metadata, and the action/risk result." },
+      { title: "Pricing", body: "Video analysis is $0.05 per successful request in the video_v0 billing bucket. Failed analyses do not bill." },
+    ],
+    demo: "video",
+    code: `const result = await veracity.analyzeVideo({
+  videoUrl: "https://cdn.example.com/social-clip.mp4",
+  context: { format: "social_post", intended_use: "moderate" }
+});
+
+if (result.recommended_action === "human_review") {
+  queueVideoForReview(result.evidence);
+}`
   },
   {
     path: "/ai-image-detection-api",
@@ -435,6 +464,14 @@ function renderDemo(page: DistributionPage): string {
   "primary_reason": "synthetic-speech cues"
 }</pre></section><script>document.getElementById('audio-demo')?.addEventListener('submit',async(e)=>{e.preventDefault();const f=e.currentTarget;const out=document.getElementById('audio-demo-out');out.textContent='Analyzing…';const r=await fetch('/demo/analyze-audio',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({audio_url:f.audio_url.value,context:{format:'social_post',intended_use:'publish',domain:'voice-note UGC moderation'}})});out.textContent=JSON.stringify(await r.json(),null,2);});</script>`;
   }
+  if (page.demo === "video") {
+    return `<section class="card"><h2>Preloaded video result</h2><p>The public page does not accept arbitrary video URLs. Authenticated private-beta customers call <code>POST /v1/analyze-video</code>; VeracityAPI extracts a bounded 3x2 contact sheet plus metadata, stores no raw video/frames/contact sheet/full URL, and bills $0.05 only on success.</p><pre>{
+  "modality": "video",
+  "synthetic_video_risk": 0.64,
+  "recommended_action": "human_review",
+  "billing": { "bucket": "video_v0", "price_cents": 5 }
+}</pre></section>`;
+  }
   return "";
 }
 
@@ -444,7 +481,7 @@ function renderComparison(page: DistributionPage): string {
     "/alternatives/gptzero-api": [
       ["Primary buyer", "Developers shipping content workflows, agents, and trust gates", "Education and authorship-detection workflows"],
       ["Core output", "`recommended_action`: allow, revise, human_review, reject", "AI-likelihood / authorship-oriented scores"],
-      ["Modalities", "Text, image URLs, audio URLs, text batch", "Primarily text-oriented AI detection"],
+      ["Modalities", "Text, image URLs, audio URLs, private-beta video URLs, text batch", "Primarily text-oriented AI detection"],
       ["Agent support", "MCP, OpenAPI, llms.txt, agents.json, examples", "API/docs, less agent-native by default"],
       ["Privacy posture", "`store_content=false`; no raw media bytes or full media URLs stored", "Vendor-specific retention policy; verify before production use"],
       ["Best fit", "Pre-publish QA, RAG/source triage, UGC moderation, training-data hygiene", "Authorship-likelihood checks where a team will interpret a probability"],
@@ -452,7 +489,7 @@ function renderComparison(page: DistributionPage): string {
     "/alternatives/originality-ai-api": [
       ["Primary buyer", "AI product teams and agents needing routing actions", "SEO/editorial teams needing originality/plagiarism-style checks"],
       ["Core output", "Action + evidence + recommended fixes + limitations", "Detection/originality/plagiarism-oriented scores"],
-      ["Modalities", "Text, image URLs, audio URLs", "Primarily text/content authenticity workflows"],
+      ["Modalities", "Text, image URLs, audio URLs, private-beta video URLs", "Primarily text/content authenticity workflows"],
       ["Automation", "Switch directly on `recommended_action`", "Teams define their own thresholds/policies"],
       ["Agent support", "MCP, OpenAPI, llms.txt, agents.json", "Traditional API/docs orientation"],
       ["Best fit", "Agents deciding publish/cite/train/moderate outcomes", "Editorial originality and SEO content checks"],
@@ -461,14 +498,14 @@ function renderComparison(page: DistributionPage): string {
       ["Primary buyer", "Builders needing lightweight content trust actions", "Enterprise/education authenticity and plagiarism programs"],
       ["Core output", "Workflow route: allow/revise/human_review/reject", "Broad authenticity/plagiarism/AI-detection suite"],
       ["Procurement", "Usage-based starter credit plus volume/procurement support by request", "Self-serve and enterprise procurement paths"],
-      ["Modalities", "Text, image URL, audio URL", "Vendor suite varies by product/module"],
+      ["Modalities", "Text, image URL, audio URL, private-beta video URL", "Vendor suite varies by product/module"],
       ["Agent support", "MCP and machine-readable discovery first-class", "API integration, less MCP-centric"],
       ["Best fit", "Pre-publish gates and autonomous pipelines", "Institutional compliance and plagiarism workflows"],
     ],
     "/alternatives/reality-defender": [
       ["Primary buyer", "Developers needing async media/content triage", "Enterprise threat, fraud, and media-forensics teams"],
       ["Core output", "Action-first workflow risk with explicit limitations", "Deepfake/media-threat detection platform outputs"],
-      ["Modalities", "Text, image URLs, audio URLs", "Media/deepfake-focused platform"],
+      ["Modalities", "Text, image URLs, audio URLs, private-beta video URLs", "Media/deepfake-focused platform"],
       ["Pricing posture", "Usage-based prepaid credits + custom volume", "Sales-led enterprise pricing"],
       ["Best fit", "Builder experiments, UGC review queues, agent preflight", "High-stakes investigations and enterprise programs"],
       ["Not a fit", "Forensic proof, identity verification, real-time fraud", "When you only need a simple content workflow gate"],
@@ -482,7 +519,7 @@ function renderComparison(page: DistributionPage): string {
     ],
     "/alternatives/resemble-detect": [
       ["Primary buyer", "Teams needing one action contract across content types", "Audio/deepfake detection buyers"],
-      ["Core output", "allow/revise/human_review/reject across text/image/audio", "Audio/deepfake-specific detection output"],
+      ["Core output", "allow/revise/human_review/reject across text/image/audio/video", "Audio/deepfake-specific detection output"],
       ["Audio stance", "Beta async workflow triage, not speaker identity", "Audio/deepfake specialized"],
       ["Best fit", "Mixed media and content workflows", "Voice/audio-specific checks"],
       ["Agent support", "MCP tools and balance preflight", "Traditional API integration"],
@@ -492,6 +529,17 @@ function renderComparison(page: DistributionPage): string {
   if (!data) return "";
   const competitor = page.eyebrow.replace("Alternative · ", "");
   return `<section class="card"><h2>Side-by-side comparison</h2><table><tr><th>Dimension</th><th>VeracityAPI</th><th>${esc(competitor)}</th></tr>${data.map(([dimension, veracity, other]) => `<tr><td>${esc(dimension)}</td><td>${esc(veracity)}</td><td>${esc(other)}</td></tr>`).join("")}</table><p class="lead">Fair caveat: choose the incumbent when you need its specialized workflow. Choose VeracityAPI when your product or agent needs a privacy-conscious routing action it can execute immediately.</p></section>`;
+}
+
+function deeperVsLink(page: DistributionPage): string {
+  const map: Record<string, string> = {
+    "/alternatives/gptzero-api": "/vs/gptzero",
+    "/alternatives/originality-ai-api": "/vs/originality-ai",
+    "/alternatives/copyleaks-api": "/vs/copyleaks",
+  };
+  const href = map[page.path];
+  if (!href) return "";
+  return `<section class="card"><h2>Deeper buyer guide</h2><p>This alternatives URL stays live for existing links and search compatibility. The deeper comparison draft lives at <a href="${href}">${href}</a>; benchmark numbers remain gated until the 2026 run is frozen and cited.</p></section>`;
 }
 
 function comparisonDisclaimer(page: DistributionPage): string {
@@ -512,7 +560,7 @@ function renderSections(page: DistributionPage): string {
     ? `<section class="card"><h2>FAQ</h2>${page.faq.map((item) => `<h3>${esc(item.q)}</h3><p>${esc(item.a)}</p>`).join("")}</section>`
     : "";
   const code = page.code ? `<section class="card"><h2>Copy-paste routing example</h2><pre>${esc(page.code)}</pre></section>` : "";
-  return `${renderComparison(page)}${comparisonDisclaimer(page)}${sections}${faq}${code}`;
+  return `${renderComparison(page)}${deeperVsLink(page)}${comparisonDisclaimer(page)}${sections}${faq}${code}`;
 }
 
 export function distributionPageHtml(path: string): string | null {

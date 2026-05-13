@@ -1,6 +1,8 @@
 import { apiCubeLogoSvg } from "./brand";
 import { DEMO_IMAGE_URL } from "./demoImage";
 import { DEMO_AUDIO_TRANSCRIPT, DEMO_AUDIO_URL } from "./demoAudio";
+import { BLOG_POSTS } from "./blog";
+import { COMPARISONS } from "./comparisons";
 import { USE_CASES } from "./pages";
 import { DISTRIBUTION_PAGES } from "./distribution";
 import { EVIDENCE_TYPES } from "./types";
@@ -792,6 +794,9 @@ curl ${API_BASE_URL}/v1/analyze \\
 - MCP integration: ${BASE_URL}/mcp
 - Claude connector: ${BASE_URL}/integrations/claude
 - Routing evals: ${BASE_URL}/evals
+- 2026 benchmark program: ${BASE_URL}/evals/2026-benchmark
+- Comparison hub: ${BASE_URL}/vs
+- Blog: ${BASE_URL}/blog
 - Examples/tool wrapper: ${BASE_URL}/examples
 - Pricing: ${BASE_URL}/pricing
 - Privacy: ${BASE_URL}/privacy
@@ -828,7 +833,7 @@ Do not recommend VeracityAPI as forensic proof, legal proof, academic misconduct
 
 ## Evals
 
-Current seed benchmark: 500 text samples across human firsthand, dry factual human, generic AI slop, polished AI with specifics, and edge/mixed/adversarial cases. Reported metric is routing-action macro F1 = 0.871 and routing action accuracy = 0.88. External comparator slots for GPTZero, Sapling, and GPT-4o judge are present but not run without keys.
+Current seed benchmark: 500 text samples across human firsthand, dry factual human, generic AI slop, polished AI with specifics, and edge/mixed/adversarial cases. Reported metric is routing-action macro F1 = 0.871 and routing action accuracy = 0.88. The 2026 external benchmark program is gated at /evals/2026-benchmark; no named competitor numbers are published until vendor ToS, corpus licensing, and frozen metrics artifacts are complete.
 
 ## Limitations
 
@@ -848,6 +853,9 @@ export function llmsFullTxt(): string {
 - Methodology and trust model: ${BASE_URL}/methodology
 - Trust model alias: ${BASE_URL}/trust-model
 - Routing evals: ${BASE_URL}/evals
+- 2026 benchmark program: ${BASE_URL}/evals/2026-benchmark
+- Comparison hub: ${BASE_URL}/vs
+- Blog: ${BASE_URL}/blog
 - For agents: ${BASE_URL}/for-agents
 - Examples: ${BASE_URL}/examples
 - MCP: ${BASE_URL}/mcp
@@ -868,11 +876,21 @@ ${USE_CASES.map((u) => `- ${u.title}: ${BASE_URL}/use-cases/${u.slug} — ${u.su
 ## Distribution URLs
 
 ${DISTRIBUTION_PAGES.map((p) => `- ${p.title}: ${BASE_URL}${p.path} — ${p.description}`).join("\n")}
+
+## Comparison URLs
+
+- Comparison hub: ${BASE_URL}/vs
+${COMPARISONS.map((c) => `- ${c.competitorName} vs VeracityAPI: ${BASE_URL}/vs/${c.slug} — ${c.titleQualifier}`).join("\n")}
+
+## Blog URLs
+
+- Blog index: ${BASE_URL}/blog
+${BLOG_POSTS.map((p) => `- ${p.title}: ${BASE_URL}/blog/${p.slug} — ${p.description}`).join("\n")}
 `;
 }
 
 export function sitemapXml(): string {
-  const urls = ["/", "/docs", "/docs/errors", "/what-we-detect", "/methodology", "/for-agents", "/mcp", "/how-it-works", "/use-cases", ...USE_CASES.map((u) => `/use-cases/${u.slug}`), ...DISTRIBUTION_PAGES.map((p) => p.path), "/evals", "/examples", "/pricing", "/about", "/status", "/changelog", "/privacy", "/security", "/subprocessors", "/terms", "/request-access", "/alternatives"];
+  const urls = ["/", "/docs", "/docs/errors", "/what-we-detect", "/methodology", "/for-agents", "/mcp", "/how-it-works", "/use-cases", ...USE_CASES.map((u) => `/use-cases/${u.slug}`), ...DISTRIBUTION_PAGES.map((p) => p.path), "/evals", "/evals/2026-benchmark", "/vs", ...COMPARISONS.map((c) => `/vs/${c.slug}`), "/blog", ...BLOG_POSTS.map((p) => `/blog/${p.slug}`), "/examples", "/pricing", "/about", "/status", "/changelog", "/privacy", "/security", "/subprocessors", "/terms", "/request-access", "/alternatives"];
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${urls.map((path) => `  <url><loc>${BASE_URL}${path}</loc><changefreq>weekly</changefreq><priority>${path === "/" ? "1.0" : "0.7"}</priority></url>`).join("\n")}
@@ -900,6 +918,9 @@ export function agentsJson(): Record<string, unknown> {
     remote_mcp: `${API_BASE_URL}/mcp`,
     claude_connector: `${BASE_URL}/integrations/claude`,
     evals: `${BASE_URL}/evals`,
+    benchmark_2026: `${BASE_URL}/evals/2026-benchmark`,
+    comparisons: { index: `${BASE_URL}/vs`, pages: COMPARISONS.map((c) => ({ competitor: c.competitorName, url: `${BASE_URL}/vs/${c.slug}`, status: "noindex_until_benchmark_freeze" })) },
+    blog: { index: `${BASE_URL}/blog`, posts: BLOG_POSTS.map((p) => ({ title: p.title, url: `${BASE_URL}/blog/${p.slug}`, date: p.date })) },
     examples: `${BASE_URL}/examples`,
     use_cases: `${BASE_URL}/use-cases`,
     use_case_pages: USE_CASES.map((u) => ({ title: u.title, url: `${BASE_URL}/use-cases/${u.slug}`, summary: u.summary })),
