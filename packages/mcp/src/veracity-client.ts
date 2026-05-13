@@ -28,6 +28,7 @@ export class VeracityClient {
     const contentType = input.content_type === "auto" || !input.content_type ? detectContentType(input.content, input.media_type) : input.content_type;
     const context = { intended_use: input.intended_use ?? "other", domain: input.domain, custom_policy: input.custom_policy };
     if (contentType === "text") return this.post("/v1/analyze", { type: "text", content: input.content, context, store_content: input.store_content ?? false });
+    if (contentType === "video" && !input.media_type) return this.post("/v1/analyze-video", { video_url: input.content, context, store_content: false });
     const source = input.media_type ? { kind: "base64", media_type: input.media_type, data: input.content } : undefined;
     return this.post("/v1/analyze", { type: contentType, content: source ? "" : input.content, source, transcript: input.transcript, context, store_content: false });
   }

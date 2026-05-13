@@ -27,6 +27,29 @@ describe("VeracityClient", () => {
     }));
   });
 
+
+  it("verifyContent routes mp4/webm URLs to analyze_video and mp3/wav URLs to audio", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ analysis_id: "ok", recommended_action: "allow" }), { status: 200, headers: { "content-type": "application/json" } }));
+    const client = new VeracityClient({ apiKey: "vapi_secret", baseUrl: "https://api.example.test", fetchImpl: fetchMock as typeof fetch });
+
+    await client.verifyContent({ content: "https://cdn.example.com/clip.mp4", content_type: "auto", intended_use: "moderate" });
+    await client.verifyContent({ content: "https://cdn.example.com/clip.webm", content_type: "auto", intended_use: "moderate" });
+    await client.verifyContent({ content: "https://cdn.example.com/clip.mp3", content_type: "auto", intended_use: "moderate" });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "https://api.example.test/v1/analyze-video", expect.objectContaining({
+      method: "POST",
+      body: JSON.stringify({ video_url: "https://cdn.example.com/clip.mp4", context: { intended_use: "moderate", domain: undefined, custom_policy: undefined }, store_content: false })
+    }));
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "https://api.example.test/v1/analyze-video", expect.objectContaining({
+      method: "POST",
+      body: JSON.stringify({ video_url: "https://cdn.example.com/clip.webm", context: { intended_use: "moderate", domain: undefined, custom_policy: undefined }, store_content: false })
+    }));
+    expect(fetchMock).toHaveBeenNthCalledWith(3, "https://api.example.test/v1/analyze", expect.objectContaining({
+      method: "POST",
+      body: JSON.stringify({ type: "audio", content: "https://cdn.example.com/clip.mp3", source: undefined, transcript: undefined, context: { intended_use: "moderate", domain: undefined, custom_policy: undefined }, store_content: false })
+    }));
+  });
+
   it("sends bearer auth to analyze audio", async () => {
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({ analysis_id: "aud_1", risk_level: "low" }), { status: 200, headers: { "content-type": "application/json" } }));
     const client = new VeracityClient({ apiKey: "vapi_secret", baseUrl: "https://api.example.test", fetchImpl: fetchMock as typeof fetch });

@@ -92,6 +92,11 @@ class VeracityAPI:
         context: Optional[Context] = None,
         store_content: bool = False,
     ) -> AnalyzeResponse:
+        """Analyze a short direct HTTPS video URL via /v1/analyze-video.
+
+        Video is private-beta workflow-risk triage, not forensic proof.
+        Privacy is forced to store_content=False. Cost: $0.05 per API call.
+        """
         _ = store_content
         return self._post("/v1/analyze-video", _without_none({"video_url": video_url, "context": context, "store_content": False}))
 

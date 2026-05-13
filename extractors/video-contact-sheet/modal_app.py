@@ -26,8 +26,8 @@ web_app = FastAPI(title="VeracityAPI Video Contact Sheet Extractor")
 
 class ExtractRequest(BaseModel):
     video_url: HttpUrl
-    max_bytes: int = 50_000_000
-    max_duration_seconds: int = 60
+    max_bytes: int = 25_000_000
+    max_duration_seconds: int = 30
 
 
 def check_auth(authorization: str | None):
@@ -106,8 +106,8 @@ def extract(req: ExtractRequest, authorization: Annotated[str | None, Header()] 
     with tempfile.TemporaryDirectory() as tmp:
         inp = Path(tmp) / "input.video"
         out = Path(tmp) / "contact-sheet.jpg"
-        download(str(req.video_url), inp, min(req.max_bytes, 50_000_000))
-        metadata = probe(inp, min(req.max_duration_seconds, 60))
+        download(str(req.video_url), inp, min(req.max_bytes, 25_000_000))
+        metadata = probe(inp, min(req.max_duration_seconds, 30))
         stamps = sheet(inp, out, float(metadata["duration_seconds"]))
         return {
             "contact_sheet_base64": base64.b64encode(out.read_bytes()).decode("ascii"),

@@ -94,7 +94,12 @@ export interface AnalyzeAudioOptions {
   store_content?: boolean;
 }
 
-export interface AnalyzeVideoOptions { videoUrl: string; context?: VeracityContext; storeContent?: boolean; }
+export interface AnalyzeVideoOptions {
+  videoUrl: string;
+  context?: VeracityContext;
+  /** Video calls are privacy-forced to store_content:false. Cost: $0.05 per API call. */
+  storeContent?: boolean;
+}
 
 export interface AnalyzeBatchOptions {
   items: Array<{ id: string; text: string }>;
@@ -191,7 +196,14 @@ export class VeracityAPI {
     });
   }
 
-  analyzeVideo(input: AnalyzeVideoOptions): Promise<VeracityAnalyzeResponse> { return this.post<VeracityAnalyzeResponse>("/v1/analyze-video", { video_url: input.videoUrl, context: input.context, store_content: false }); }
+  /**
+   * Analyze a short direct HTTPS video URL for authenticity workflow risk.
+   * Calls the typed /v1/analyze-video endpoint, forces store_content:false,
+   * and bills in the video_v0 bucket. Cost: $0.05 per API call.
+   */
+  analyzeVideo(input: AnalyzeVideoOptions): Promise<VeracityAnalyzeResponse> {
+    return this.post<VeracityAnalyzeResponse>("/v1/analyze-video", { video_url: input.videoUrl, context: input.context, store_content: false });
+  }
 
   analyzeBatch(input: AnalyzeBatchOptions): Promise<Record<string, unknown>> {
     return this.post<Record<string, unknown>>("/v1/analyze-batch", {

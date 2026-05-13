@@ -34,11 +34,16 @@ client.analyze({"type": "text", "content": text, "store_content": False})
 client.analyze_text(text, auto_revise=True, context={"intended_use": "publish"})
 client.analyze_image("https://cdn.example.com/photo.webp")
 client.analyze_audio("https://cdn.example.com/voice.mp3", transcript="optional transcript")
+client.analyze_video("https://cdn.example.com/clip.mp4", context={"intended_use": "moderate"})
 client.analyze_batch(items=[{"id": "one", "text": text}])
 client.get_balance()
 ```
 
-Image/audio helper methods force `store_content=False`; VeracityAPI does not retain raw media bytes, base64 payloads, or full media URLs for media analysis.
+Image/audio/video helper methods force `store_content=False`; VeracityAPI does not retain raw media bytes, base64 payloads, frames/contact sheets, or full media URLs for media analysis.
+
+## Video private beta
+
+`client.analyze_video(video_url, context=...)` calls the typed `/v1/analyze-video` endpoint, forces `store_content=False`, accepts direct HTTPS videos capped at 30 seconds / 25 MB, and costs $0.05 per API call (`video_v0`). It returns workflow-risk signals (`synthetic_video_risk`, `visual_synthetic_risk`, `metadata_risk`) and is not forensic proof.
 
 ## Local release checks
 

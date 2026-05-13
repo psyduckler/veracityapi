@@ -227,7 +227,7 @@ export function openApiSpec(): Record<string, unknown> {
           tags: ["analysis"],
           operationId: "analyzeVideo",
           summary: "Analyze a video URL for authenticity-risk triage",
-          description: "Private-beta typed endpoint for URL-only video authenticity-risk scoring. Extracts a bounded six-frame 3x2 contact sheet plus safe metadata, scores visual synthetic-video risk with Claude Haiku vision, bills 5 cents on success, and stores no raw video, frames, contact sheet, or full URL. Workflow triage only; not forensic proof of AI generation or manipulation.",
+          description: "Private-beta typed endpoint for URL-only video authenticity-risk scoring. Extracts a bounded six-frame 3x2 contact sheet plus safe metadata from direct HTTPS videos capped at 30 seconds and 25 MB, scores visual synthetic-video risk with Claude Haiku vision, bills 5 cents on success, and stores no raw video, frames, contact sheet, or full URL. Workflow triage only; not forensic proof of AI generation or manipulation.",
           security: [{ bearerAuth: [] }],
           requestBody: { required: true, content: { "application/json": { schema: { "$ref": "#/components/schemas/AnalyzeVideoRequest" }, examples: { socialClip: { value: { video_url: "https://cdn.example.com/social-clip.mp4", context: { format: "social_post", intended_use: "moderate", domain: "short-form video authenticity" }, store_content: false } } } } } },
           responses: {
@@ -453,7 +453,7 @@ export function openApiSpec(): Record<string, unknown> {
           type: "object",
           required: ["video_url"],
           properties: {
-            video_url: { type: "string", format: "uri", maxLength: 2000, description: "Direct downloadable HTTPS video URL. Private-beta MVP supports mp4, webm, and quicktime-style containers up to the extractor cap." },
+            video_url: { type: "string", format: "uri", maxLength: 2000, description: "Direct downloadable HTTPS video URL. Private-beta MVP supports mp4, webm, and quicktime-style containers up to 30 seconds and 25 MB." },
             context: { "$ref": "#/components/schemas/AnalyzeTextRequest/properties/context" },
             store_content: { type: "boolean", default: false, description: "Only supported video storage behavior: raw video, extracted frames, contact sheets, and full URLs are not stored; D1 logs keep only URL hash and hostname." },
             privacy_mode: { type: "boolean", default: true, deprecated: true, description: "Legacy alias. Prefer store_content:false." },
@@ -537,7 +537,7 @@ export function openApiSpec(): Record<string, unknown> {
             content_trust_score: { type: "number", minimum: 0, maximum: 1, example: 0.36, description: "Derived video workflow trust score. Higher is better." },
             synthetic_video_risk: { type: "number", minimum: 0, maximum: 1, example: 0.64, description: "Contact-sheet visual synthetic-video risk signal; not proof of AI generation." },
             synthetic_risk: { type: "number", minimum: 0, maximum: 1, example: 0.64, description: "Alias for synthetic_video_risk for SDK consistency." },
-            signals: { type: "object", properties: { visual_synthetic_risk: { type: "number" }, metadata_risk: { type: "number" }, temporal_consistency_risk: { type: "number" }, audio_synthetic_risk: { type: "number" }, transcript_claim_risk: { type: "number" } } },
+            signals: { type: "object", description: "MVP contact-sheet signals only; no temporal/audio/transcript analysis is exposed until those behaviors ship.", properties: { visual_synthetic_risk: { type: "number" }, metadata_risk: { type: "number" } } },
             risk_level: { type: "string", enum: ["low", "medium", "high"] },
             recommended_action: { type: "string", enum: ["allow", "revise", "human_review", "reject"] },
             primary_reason: { type: "string", example: "sampled_frame_synthetic_media_cues", description: "Enum-like machine reason for the primary routing decision. Stable enough for agent branching; not forensic proof." },
@@ -667,7 +667,7 @@ export function sampleAnalyzeVideoResponse(analysisId = "vid_01KRA1VIDEOEXAMPLE"
     synthetic_risk: 0.64,
     confidence: "medium",
     primary_reason: "sampled_frame_synthetic_media_cues",
-    signals: { visual_synthetic_risk: 0.66, metadata_risk: 0.55, temporal_consistency_risk: 0.61, audio_synthetic_risk: 0, transcript_claim_risk: 0 },
+    signals: { visual_synthetic_risk: 0.66, metadata_risk: 0.55 },
     evidence: [
       { type: "visual_artifact", severity: "medium", span: "sampled contact-sheet frames", explanation: "Several sampled frames show texture and boundary artifacts that merit human review; this is a workflow signal, not forensic proof." },
       { type: "weak_provenance", severity: "medium", span: "container metadata", explanation: "Safe metadata lacks clear capture provenance or camera/device context." },
@@ -946,12 +946,13 @@ export function agentsJson(): Record<string, unknown> {
     },
     pricing: {
       model: "prepaid_credits",
-      billing: "New accounts get $1.50 free credit — enough for 300 analyze-only 1k-character text requests or 150 Analyze + revise requests. No subscriptions. Analyze-only text requests debit at $0.005 per 1,000 characters; Analyze + revise debits at $0.010 per 1,000 characters, rounded up; batch text is billed as the sum of per-item 1k-character units; image analysis debits $0.02/image; audio analysis debits $0.01/request.",
+      billing: "New accounts get $1.50 free credit — enough for 300 analyze-only 1k-character text requests or 150 Analyze + revise requests. No subscriptions. Analyze-only text requests debit at $0.005 per 1,000 characters; Analyze + revise debits at $0.010 per 1,000 characters, rounded up; batch text is billed as the sum of per-item 1k-character units; image analysis debits $0.02/image; audio analysis debits $0.01/request; private-beta video analysis debits $0.05/successful request in bucket video_v0.",
       text_analysis: { unit_chars: 1000, price_usd: 0.005, rounding: "round_up_to_nearest_1000_chars", bucket: "text_1k_units" },
       text_analyze_plus_revise: { unit_chars: 1000, price_usd: 0.010, rounding: "round_up_to_nearest_1000_chars", bucket: "text_revise_1k_units", request_flag: "auto_revise" },
       above_100k: "chunk or contact us",
       image_analysis: { unit: "image", price_usd: 0.02, bucket: "image_v0" },
       audio_analysis: { unit: "audio_request", price_usd: 0.01, bucket: "audio_v0" },
+      video_analysis_private_beta: { unit: "successful_video_request", price_usd: 0.05, bucket: "video_v0", limits: "30 seconds / 25 MB direct HTTPS video URL" },
       batch_text: { max_items: 25, max_chars_per_item: 4000, max_total_chars: 50000, billing: "sum_per_item" },
     },
     demo: {
@@ -992,7 +993,7 @@ export function agentsJson(): Record<string, unknown> {
       tools: ["analyze_text", "analyze_image", "analyze_audio", "check_balance", "get_balance", "analyze_batch"],
     },
     endpoints: [
-      { method: "POST", url: `${API_BASE_URL}/v1/analyze`, auth: "bearer", inputs: ["text", "image_url", "audio_url"], returns: ["recommended_action", "primary_reason", "risk_level", "evidence", "recommended_fixes"], cost: "text $0.005/1k chars; image $0.02; audio $0.01" },
+      { method: "POST", url: `${API_BASE_URL}/v1/analyze`, auth: "bearer", inputs: ["text", "image_url", "audio_url", "video_url_private_beta"], returns: ["recommended_action", "primary_reason", "risk_level", "evidence", "recommended_fixes"], cost: "text $0.005/1k chars; image $0.02; audio $0.01; video $0.05/success" },
       { method: "GET", url: `${API_BASE_URL}/v1/balance`, auth: "bearer", returns: ["balance_cents", "recent_usage"] },
     ],
     evals_object: {

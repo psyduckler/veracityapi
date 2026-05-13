@@ -115,3 +115,8 @@ Run `check_balance` before autonomous loops.
 
 
 Text auto-revise: set `auto_revise: true` on text requests to bill Analyze + revise at $0.010 / 1k characters and receive `revised_text` when `recommended_action` is `revise`. Evidence `type` values are strict enums for deterministic agent branching.
+
+
+### Video private beta
+
+The MCP server exposes `analyze_video` and routes `.mp4`, `.mov`, `.m4v`, and `.webm` URLs to video rather than audio. Video calls use `/v1/analyze-video`, force no raw video storage, are capped at 30 seconds / 25 MB, and cost $0.05 per successful API call.
