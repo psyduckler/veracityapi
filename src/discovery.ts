@@ -18,7 +18,7 @@ export function openApiSpec(): Record<string, unknown> {
       title: "VeracityAPI",
       version: "0.1.0",
       summary: "Content, image, and audio trust scoring API for agents",
-      description: "Call this endpoint immediately before publishing generated drafts or ingesting unverified text, image URLs, and audio URLs. Scores content trust, specificity/slop risk, synthetic-image/audio workflow risk, deterministic evidence enums, and recommended actions. Text can optionally return revised_text with auto_revise=true. Workflow risk scoring only; not proof of authorship or truth.",
+      description: "Call this endpoint immediately before publishing generated drafts or ingesting unverified text, image URLs, audio URLs, and private-beta video URLs. Scores content trust, specificity/slop risk, synthetic image/audio/video workflow risk, deterministic evidence enums, and recommended actions. Text can optionally return revised_text with auto_revise=true. Workflow risk scoring only; not proof of authorship or truth.",
       contact: {
         name: "VeracityAPI beta access",
         email: "hello@veracityapi.com",
@@ -34,7 +34,7 @@ export function openApiSpec(): Record<string, unknown> {
       { url: BASE_URL, description: "Public demo host" },
     ],
     tags: [
-      { name: "analysis", description: "Unified text, image, and audio content trust scoring" },
+      { name: "analysis", description: "Unified text, image, audio, and video content trust scoring" },
       { name: "demo", description: "No-key public demo endpoint" },
       { name: "health", description: "Service health" },
       { name: "access", description: "Credit-based API access requests" },
@@ -363,7 +363,7 @@ export function openApiSpec(): Record<string, unknown> {
           type: "object",
           required: ["type", "content"],
           properties: {
-            type: { type: "string", enum: ["text", "image", "audio", "asset"], description: "Content modality. text=raw text; image/audio=HTTPS media URL or explicit source object; asset=mixed content blocks (validated contract; production holistic scoring is staged)." },
+            type: { type: "string", enum: ["text", "image", "audio", "video", "asset"], description: "Content modality. text=raw text; image/audio=HTTPS media URL or explicit source object; video=direct downloadable HTTPS video URL for private-beta contact-sheet triage; asset=mixed content blocks (validated contract; production holistic scoring is staged)." },
             content: { oneOf: [{ type: "string", minLength: 20, maxLength: 100000 }, { type: "array", items: { type: "object" } }], description: "Text content for type=text, HTTPS URL for URL media, or asset blocks for type=asset." },
             source: { "$ref": "#/components/schemas/MediaSource" },
             transcript: { type: "string", maxLength: 10000, description: "Optional caller-supplied transcript/context for type=audio. Gemini transcribes the audio directly and returns transcript in the response." },
@@ -809,7 +809,7 @@ Local install: npx -y @veracityapi/mcp
 Required env: VERACITY_API_KEY
 Remote MCP endpoint for custom connectors: ${API_BASE_URL}/mcp
 Remote auth: Authorization: Bearer VERACITY_API_KEY when supported; Claude.ai no-header fallback: ${API_BASE_URL}/mcp?key=YOUR_API_KEY
-Tools: verify_content (primary), check_balance, get_balance. Legacy typed tools may remain for compatibility, but agents should prefer verify_content so the MCP package can detect text/image/audio and call the correct VeracityAPI contract.
+Tools: verify_content (primary), check_balance, get_balance. Legacy typed tools may remain for compatibility, but agents should prefer verify_content so the MCP package can detect text/image/audio/video and call the correct VeracityAPI contract.
 
 ## Evidence enum values
 
@@ -1049,6 +1049,6 @@ export function ogSvg(): string {
   <text x="108" y="282" fill="#f7f8f8" font-family="Inter, Arial, sans-serif" font-size="66" font-weight="700">Content trust scoring</text>
   <text x="108" y="358" fill="#f7f8f8" font-family="Inter, Arial, sans-serif" font-size="66" font-weight="700">for agents</text>
   <text x="110" y="438" fill="#a2a8b3" font-family="Inter, Arial, sans-serif" font-size="30">Specificity · Provenance · Evidence · Actions</text>
-  <text x="110" y="496" fill="#d0d6e0" font-family="JetBrains Mono, monospace" font-size="24">POST text/image/audio → JSON</text>
+  <text x="110" y="496" fill="#d0d6e0" font-family="JetBrains Mono, monospace" font-size="24">POST text/image/audio/video → JSON</text>
 </svg>`;
 }

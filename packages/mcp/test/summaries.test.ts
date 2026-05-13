@@ -19,6 +19,23 @@ describe("summaries", () => {
     expect(summary).toContain("not proof");
   });
 
+  it("summarizes video results without forensic proof language", () => {
+    const summary = summarizeAnalysisResult("video", {
+      risk_level: "medium",
+      recommended_action: "human_review",
+      content_trust_score: 0.58,
+      synthetic_video_risk: 0.64,
+      visual_synthetic_risk: 0.7,
+      metadata_risk: 0.2,
+      evidence: [{ explanation: "Sampled frames show temporal artifacts.", severity: "medium" }],
+      limitations: ["Not forensic proof of AI generation."]
+    });
+
+    expect(summary).toContain("video result");
+    expect(summary).toContain("synthetic_video_risk=0.64");
+    expect(summary).toContain("not proof");
+  });
+
   it("summarizes balance with top-up URL", () => {
     const summary = summarizeBalance({
       balance_cents: 149,

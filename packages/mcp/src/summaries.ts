@@ -1,4 +1,4 @@
-export type Modality = "text" | "image" | "audio" | "asset" | "content";
+export type Modality = "text" | "image" | "audio" | "video" | "asset" | "content";
 
 export function summarizeAnalysisResult(modality: Modality, result: Record<string, unknown>): string {
   const risk = stringValue(result.risk_level, "unknown");
@@ -34,6 +34,7 @@ function modalityScores(modality: Modality, result: Record<string, unknown>): st
     return ["synthetic_texture_risk", "slop_risk", "specificity_risk", "provenance_weakness"].map((key) => scorePart(key, result)).filter(Boolean).join(", ");
   }
   if (modality === "image") return [scorePart("synthetic_image_risk", result), scorePart("synthetic_risk", result)].filter(Boolean).join(", ");
+  if (modality === "video") return [scorePart("synthetic_video_risk", result), scorePart("visual_synthetic_risk", result), scorePart("metadata_risk", result), scorePart("synthetic_risk", result)].filter(Boolean).join(", ");
   return [scorePart("synthetic_audio_risk", result), scorePart("workflow_risk", result), scorePart("synthetic_risk", result)].filter(Boolean).join(", ");
 }
 

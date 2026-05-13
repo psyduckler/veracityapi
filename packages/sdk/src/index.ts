@@ -3,7 +3,7 @@ export type VeracityIntendedUse = "publish" | "train" | "cite" | "moderate" | "o
 export type VeracityRiskLevel = "low" | "medium" | "high";
 export type VeracityRecommendedAction = "allow" | "revise" | "human_review" | "reject";
 export type VeracityConfidence = "low" | "medium" | "high";
-export type VeracityAnalyzeType = "text" | "image" | "audio" | "asset";
+export type VeracityAnalyzeType = "text" | "image" | "audio" | "video" | "asset";
 
 export interface VeracityContext {
   format?: VeracityFormat;
@@ -36,7 +36,7 @@ export interface VeracityBillingMetadata {
 
 export interface VeracityAnalyzeResponse {
   analysis_id: string;
-  modality?: "text" | "image" | "audio" | "asset";
+  modality?: "text" | "image" | "audio" | "video" | "asset";
   content_trust_score?: number;
   risk_level: VeracityRiskLevel;
   recommended_action: VeracityRecommendedAction;
@@ -93,6 +93,8 @@ export interface AnalyzeAudioOptions {
   /** @deprecated Use storeContent instead. */
   store_content?: boolean;
 }
+
+export interface AnalyzeVideoOptions { videoUrl: string; context?: VeracityContext; storeContent?: boolean; }
 
 export interface AnalyzeBatchOptions {
   items: Array<{ id: string; text: string }>;
@@ -188,6 +190,8 @@ export class VeracityAPI {
       store_content: false,
     });
   }
+
+  analyzeVideo(input: AnalyzeVideoOptions): Promise<VeracityAnalyzeResponse> { return this.post<VeracityAnalyzeResponse>("/v1/analyze-video", { video_url: input.videoUrl, context: input.context, store_content: false }); }
 
   analyzeBatch(input: AnalyzeBatchOptions): Promise<Record<string, unknown>> {
     return this.post<Record<string, unknown>>("/v1/analyze-batch", {

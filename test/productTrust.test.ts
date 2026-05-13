@@ -140,7 +140,7 @@ describe("OpenAPI and agent discovery", () => {
 
     expect(spec.paths["/v1/analyze"].post.operationId).toBe("analyze");
     expect(spec.paths["/v1/analyze"].post.responses["402"]).toBeTruthy();
-    expect(spec.components.schemas.UnifiedAnalyzeRequest.properties.type.enum).toEqual(["text", "image", "audio", "asset"]);
+    expect(spec.components.schemas.UnifiedAnalyzeRequest.properties.type.enum).toEqual(["text", "image", "audio", "video", "asset"]);
     expect(spec.components.schemas.UnifiedAnalyzeRequest.properties.source).toBeTruthy();
     expect(spec.components.schemas.MediaSource).toBeTruthy();
     expect(spec.components.schemas.AnalyzeTextRequest.properties.context.properties.custom_policy.description).toMatch(/workflow policy/i);

@@ -39,7 +39,7 @@ Out of scope unless paired with a concrete exploit:
 
 ## Privacy-sensitive reporting notes
 
-VeracityAPI should not store image/audio bytes, base64 payloads, or full media URLs by default. Text requests should avoid raw-text retention when `store_content:false` or legacy `privacy_mode:true` is used. Report any observed drift from that contract.
+VeracityAPI should not store image/audio/video bytes, base64 payloads, frames/contact sheets, or full media URLs by default. Text requests should avoid raw-text retention when `store_content:false` or legacy `privacy_mode:true` is used. Report any observed drift from that contract.
 
 ## Disclosure
 

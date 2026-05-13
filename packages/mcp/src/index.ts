@@ -2,7 +2,7 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { analyzeAudioInputSchema, analyzeBatchInputSchema, analyzeImageInputSchema, analyzeTextInputSchema, verifyContentInputSchema, toolInputSchemas, toolOutputSchemas } from "./schemas.js";
+import { analyzeAudioInputSchema, analyzeBatchInputSchema, analyzeVideoInputSchema, analyzeImageInputSchema, analyzeTextInputSchema, verifyContentInputSchema, toolInputSchemas, toolOutputSchemas } from "./schemas.js";
 import { summarizeAnalysisResult, summarizeBalance, formatToolError, type Modality } from "./summaries.js";
 import { VeracityClient } from "./veracity-client.js";
 
@@ -42,6 +42,13 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       annotations: { readOnlyHint: false, openWorldHint: false, destructiveHint: false },
       inputSchema: toolInputSchemas.analyze_audio,
       outputSchema: toolOutputSchemas.analyze_audio,
+    },
+    {
+      name: "analyze_video",
+      description: "Analyze a short direct HTTPS video URL for authenticity workflow risk using bounded contact-sheet sampling. Private-beta triage only: not forensic proof of AI generation, deepfake manipulation, or truth.",
+      annotations: { readOnlyHint: false, openWorldHint: false, destructiveHint: false },
+      inputSchema: toolInputSchemas.analyze_video,
+      outputSchema: toolOutputSchemas.analyze_video,
     },
     {
       name: "analyze_batch",
@@ -91,6 +98,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const result = await client.analyzeAudio(input);
       return toolResult(summarizeAnalysisResult("audio", result), result);
     }
+    if (request.params.name === "analyze_video") {
+      const input = analyzeVideoInputSchema.parse(args);
+      const result = await client.analyzeVideo(input);
+      return toolResult(summarizeAnalysisResult("video", result), result);
+    }
     if (request.params.name === "analyze_batch") {
       const input = analyzeBatchInputSchema.parse(args);
       const result = await client.analyzeBatch(input);
@@ -107,7 +119,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 });
 
 function isModality(value: unknown): value is Modality {
-  return value === "text" || value === "image" || value === "audio" || value === "asset" || value === "content";
+  return value === "text" || value === "image" || value === "audio" || value === "video" || value === "asset" || value === "content";
 }
 
 function toolResult(summary: string, result: Record<string, unknown>) {

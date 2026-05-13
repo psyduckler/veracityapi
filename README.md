@@ -21,7 +21,7 @@ VeracityAPI is **not** a binary AI detector and not forensic proof of authorship
 - **One endpoint:** `POST /v1/analyze` for `type: "text" | "image" | "audio"`.
 - **Evidence-backed routing:** strict-ish enums, evidence spans/categories, recommended fixes, confidence, risk level, and limitations.
 - **Agent-ready by default:** OpenAPI, `/llms.txt`, `/.well-known/agents.json`, local/remote MCP, examples for LangGraph/Vercel/OpenAI Actions.
-- **Privacy defaults:** `store_content=false`; image/audio bytes, base64 payloads, and full media URLs are not stored.
+- **Privacy defaults:** `store_content=false`; image/audio/video bytes, base64 payloads, frames/contact sheets, and full media URLs are not stored.
 - **Usage-based pricing:** start free, then pay per request/unit; Team plan available for business usage.
 
 ## 30-second quickstart
@@ -162,7 +162,8 @@ This proves early routing-action calibration, not forensic authorship detection.
 
 ```text
 GET  /v1/balance
-POST /v1/analyze        # unified text/image/audio endpoint
+POST /v1/analyze        # unified text/image/audio endpoint; video routes to private-beta video triage
+POST /v1/analyze-video  # private-beta video authenticity risk
 POST /v1/analyze-batch  # synchronous text batch
 POST /v1/analyze-text   # legacy text endpoint
 POST /v1/analyze-image  # legacy image endpoint

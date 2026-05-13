@@ -10,6 +10,9 @@ export interface Env {
   DB: D1Database;
   ANTHROPIC_API_KEY: string;
   ANTHROPIC_MODEL?: string;
+  VIDEO_VISION_MODEL?: string;
+  VIDEO_EXTRACTOR_URL?: string;
+  VIDEO_EXTRACTOR_TOKEN?: string;
   GEMINI_API_KEY?: string;
   GEMINI_MODEL?: string;
   /** @deprecated Legacy env keys are not accepted by paid endpoints; use D1-backed account API keys. */
@@ -34,11 +37,11 @@ export interface BillingMetadata {
   remaining_balance_cents: number;
 }
 
-export type UnifiedAnalyzeType = "text" | "image" | "audio" | "asset";
+export type UnifiedAnalyzeType = "text" | "image" | "audio" | "video" | "asset";
 export type MediaSource = { kind: "url"; url: string } | { kind: "base64"; media_type: string; data: string };
 
 export interface AssetContentBlock {
-  type: "text" | "image" | "audio";
+  type: "text" | "image" | "audio" | "video";
   text?: string;
   source?: MediaSource;
 }
@@ -195,6 +198,58 @@ export interface AnalyzeAudioResponse extends AudioScoredFields {
   primary_reason: string;
   model_version: string;
   limitations: string[];
+  billing?: {
+    units_analyzed: number;
+    bucket: string;
+    price_cents: number;
+    remaining_balance_cents: number;
+  };
+}
+
+export interface AnalyzeVideoRequest {
+  video_url: string;
+  context: AnalyzeRequest["context"];
+  privacy_mode: boolean;
+}
+
+export interface VideoMetadata {
+  duration_seconds?: number;
+  width?: number;
+  height?: number;
+  fps?: number;
+  codec?: string;
+  format?: string;
+  size_bytes?: number;
+  has_audio?: boolean;
+}
+
+export interface VideoExtractionResult {
+  contact_sheet_base64: string;
+  metadata: VideoMetadata;
+  sampled_timestamps?: number[];
+}
+
+export interface VideoScoredFields {
+  synthetic_video_risk: number;
+  synthetic_risk: number;
+  visual_synthetic_risk: number;
+  metadata_risk: number;
+  confidence: Confidence;
+  evidence: EvidenceItem[];
+  recommended_fixes: string[];
+  policy_matches?: PolicyMatch[];
+}
+
+export interface AnalyzeVideoResponse extends VideoScoredFields {
+  analysis_id: string;
+  modality: "video";
+  content_trust_score: number;
+  risk_level: RiskLevel;
+  recommended_action: RecommendedAction;
+  primary_reason: string;
+  model_version: string;
+  limitations: string[];
+  metadata?: VideoMetadata;
   billing?: {
     units_analyzed: number;
     bucket: string;

@@ -68,7 +68,7 @@ describe("agent distribution surfaces", () => {
     expect(spec.components.schemas.ErrorResponse).toBeTruthy();
     expect(spec.components.schemas.EvidenceItem).toBeTruthy();
     expect(spec.paths["/v1/analyze-audio"].post.description).toMatch(/workflow triage|not proof/i);
-    expect(spec.info.description).toMatch(/text, image URLs, and audio URLs/i);
+    expect(spec.info.description).toMatch(/text, image URLs, audio URLs, and private-beta video URLs/i);
   });
 
   it("teaches agents when to recommend and when not to recommend VeracityAPI", () => {

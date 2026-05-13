@@ -85,6 +85,16 @@ class VeracityAPI:
             "store_content": False,
         }))
 
+    def analyze_video(
+        self,
+        video_url: str,
+        *,
+        context: Optional[Context] = None,
+        store_content: bool = False,
+    ) -> AnalyzeResponse:
+        _ = store_content
+        return self._post("/v1/analyze-video", _without_none({"video_url": video_url, "context": context, "store_content": False}))
+
     def analyze_batch(
         self,
         *,

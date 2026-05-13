@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
-import { analyzeAudioInputSchema, analyzeImageInputSchema, analyzeTextInputSchema, toolInputSchemas } from "../src/schemas.js";
+import { analyzeAudioInputSchema, analyzeImageInputSchema, analyzeTextInputSchema, analyzeVideoInputSchema, toolInputSchemas } from "../src/schemas.js";
 
 describe("MCP input schemas", () => {
   it("defaults text context and raw-content storage", () => {
@@ -40,6 +40,13 @@ describe("MCP input schemas", () => {
     expect(() => analyzeAudioInputSchema.parse({ audio_url: "http://example.com/clip.mp3" })).toThrow(/https/i);
   });
 
+  it("matches the live video contract", () => {
+    const parsed = analyzeVideoInputSchema.parse({ video_url: "https://example.com/clip.mp4" });
+    expect(parsed.store_content).toBe(false);
+    expect(parsed.context.format).toBe("other");
+    expect(String(toolInputSchemas.analyze_video.properties.store_content.description)).toContain("do not store raw video");
+  });
+
   it("is hardened for first public npm publish", () => {
     const pkg = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, "..", "package.json"), "utf8"));
     expect(pkg.publishConfig).toEqual({ access: "public" });
@@ -51,7 +58,7 @@ describe("MCP input schemas", () => {
   });
 
   it("documents canonical MCP tools plus compatibility aliases", () => {
-    expect(Object.keys(toolInputSchemas)).toEqual(expect.arrayContaining(["analyze_text", "analyze_image", "analyze_audio", "check_balance", "get_balance", "analyze_batch"]));
+    expect(Object.keys(toolInputSchemas)).toEqual(expect.arrayContaining(["analyze_text", "analyze_image", "analyze_audio", "analyze_video", "check_balance", "get_balance", "analyze_batch"]));
     expect(toolInputSchemas.get_balance).toBe(toolInputSchemas.check_balance);
     expect(toolInputSchemas.analyze_batch.properties.items.description).toMatch(/1-25 text items/i);
   });
