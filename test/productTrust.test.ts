@@ -200,17 +200,22 @@ describe("privacy logging", () => {
 });
 
 describe("homepage conversion", () => {
-  it("leads with content trust infrastructure, action-first routing, and developer switch-statement value", () => {
+  it("leads with AI output linter positioning, action-first routing, and developer switch-statement value", () => {
     const html = homepageHtml();
-    expect(html).toContain("Content trust infrastructure for AI products that ship");
-    expect(html).toContain("Give your app, agent, or publishing pipeline one evidence-backed decision before it trusts content");
+    expect(html).toContain("Detect AI slop before it ships.");
+    expect(html).toContain("VeracityAPI is a drop-in linter for AI outputs");
+    expect(html).toContain("We don’t care who wrote it. We care whether it’s shippable.");
+    expect(html).toContain("Workflow signals, not forensic proof");
+    expect(html).toContain("AI forgery detection");
+    expect(html).toContain("Don’t just detect slop. Fix it.");
+    expect(html).toContain("auto_revise");
     expect(html).toContain("Just write your switch statement");
     expect(html).toContain("switch (result.recommended_action)");
-    expect(html).toContain("$1.50 free credit — enough for 300 analyze-only 1k-character text requests or 150 Analyze + revise requests");
+    expect(html).toContain("$1.50 free credit");
     expect(html).toContain("curl https://api.veracityapi.com/v1/analyze");
     expect(html).toContain('"recommended_action"');
     const hero = html.slice(html.indexOf("<section class=\"hero"), html.indexOf("</section>", html.indexOf("<section class=\"hero")));
-    expect((hero.match(/class=\"btn/g) || []).length).toBe(3);
+    expect((hero.match(/class=\"btn/g) || []).length).toBe(4);
     expect(hero).toContain("Get API key");
     expect(hero).toContain("Read docs");
     expect(hero).toContain("Try live demo");

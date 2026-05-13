@@ -5,7 +5,7 @@ export type ChromeMode = "loud" | "restrained" | "minimal";
 export const NAV_LINKS = [
   ["/docs", "Docs"],
   ["/evals", "Evals"],
-  ["/methodology", "Trust model"],
+  ["/methodology", "Methodology"],
   ["/for-agents", "For agents"],
   ["/pricing", "Pricing"],
 ] as const;
@@ -15,7 +15,7 @@ export function canonicalNav(mode: ChromeMode = "restrained"): string {
 }
 
 export function canonicalFooter(): string {
-  return `<footer class="footer"><div class="wrap footergrid"><div><strong>VeracityAPI</strong><p>Content trust and specificity scoring for agents — not proof of authorship, identity, truth, or legality.</p></div><p><a href="/docs">docs</a> · <a href="/evals">evals</a> · <a href="/use-cases">use cases</a> · <a href="/pricing">pricing</a> · <a href="/about">about</a> · <a href="/privacy">privacy</a> · <a href="/terms">terms</a> · <a href="/security">security</a> · <a href="/llms.txt">llms.txt</a> · <a href="/sitemap.xml">sitemap</a></p></div></footer>`;
+  return `<footer class="footer"><div class="wrap footergrid"><div><strong>VeracityAPI</strong><p>AI slop and forgery detection for agent and content workflows — workflow signals, not forensic proof.</p></div><p><a href="/docs">docs</a> · <a href="/evals">evals</a> · <a href="/use-cases">use cases</a> · <a href="/pricing">pricing</a> · <a href="/about">about</a> · <a href="/privacy">privacy</a> · <a href="/terms">terms</a> · <a href="/security">security</a> · <a href="/llms.txt">llms.txt</a> · <a href="/sitemap.xml">sitemap</a></p></div></footer>`;
 }
 
 export function chromeButton(label: string, href: string, primary = false): string { return `<a class="btn${primary ? " primary" : ""}" href="${href}">${label}</a>`; }
