@@ -10,7 +10,7 @@ import { authorizeExtension, exchangeExtensionCode, ExtensionAuthError, extensio
 import { DEMO_IMAGE_CONTENT_TYPE, DEMO_IMAGE_PATH, demoImageBytes } from "./demoImage";
 import { DEMO_AUDIO_CONTENT_TYPE, DEMO_AUDIO_PATH, demoAudioBytes } from "./demoAudio";
 import { ogPngBytes } from "./ogPng";
-import { aboutHtml, alternativesHtml, categoryHtml, changelogHtml, docsHtml, evalsHtml, examplesHtml, forAgentsHtml, howItWorksHtml, methodologyHtml, trustModelHtml, mcpHtml, pricingHtml, privacyHtml, subprocessorsHtml, securityHtml, termsHtml, requestAccessHtml, statusHtml, useCaseHtml, useCasesIndexHtml } from "./pages";
+import { aboutHtml, alternativesHtml, categoryHtml, changelogHtml, docsHtml, docsErrorsHtml, evalsHtml, examplesHtml, forAgentsHtml, howItWorksHtml, methodologyHtml, trustModelHtml, mcpHtml, pricingHtml, privacyHtml, subprocessorsHtml, securityHtml, termsHtml, requestAccessHtml, statusHtml, useCaseHtml, useCasesIndexHtml, whatWeDetectHtml } from "./pages";
 import { distributionPageHtml, distributionRedirectTarget } from "./distribution";
 import { homepageHtml } from "./site";
 import { welcomeHtml } from "./welcome";
@@ -68,6 +68,8 @@ export default {
 
     const pageRoutes: Record<string, () => string> = {
       "/docs": docsHtml,
+      "/docs/errors": docsErrorsHtml,
+      "/what-we-detect": whatWeDetectHtml,
       "/welcome": welcomeHtml,
       "/how-it-works": howItWorksHtml,
       "/methodology": methodologyHtml,

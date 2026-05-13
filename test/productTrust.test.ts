@@ -3,7 +3,7 @@ import worker from "../src/index";
 import { accountHtml, type AccountView } from "../src/account";
 import { authenticateUsageKey, BillingAuthError } from "../src/billing";
 import { logAnalysis } from "../src/db";
-import { openApiSpec, llmsTxt, agentsJson, sampleAnalyzeResponse, sampleAnalyzeImageResponse, sampleAnalyzeAudioResponse } from "../src/discovery";
+import { openApiSpec, llmsTxt, agentsJson, sitemapXml, sampleAnalyzeResponse, sampleAnalyzeImageResponse, sampleAnalyzeAudioResponse } from "../src/discovery";
 import { homepageHtml } from "../src/site";
 import { welcomeHtml } from "../src/welcome";
 import { EVIDENCE_TYPES, type AnalyzeRequest, type AnalyzeResponse } from "../src/types";
@@ -492,5 +492,92 @@ describe("patches 1-4 audit remediations", () => {
       expect(res.status, path).toBe(301);
       expect(res.headers.get("location"), path).toBe("https://veracityapi.com/methodology");
     }
+  });
+});
+
+
+describe("conversion remediation shipment", () => {
+  const env = { DB: new EmptyDb(), ANTHROPIC_API_KEY: "test", API_KEYS: "" } as any;
+
+  it("upgrades docs with quickstart, response schema, errors, and signal definitions", async () => {
+    const docs = await (await worker.fetch(new Request("https://veracityapi.com/docs"), env)).text();
+    expect(docs).toContain("Quickstart — 5 minutes to your first analyzed result");
+    expect(docs).toContain("Complete response example");
+    expect(docs).toContain("recommended_action");
+    expect(docs).toContain("allow → publish or proceed");
+    expect(docs).toContain("revise → fix the flagged signals");
+    expect(docs).toContain("human_review → route to a human");
+    expect(docs).toContain("reject → block or discard");
+    expect(docs).toContain("auto_revise");
+    expect(docs).toContain("store_content:false");
+    for (const term of ["slop_risk", "synthetic_risk", "specificity_risk", "provenance_weakness", "risk_level", "confidence", "primary_reason", "threshold", "intended_use"]) {
+      expect(docs).toContain(term);
+    }
+    expect(docs).toContain("/docs/errors");
+  });
+
+  it("serves /docs/errors with production retry guidance", async () => {
+    const res = await worker.fetch(new Request("https://veracityapi.com/docs/errors"), env);
+    const html = await res.text();
+    expect(res.status).toBe(200);
+    expect(html).toContain("401");
+    expect(html).toContain("429");
+    expect(html).toContain("Retry-After");
+    expect(html).toContain("exponential backoff");
+    expect(html).toContain("insufficient credits");
+    expect(html).toContain("validation errors");
+  });
+
+  it("renders transparent pricing and starter-credit units", async () => {
+    const pricing = await (await worker.fetch(new Request("https://veracityapi.com/pricing"), env)).text();
+    expect(pricing).toContain("300,000 characters");
+    expect(pricing).toContain("$1.50");
+    expect(pricing).toContain("$0.005");
+    expect(pricing).toContain("$0.010");
+    expect(pricing).toContain("$0.02");
+    expect(pricing).toContain("$0.01");
+    expect(pricing).toContain("rounded up");
+    expect(pricing).toContain("auto_revise:true");
+    expect(pricing).toContain("Why does human_review cost the same as allow?");
+  });
+
+  it("serves /what-we-detect with concrete examples and modality-aware boundaries", async () => {
+    const res = await worker.fetch(new Request("https://veracityapi.com/what-we-detect"), env);
+    const html = await res.text();
+    expect(res.status).toBe(200);
+    expect(html).toContain("What we catch");
+    expect(html).toContain("What we do not catch");
+    expect(html).toContain("Generic, low-information phrasing");
+    expect(html).toContain("Unsupported claims presented as fact");
+    expect(html).toContain("Weak provenance / source risk");
+    expect(html).toContain("Synthetic image cues");
+    expect(html).toContain("Synthetic audio cues");
+    expect(html).not.toContain("Image slop");
+    expect(html).not.toContain("Audio slop");
+  });
+
+  it("updates sitemap and agent discovery for new conversion pages", () => {
+    const sitemap = sitemapXml();
+    const agents = agentsJson() as any;
+    expect(sitemap).toContain("https://veracityapi.com/docs/errors");
+    expect(sitemap).toContain("https://veracityapi.com/what-we-detect");
+    expect(llmsTxt()).toContain("https://veracityapi.com/docs/errors");
+    expect(llmsTxt()).toContain("https://veracityapi.com/what-we-detect");
+    expect(agents.docs_errors).toBe("https://veracityapi.com/docs/errors");
+    expect(agents.what_we_detect).toBe("https://veracityapi.com/what-we-detect");
+  });
+
+  it("tightens homepage demo conversion copy and dogfood proof", () => {
+    const homepage = homepageHtml();
+    expect(homepage).toContain("Paste your own draft");
+    expect(homepage).toContain("no signup required");
+    expect(homepage).toContain("4,000 characters");
+    expect(homepage).toContain("store_content=false");
+    expect(homepage).toContain("Want the full API output");
+    expect(homepage).toContain("Sign up free");
+    expect(homepage).toContain("Public demo limit reached");
+    expect(homepage).toContain("Create a free API key");
+    expect(homepage).toContain("Dogfooded");
+    expect(homepage).not.toContain("Trusted by customers");
   });
 });

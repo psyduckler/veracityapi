@@ -219,6 +219,25 @@ export function openApiSpec(): Record<string, unknown> {
           },
         },
       },
+
+      "/v1/analyze-video": {
+        post: {
+          tags: ["analysis"],
+          operationId: "analyzeVideo",
+          summary: "Analyze a video URL for authenticity-risk triage",
+          description: "Private-beta typed endpoint for URL-only video authenticity-risk scoring. Extracts a bounded six-frame 3x2 contact sheet plus safe metadata, scores visual synthetic-video risk with Claude Haiku vision, bills 5 cents on success, and stores no raw video, frames, contact sheet, or full URL. Workflow triage only; not forensic proof of AI generation or manipulation.",
+          security: [{ bearerAuth: [] }],
+          requestBody: { required: true, content: { "application/json": { schema: { "$ref": "#/components/schemas/AnalyzeVideoRequest" }, examples: { socialClip: { value: { video_url: "https://cdn.example.com/social-clip.mp4", context: { format: "social_post", intended_use: "moderate", domain: "short-form video authenticity" }, store_content: false } } } } } },
+          responses: {
+            "200": { description: "Video authenticity-risk result", content: { "application/json": { schema: { "$ref": "#/components/schemas/AnalyzeVideoResponse" }, examples: { sample: { value: sampleAnalyzeVideoResponse("vid_01EXAMPLE") } } } } },
+            "400": { "$ref": "#/components/responses/BadRequest" },
+            "401": { "$ref": "#/components/responses/Unauthorized" },
+            "402": { "$ref": "#/components/responses/InsufficientBalance" },
+            "429": { "$ref": "#/components/responses/RateLimited" },
+            "503": { "$ref": "#/components/responses/LlmUnavailable" },
+          },
+        },
+      },
       "/demo/analyze": {
         post: {
           tags: ["demo"],
@@ -427,6 +446,17 @@ export function openApiSpec(): Record<string, unknown> {
             privacy_mode: { type: "boolean", default: true, deprecated: true, description: "Legacy alias. Prefer store_content:false." },
           },
         },
+
+        AnalyzeVideoRequest: {
+          type: "object",
+          required: ["video_url"],
+          properties: {
+            video_url: { type: "string", format: "uri", maxLength: 2000, description: "Direct downloadable HTTPS video URL. Private-beta MVP supports mp4, webm, and quicktime-style containers up to the extractor cap." },
+            context: { "$ref": "#/components/schemas/AnalyzeTextRequest/properties/context" },
+            store_content: { type: "boolean", default: false, description: "Only supported video storage behavior: raw video, extracted frames, contact sheets, and full URLs are not stored; D1 logs keep only URL hash and hostname." },
+            privacy_mode: { type: "boolean", default: true, deprecated: true, description: "Legacy alias. Prefer store_content:false." },
+          },
+        },
         AnalyzeTextResponse: {
           type: "object",
           required: ["analysis_id", "modality", "slop_risk", "risk_level", "recommended_action", "primary_reason", "confidence", "evidence", "recommended_fixes", "model_version", "limitations"],
@@ -492,6 +522,29 @@ export function openApiSpec(): Record<string, unknown> {
             model_version: { type: "string", example: "v0.1" },
             limitations: { type: "array", items: { type: "string" } },
             billing: { type: "object", properties: { units_analyzed: { type: "integer" }, bucket: { type: "string", example: "audio_v0" }, price_cents: { type: "integer", example: 1 }, remaining_balance_cents: { type: "integer" } } },
+          },
+        },
+
+        AnalyzeVideoResponse: {
+          type: "object",
+          required: ["analysis_id", "modality", "content_trust_score", "synthetic_video_risk", "risk_level", "recommended_action", "primary_reason", "confidence", "signals", "evidence", "recommended_fixes", "model_version", "limitations"],
+          properties: {
+            request_id: { type: "string", description: "Stable request identifier also emitted as X-Request-Id for debugging." },
+            analysis_id: { type: "string", example: "vid_01KRA1EQPDJ7N2KHBXCQMGZYFJ" },
+            modality: { type: "string", enum: ["video"], description: "Response modality for agent branching." },
+            content_trust_score: { type: "number", minimum: 0, maximum: 1, example: 0.36, description: "Derived video workflow trust score. Higher is better." },
+            synthetic_video_risk: { type: "number", minimum: 0, maximum: 1, example: 0.64, description: "Contact-sheet visual synthetic-video risk signal; not proof of AI generation." },
+            synthetic_risk: { type: "number", minimum: 0, maximum: 1, example: 0.64, description: "Alias for synthetic_video_risk for SDK consistency." },
+            signals: { type: "object", properties: { visual_synthetic_risk: { type: "number" }, metadata_risk: { type: "number" }, temporal_consistency_risk: { type: "number" }, audio_synthetic_risk: { type: "number" }, transcript_claim_risk: { type: "number" } } },
+            risk_level: { type: "string", enum: ["low", "medium", "high"] },
+            recommended_action: { type: "string", enum: ["allow", "revise", "human_review", "reject"] },
+            primary_reason: { type: "string", example: "sampled_frame_synthetic_media_cues", description: "Enum-like machine reason for the primary routing decision. Stable enough for agent branching; not forensic proof." },
+            confidence: { type: "string", enum: ["low", "medium", "high"] },
+            evidence: { type: "array", items: { "$ref": "#/components/schemas/EvidenceItem" } },
+            recommended_fixes: { type: "array", items: { type: "string" } },
+            model_version: { type: "string", example: "v0.1-video" },
+            limitations: { type: "array", items: { type: "string" } },
+            billing: { type: "object", properties: { units_analyzed: { type: "integer" }, bucket: { type: "string", example: "video_v0" }, price_cents: { type: "integer", example: 5 }, remaining_balance_cents: { type: "integer" } } },
           },
         },
         AnalyzeImageResponse: {
@@ -603,6 +656,29 @@ export function sampleAnalyzeAudioResponse(analysisId = "aud_01KRA1AUDIOEXAMPLE"
   };
 }
 
+export function sampleAnalyzeVideoResponse(analysisId = "vid_01KRA1VIDEOEXAMPLE"): Record<string, unknown> {
+  return {
+    analysis_id: analysisId,
+    modality: "video",
+    content_trust_score: 0.36,
+    synthetic_video_risk: 0.64,
+    synthetic_risk: 0.64,
+    confidence: "medium",
+    primary_reason: "sampled_frame_synthetic_media_cues",
+    signals: { visual_synthetic_risk: 0.66, metadata_risk: 0.55, temporal_consistency_risk: 0.61, audio_synthetic_risk: 0, transcript_claim_risk: 0 },
+    evidence: [
+      { type: "visual_artifact", severity: "medium", span: "sampled contact-sheet frames", explanation: "Several sampled frames show texture and boundary artifacts that merit human review; this is a workflow signal, not forensic proof." },
+      { type: "weak_provenance", severity: "medium", span: "container metadata", explanation: "Safe metadata lacks clear capture provenance or camera/device context." },
+    ],
+    recommended_fixes: ["Request source/provenance context before high-stakes publication.", "Route medium/high-risk clips to human review instead of relying on a binary detector verdict."],
+    risk_level: "medium",
+    recommended_action: "human_review",
+    model_version: "v0.1-video",
+    limitations: ["Contact-sheet video workflow triage, not forensic proof of AI generation or manipulation.", "Low-resolution, heavily compressed, edited, or very short clips may reduce confidence."],
+    billing: { units_analyzed: 1, bucket: "video_v0", price_cents: 5, remaining_balance_cents: 995 },
+  };
+}
+
 export function llmsTxt(): string {
   return `# VeracityAPI
 
@@ -710,6 +786,8 @@ curl ${API_BASE_URL}/v1/analyze \\
 ## Human docs
 
 - Docs: ${BASE_URL}/docs
+- Error handling: ${BASE_URL}/docs/errors
+- What VeracityAPI detects: ${BASE_URL}/what-we-detect
 - For agents: ${BASE_URL}/for-agents
 - MCP integration: ${BASE_URL}/mcp
 - Claude connector: ${BASE_URL}/integrations/claude
@@ -794,7 +872,7 @@ ${DISTRIBUTION_PAGES.map((p) => `- ${p.title}: ${BASE_URL}${p.path} — ${p.desc
 }
 
 export function sitemapXml(): string {
-  const urls = ["/", "/docs", "/methodology", "/for-agents", "/mcp", "/how-it-works", "/use-cases", ...USE_CASES.map((u) => `/use-cases/${u.slug}`), ...DISTRIBUTION_PAGES.map((p) => p.path), "/evals", "/examples", "/pricing", "/about", "/status", "/changelog", "/privacy", "/security", "/subprocessors", "/terms", "/request-access", "/alternatives"];
+  const urls = ["/", "/docs", "/docs/errors", "/what-we-detect", "/methodology", "/for-agents", "/mcp", "/how-it-works", "/use-cases", ...USE_CASES.map((u) => `/use-cases/${u.slug}`), ...DISTRIBUTION_PAGES.map((p) => p.path), "/evals", "/examples", "/pricing", "/about", "/status", "/changelog", "/privacy", "/security", "/subprocessors", "/terms", "/request-access", "/alternatives"];
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${urls.map((path) => `  <url><loc>${BASE_URL}${path}</loc><changefreq>weekly</changefreq><priority>${path === "/" ? "1.0" : "0.7"}</priority></url>`).join("\n")}
@@ -815,6 +893,8 @@ export function agentsJson(): Record<string, unknown> {
     trust_model: `${BASE_URL}/methodology`,
     sitemap: `${BASE_URL}/sitemap.xml`,
     docs: `${BASE_URL}/docs`,
+    docs_errors: `${BASE_URL}/docs/errors`,
+    what_we_detect: `${BASE_URL}/what-we-detect`,
     for_agents: `${BASE_URL}/for-agents`,
     mcp: `${BASE_URL}/mcp`,
     remote_mcp: `${API_BASE_URL}/mcp`,
