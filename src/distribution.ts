@@ -1,5 +1,6 @@
 import { canonicalFooter, canonicalNav, cookieConsentScript, navScript, y2kCss } from "./y2k";
 import { CATEGORY_CONTEXT_LINKS, relatedLinksCard } from "./internalLinks";
+import { DEMO_VIDEO_SAMPLE, DEMO_VIDEO_URL } from "./demoVideo";
 
 const BASE_URL = "https://veracityapi.com";
 
@@ -466,12 +467,8 @@ function renderDemo(page: DistributionPage): string {
 }</pre></section><script>document.getElementById('audio-demo')?.addEventListener('submit',async(e)=>{e.preventDefault();const f=e.currentTarget;const out=document.getElementById('audio-demo-out');out.textContent='Analyzing…';const r=await fetch('/demo/analyze-audio',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({audio_url:f.audio_url.value,context:{format:'social_post',intended_use:'publish',domain:'voice-note UGC moderation'}})});out.textContent=JSON.stringify(await r.json(),null,2);});</script>`;
   }
   if (page.demo === "video") {
-    return `<section class="card"><h2>Preloaded video result</h2><p>The public page does not accept arbitrary video URLs. Authenticated private-beta customers call <code>POST /v1/analyze-video</code>; VeracityAPI extracts a bounded 3x2 contact sheet plus metadata, stores no raw video/frames/contact sheet/full URL, and bills $0.05 only on success.</p><pre>{
-  "modality": "video",
-  "synthetic_video_risk": 0.64,
-  "recommended_action": "human_review",
-  "billing": { "bucket": "video_v0", "price_cents": 5 }
-}</pre></section>`;
+    const sampleJson = JSON.stringify(DEMO_VIDEO_SAMPLE, null, 2);
+    return `<section class="card" id="preprocessed-video-demo"><h2>Preprocessed AI video detection demo</h2><p>This SEO page uses the same playable fixed fixture as the homepage. The public page does not accept arbitrary video URLs; authenticated private-beta customers call <code>POST /v1/analyze-video</code>. VeracityAPI extracts a bounded 3x2 contact sheet plus metadata, stores no raw video/frames/contact sheet/full URL, and bills $0.05 only on success.</p><video controls preload="metadata" playsinline src="${DEMO_VIDEO_URL}" style="width:100%;max-height:520px;background:#111;border:2px solid var(--line);border-radius:12px;margin:10px 0 8px"></video><label>Demo video URL<input value="${DEMO_VIDEO_URL}" readonly /></label><div class="grid"><div class="card"><h3>Preprocessed result</h3><p><strong>Action:</strong> ${esc(String(DEMO_VIDEO_SAMPLE.recommended_action))} · <strong>Risk:</strong> ${esc(String(DEMO_VIDEO_SAMPLE.risk_level))} · <strong>Visual risk:</strong> ${Math.round(Number(DEMO_VIDEO_SAMPLE.synthetic_video_risk) * 100)}%</p><p>${esc(String((DEMO_VIDEO_SAMPLE.evidence?.[0] as any)?.explanation || "Low apparent visual manipulation risk from sampled frames; not forensic proof."))}</p></div><div class="card"><h3>Why this is preprocessed</h3><p>No-key arbitrary video analysis would create immediate abuse cost. The fixture shows the exact result shape, URL behavior, privacy posture, and private-beta workflow without letting bots burn video extraction/vision budget.</p></div></div><pre>${esc(sampleJson)}</pre></section>`;
   }
   return "";
 }
