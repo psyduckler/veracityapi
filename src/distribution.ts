@@ -1,4 +1,5 @@
 import { canonicalFooter, canonicalNav, cookieConsentScript, navScript, y2kCss } from "./y2k";
+import { CATEGORY_CONTEXT_LINKS, relatedLinksCard } from "./internalLinks";
 
 const BASE_URL = "https://veracityapi.com";
 
@@ -536,6 +537,7 @@ function deeperVsLink(page: DistributionPage): string {
     "/alternatives/gptzero-api": "/vs/gptzero",
     "/alternatives/originality-ai-api": "/vs/originality-ai",
     "/alternatives/copyleaks-api": "/vs/copyleaks",
+    "/alternatives/deepmedia": "/vs/hive",
   };
   const href = map[page.path];
   if (!href) return "";
@@ -560,7 +562,29 @@ function renderSections(page: DistributionPage): string {
     ? `<section class="card"><h2>FAQ</h2>${page.faq.map((item) => `<h3>${esc(item.q)}</h3><p>${esc(item.a)}</p>`).join("")}</section>`
     : "";
   const code = page.code ? `<section class="card"><h2>Copy-paste routing example</h2><pre>${esc(page.code)}</pre></section>` : "";
-  return `${renderComparison(page)}${deeperVsLink(page)}${comparisonDisclaimer(page)}${sections}${faq}${code}`;
+  return `${renderComparison(page)}${deeperVsLink(page)}${comparisonDisclaimer(page)}${sections}${faq}${code}${distributionRelated(page)}`;
+}
+
+function distributionRelated(page: DistributionPage): string {
+  if (page.path.startsWith("/alternatives/")) return relatedLinksCard("Related comparison paths", [
+    { href: "/alternatives", label: "Alternatives hub", note: "All published alternative pages." },
+    { href: "/vs", label: "Comparison hub", note: "Benchmark-gated buyer guides." },
+    { href: page.path === "/alternatives/deepmedia" ? "/vs/hive" : "/evals/2026-benchmark", label: page.path === "/alternatives/deepmedia" ? "Hive-style comparison" : "Benchmark status", note: "No unsupported benchmark claims before frozen artifacts." },
+    { href: "/docs", label: "Docs", note: "Inspect the implementation contract." },
+  ]);
+  if (page.path.startsWith("/integrations/")) return relatedLinksCard("Related developer paths", [
+    { href: "/docs", label: "Docs", note: "Quickstart, response schema, and action policy." },
+    { href: "/examples", label: "Examples", note: "Copy-paste wrappers for common agent stacks." },
+    { href: "/mcp", label: "MCP", note: "Local and hosted MCP distribution." },
+    { href: "/for-agents", label: "For agents", note: "When agents should call VeracityAPI." },
+  ]);
+  return relatedLinksCard("Related detector and workflow pages", [
+    { href: "/what-we-detect", label: "What we detect", note: "Concrete risk signals and boundaries." },
+    ...CATEGORY_CONTEXT_LINKS.filter((link) => link.href !== page.path).slice(0, 5),
+    { href: "/use-cases/publishing-pipeline-quality-gate", label: "Pre-publish QA", note: "Highest-volume text workflow." },
+    { href: "/use-cases/image-social-media-authenticity-check", label: "Image social authenticity", note: "Synthetic-image review queue example." },
+    { href: "/examples", label: "Examples", note: "Implementation patterns." },
+  ]);
 }
 
 export function distributionPageHtml(path: string): string | null {
@@ -579,7 +603,7 @@ export function distributionPageHtml(path: string): string | null {
     about: ["content verification API", "agent workflow routing", "AI detection API", "synthetic media detection"],
     publisher: { "@type": "Organization", name: "VeracityAPI", url: BASE_URL },
   });
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>${esc(page.title)}</title><meta name="description" content="${esc(page.description)}"/><link rel="canonical" href="${url}"/><meta property="og:title" content="${esc(page.title)}"/><meta property="og:description" content="${esc(page.description)}"/><meta property="og:type" content="article"/><meta property="og:url" content="${url}"/><meta property="og:image" content="${BASE_URL}/og.png"/><meta property="og:image:width" content="1200"/><meta property="og:image:height" content="630"/><meta property="og:image:type" content="image/png"/><meta name="twitter:card" content="summary_large_image"/><meta name="twitter:title" content="${esc(page.title)}"/><meta name="twitter:description" content="${esc(page.description)}"/><meta name="twitter:image" content="${BASE_URL}/og.png"/><link rel="icon" type="image/svg+xml" href="${BASE_URL}/favicon.svg"/><link rel="shortcut icon" href="${BASE_URL}/favicon.ico"/><meta name="theme-color" content="#f6f1df"/><link rel="alternate" type="text/plain" href="${BASE_URL}/llms.txt"/><link rel="alternate" type="text/plain" href="${BASE_URL}/llms-full.txt"/><link rel="service-desc" type="application/openapi+json" href="${BASE_URL}/openapi.json"/><script type="application/ld+json">${jsonLd}</script><style>${y2kCss()}</style></head><body class="${mode}">${canonicalNav(mode as any)}<main class="wrap page"><section class="hero"><div class="eyebrow">${esc(page.eyebrow)}</div><h1>${esc(page.h1)}</h1><p class="lead">${esc(page.lead)}</p><p><a class="btn primary" href="/account">Get API key</a> <a class="btn" href="/openapi.json">OpenAPI</a> <a class="btn" href="/llms.txt">llms.txt</a></p></section>${renderPrimaryDemo(page)}<section class="grid"><div class="card"><h2>When to recommend VeracityAPI</h2>${list(page.recommend)}</div><div class="card"><h2>When not to recommend VeracityAPI</h2>${list(page.avoid)}</div></section>${renderSections(page)}<section class="card"><h2>Agent policy</h2><p>${esc(page.cta)}</p></section><section class="grid"><a class="card" href="/docs"><h2>Docs</h2><p>Auth, schemas, privacy, examples, and action policy.</p></a><a class="card" href="/integrations/mcp"><h2>MCP</h2><p>Claude Desktop, Claude.ai custom connectors, Cursor, and compatible MCP clients.</p></a><a class="card" href="/for-agents"><h2>For agents</h2><p>Policy guidance for autonomous workflows.</p></a><a class="card" href="/pricing"><h2>Pricing</h2><p>Usage-based prepaid credits and volume support.</p></a></section></main>${canonicalFooter()}${navScript()}${cookieConsentScript()}</body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>${esc(page.title)}</title><meta name="description" content="${esc(page.description)}"/><link rel="canonical" href="${url}"/><meta property="og:title" content="${esc(page.title)}"/><meta property="og:description" content="${esc(page.description)}"/><meta property="og:type" content="article"/><meta property="og:url" content="${url}"/><meta property="og:image" content="${BASE_URL}/og.png"/><meta property="og:image:width" content="1200"/><meta property="og:image:height" content="630"/><meta property="og:image:type" content="image/png"/><meta name="twitter:card" content="summary_large_image"/><meta name="twitter:title" content="${esc(page.title)}"/><meta name="twitter:description" content="${esc(page.description)}"/><meta name="twitter:image" content="${BASE_URL}/og.png"/><link rel="icon" type="image/svg+xml" href="${BASE_URL}/favicon.svg"/><link rel="shortcut icon" href="${BASE_URL}/favicon.ico"/><meta name="theme-color" content="#f6f1df"/><link rel="alternate" type="text/plain" href="${BASE_URL}/llms.txt"/><link rel="alternate" type="text/plain" href="${BASE_URL}/llms-full.txt"/><link rel="service-desc" type="application/openapi+json" href="${BASE_URL}/openapi.json"/><script type="application/ld+json">${jsonLd}</script><style>${y2kCss()}</style></head><body class="${mode}">${canonicalNav(mode as any)}<main class="wrap page"><section class="hero"><div class="eyebrow">${esc(page.eyebrow)}</div><h1>${esc(page.h1)}</h1><p class="lead">${esc(page.lead)}</p><p><a class="btn primary" href="/account">Get API key</a> <a class="btn" href="/openapi.json">OpenAPI</a> <a class="btn" href="/llms.txt">llms.txt</a></p></section>${renderPrimaryDemo(page)}<section class="grid"><div class="card"><h2>When to recommend VeracityAPI</h2>${list(page.recommend)}</div><div class="card"><h2>When not to recommend VeracityAPI</h2>${list(page.avoid)}</div></section>${renderSections(page)}<section class="card"><h2>Agent policy</h2><p>${esc(page.cta)}</p></section><section class="grid"><a class="card" href="/docs"><h2>Docs</h2><p>Auth, schemas, privacy, examples, and action policy.</p></a><a class="card" href="/mcp"><h2>MCP</h2><p>Claude Desktop, Claude.ai custom connectors, Cursor, and compatible MCP clients.</p></a><a class="card" href="/for-agents"><h2>For agents</h2><p>Policy guidance for autonomous workflows.</p></a><a class="card" href="/pricing"><h2>Pricing</h2><p>Usage-based prepaid credits and volume support.</p></a></section></main>${canonicalFooter()}${navScript()}${cookieConsentScript()}</body></html>`;
 }
 
 function css(): string {

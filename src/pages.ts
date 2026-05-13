@@ -1,6 +1,7 @@
 import { BENCHMARK_2026 } from "./benchmark2026";
 import { BLOG_POSTS } from "./blog";
 import { COMPARISONS } from "./comparisons";
+import { CATEGORY_CONTEXT_LINKS, CORE_CONTEXT_LINKS, modalityLinks, relatedLinksCard } from "./internalLinks";
 import { canonicalFooter, canonicalNav, cookieConsentScript, navScript, y2kCss } from "./y2k";
 const BASE_URL = "https://veracityapi.com";
 const API_BASE_URL = "https://api.veracityapi.com";
@@ -572,10 +573,57 @@ function layout(title: string, description: string, body: string, path = "/", sc
     breadcrumb: { "@type": "BreadcrumbList", itemListElement: [{ "@type": "ListItem", position: 1, name: "Home", item: BASE_URL }, { "@type": "ListItem", position: 2, name: title, item: canonical }] },
   });
   const mode = ["PrivacyPolicy", "TermsOfService", "WebPage"].includes(schemaType) ? "minimal" : "restrained";
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>${title}</title><meta name="description" content="${description}"/><link rel="canonical" href="${canonical}"/><meta property="og:title" content="${esc(title)}"/><meta property="og:description" content="${esc(description)}"/><meta property="og:type" content="article"/><meta property="og:url" content="${canonical}"/><meta property="og:image" content="${BASE_URL}/og.png"/><meta property="og:image:width" content="1200"/><meta property="og:image:height" content="630"/><meta property="og:image:type" content="image/png"/><meta name="twitter:card" content="summary_large_image"/><meta name="twitter:title" content="${esc(title)}"/><meta name="twitter:description" content="${esc(description)}"/><meta name="twitter:image" content="${BASE_URL}/og.png"/><link rel="icon" type="image/svg+xml" href="${BASE_URL}/favicon.svg"/><link rel="shortcut icon" href="${BASE_URL}/favicon.ico"/><meta name="theme-color" content="#f6f1df"/><link rel="alternate" type="text/plain" href="${BASE_URL}/llms.txt"/><link rel="alternate" type="text/plain" href="${BASE_URL}/llms-full.txt"/><link rel="service-desc" type="application/openapi+json" href="${BASE_URL}/openapi.json"/><script type="application/ld+json">${jsonLd}</script><style>${y2kCss()}</style></head><body class="${mode}">${canonicalNav(mode as any)}<main class="wrap page">${body}</main>${canonicalFooter()}${navScript()}${cookieConsentScript()}</body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>${title}</title><meta name="description" content="${description}"/><link rel="canonical" href="${canonical}"/><meta property="og:title" content="${esc(title)}"/><meta property="og:description" content="${esc(description)}"/><meta property="og:type" content="article"/><meta property="og:url" content="${canonical}"/><meta property="og:image" content="${BASE_URL}/og.png"/><meta property="og:image:width" content="1200"/><meta property="og:image:height" content="630"/><meta property="og:image:type" content="image/png"/><meta name="twitter:card" content="summary_large_image"/><meta name="twitter:title" content="${esc(title)}"/><meta name="twitter:description" content="${esc(description)}"/><meta name="twitter:image" content="${BASE_URL}/og.png"/><link rel="icon" type="image/svg+xml" href="${BASE_URL}/favicon.svg"/><link rel="shortcut icon" href="${BASE_URL}/favicon.ico"/><meta name="theme-color" content="#f6f1df"/><link rel="alternate" type="text/plain" href="${BASE_URL}/llms.txt"/><link rel="alternate" type="text/plain" href="${BASE_URL}/llms-full.txt"/><link rel="service-desc" type="application/openapi+json" href="${BASE_URL}/openapi.json"/><script type="application/ld+json">${jsonLd}</script><style>${y2kCss()}</style></head><body class="${mode}">${canonicalNav(mode as any)}<main class="wrap page">${body}${relatedForPath(path)}</main>${canonicalFooter()}${navScript()}${cookieConsentScript()}</body></html>`;
 }
 
 function css(): string { return y2kCss(); }
+
+function relatedForPath(path: string): string {
+  if (path === "/") return "";
+  if (path === "/docs") return relatedLinksCard("Next docs to open", [
+    { href: "/docs/errors", label: "Error handling", note: "Auth, credits, validation, rate limits, retries, and provider failure modes." },
+    { href: "/examples", label: "Examples", note: "Copy-paste wrappers for queues, agents, cron jobs, and moderation." },
+    { href: "/mcp", label: "MCP", note: "Expose VeracityAPI as structured tools for compatible agent clients." },
+    { href: "/integrations/openai-actions", label: "OpenAI Actions", note: "Import the OpenAPI spec into action-capable assistants." },
+    { href: "/integrations/langgraph", label: "LangGraph", note: "Branch graph workflows on recommended_action." },
+    { href: "/what-we-detect", label: "What we detect", note: "Understand the signals behind the API response." },
+  ], "Keep moving from quickstart into production-grade integration paths.");
+  if (["/what-we-detect", "/how-it-works", "/methodology", "/trust-model", "/for-agents", "/examples", "/mcp", "/docs/errors"].includes(path)) {
+    return relatedLinksCard("Related product paths", CORE_CONTEXT_LINKS.concat(CATEGORY_CONTEXT_LINKS.slice(0, 3)), "Contextual links into developer docs, modality pages, and comparison surfaces.");
+  }
+  if (path.startsWith("/blog")) return relatedLinksCard("Related reading and proof", [
+    { href: "/evals/2026-benchmark", label: "2026 benchmark status", note: "Frozen-number gate before indexed competitor claims." },
+    { href: "/vs", label: "Comparison hub", note: "Noindex buyer guides while benchmark data is pending." },
+    { href: "/ai-detection-api", label: "AI detection API", note: "Action-first product category framing." },
+    { href: "/docs", label: "Docs", note: "Integrate routing actions into your workflow." },
+  ]);
+  if (path.startsWith("/vs")) return relatedLinksCard("Compare adjacent options", [
+    { href: "/alternatives", label: "Alternatives hub", note: "High-level alternatives and category fit." },
+    { href: "/evals/2026-benchmark", label: "Benchmark status", note: "Why competitor claims are gated until frozen artifacts exist." },
+    { href: "/docs", label: "Docs", note: "Inspect the production API contract." },
+    { href: "/pricing", label: "Pricing", note: "Usage-based economics for buyer evaluation." },
+  ]);
+  if (path.startsWith("/integrations/")) return relatedLinksCard("Developer integration paths", [
+    { href: "/docs", label: "Docs", note: "The canonical API contract and response schema." },
+    { href: "/examples", label: "Examples", note: "Copy-paste wrappers for common agent workflows." },
+    { href: "/mcp", label: "MCP", note: "Local and remote MCP distribution for agent clients." },
+    { href: "/for-agents", label: "For agents", note: "When agents should call VeracityAPI and when they should not." },
+  ]);
+  if (path.startsWith("/categories/") || path.startsWith("/ai-") || path === "/synthetic-media-detection-api") return relatedLinksCard("Related detector workflows", [
+    { href: "/what-we-detect", label: "What we detect", note: "The exact signals and boundaries behind workflow-risk scoring." },
+    { href: "/use-cases/publishing-pipeline-quality-gate", label: "Pre-publish QA", note: "Stop slop before a generated page or caption goes live." },
+    { href: "/use-cases/training-data-curation", label: "Training-data curation", note: "Filter weak source material before RAG or fine-tuning." },
+    { href: "/examples", label: "Examples", note: "Copy-paste implementation patterns." },
+  ].concat(CATEGORY_CONTEXT_LINKS.filter((link) => link.href !== path).map((link) => ({ href: link.href, label: link.label, note: link.note ?? "Related VeracityAPI workflow." }))));
+  if (path.startsWith("/alternatives")) return relatedLinksCard("Continue comparison research", [
+    { href: "/vs", label: "Comparison hub", note: "Deeper buyer guides without unsupported benchmark claims." },
+    { href: "/vs/gptzero", label: "GPTZero vs VeracityAPI", note: "Compare detector-likelihood vs workflow routing jobs." },
+    { href: "/vs/originality-ai", label: "Originality.ai vs VeracityAPI", note: "Compare originality checks and content QA routing." },
+    { href: "/vs/copyleaks", label: "Copyleaks vs VeracityAPI", note: "Compare plagiarism/originality vs agent workflow risk." },
+    { href: "/vs/hive", label: "Hive-style media comparison", note: "Compare media detector needs against async review routing." },
+  ]);
+  return relatedLinksCard("Explore VeracityAPI", CORE_CONTEXT_LINKS.slice(0, 4));
+}
 
 
 interface LandingPage { slug: string; title: string; eyebrow: string; description: string; bullets: string[]; body: string; }
@@ -641,6 +689,14 @@ export function useCaseHtml(slug: string): string | null {
       ? ["Is the page clearly marked as beta workflow triage, not forensic proof?", "What consent, retention, and privacy rules govern the audio clips?", "What independent verification is required before consequential decisions?", "How will the agent behave if audio scoring is unavailable or inconclusive?", "Which reviewer outcome should be captured for future calibration?"]
       : ["Does this workflow have a costly failure mode from generic or weak-provenance text?", "Can the agent map evidence spans back to editable source locations?", "Should this workflow fail open, fail closed, or queue human review if VeracityAPI is unavailable?", "Which field drives policy: recommended_action, risk_level, content_trust_score, specificity_risk, or provenance_weakness?", "What local rule should complement the API score?"];
   const policyCode = `if (result.recommended_action === "allow") continueWorkflow();\nif (result.recommended_action === "revise") rewriteWith(result.evidence, result.recommended_fixes);\nif (result.recommended_action === "human_review") queueForHumanReview(result);\nif (result.recommended_action === "reject") discardOrRebuild();`;
+  const currentIndex = USE_CASES.findIndex((item) => item.slug === u.slug);
+  const siblingLinks = [USE_CASES[(currentIndex + USE_CASES.length - 1) % USE_CASES.length], USE_CASES[(currentIndex + 1) % USE_CASES.length]].map((item) => ({ href: `/use-cases/${item.slug}`, label: item.title, note: item.summary }));
+  const related = relatedLinksCard("Related use-case cluster", [
+    { href: "/use-cases", label: "All use cases", note: "Browse the full workflow library." },
+    ...modalityLinks(u.modality),
+    ...siblingLinks,
+    { href: "/docs", label: "Implementation docs", note: "Wire this workflow into the API contract." },
+  ], "Move from this specific workflow into the nearest modality, sibling jobs, and implementation docs.");
   return layout(`${u.title} | VeracityAPI use case`, u.summary, `<section class="hero"><div class="eyebrow">${esc(u.eyebrow)}</div><h1>${esc(u.title)}</h1><p class="lead">${esc(u.summary)}</p><p><a class="btn primary" href="/account">Get API key</a> <a class="btn" href="/use-cases">All use cases</a> <a class="btn" href="/docs">Docs</a></p></section>
 <section class="grid"><div class="card"><h3>Business value</h3>${list(u.businessValue)}</div><div class="card"><h3>Agent job to be done</h3><p>${esc(u.agentJob)}</p><p><span class="pill">format: ${esc(u.context.format)}</span><span class="pill">intended_use: ${esc(u.context.intended_use)}</span><span class="pill">domain: ${esc(u.context.domain)}</span></p></div></section>
 <section class="grid"><div class="card"><h3>When to call VeracityAPI</h3><p>${esc(u.trigger)}</p><h3>${inputLabel}</h3><p>${esc(u.input)}</p></div><div class="card"><h3>Decision policy</h3>${list(u.policy)}</div></section>
@@ -648,7 +704,7 @@ ${requestBlock}
 <section class="grid"><div class="card"><h3>Automation recipe</h3>${list(u.automation)}</div><div class="card"><h3>Evidence spans agents should inspect</h3>${list(u.evidence)}</div></section>
 <section class="grid"><div class="card"><h3>Policy pseudocode</h3><pre>${policyCode}</pre></div><div class="card"><h3>KPIs to track</h3>${list(u.kpis)}</div></section>
 <section class="grid"><div class="card"><h3>What can go wrong</h3>${list(u.caveats)}</div><div class="card"><h3>Cost and latency notes</h3><p>${costNotes}</p></div></section>
-<section class="card"><h3>Agent evaluation checklist</h3><ul>${checklist.map((item) => `<li>${esc(item)}</li>`).join("")}</ul></section>`, `/use-cases/${u.slug}`, "HowTo");
+<section class="card"><h3>Agent evaluation checklist</h3><ul>${checklist.map((item) => `<li>${esc(item)}</li>`).join("")}</ul></section>${related}`, `/use-cases/${u.slug}`, "HowTo");
 }
 
 export function docsHtml(): string { return layout("VeracityAPI Docs", "API docs for VeracityAPI content trust scoring.", `<section class="docsShell"><aside class="docsSide"><div class="label">Docs</div><a href="#quickstart">Quickstart</a><a href="#response-schema">Response schema</a><a href="#errors">Errors</a><a href="#policy">Action policy</a><a href="#signals">Signal definitions</a><a href="#routing">Routing</a><a href="#sdks">SDKs</a><a href="#media">Media</a><a href="#privacy">Privacy</a></aside><article class="docsMain"><section class="hero" id="quickstart"><div class="eyebrow">Developer docs</div><h1>Quickstart — 5 minutes to your first analyzed result</h1><p class="lead">Call VeracityAPI before an agent publishes, cites, trains on, or moderates text, image, or audio. Results include evidence, limitations, and a workflow-ready <code>recommended_action</code>.</p><p><a class="btn primary" href="/account">Get API key</a> <a class="btn" href="/docs/errors">Error handling</a> <a class="btn" href="/methodology">Trust model</a> <a class="btn" href="/openapi.json">OpenAPI JSON</a></p><div class="docSearch"><input id="docSearch" placeholder="Search docs: response schema, errors, auto_revise, slop_risk…" aria-label="Search docs"/><span id="docSearchCount">Search this page</span></div></section>
