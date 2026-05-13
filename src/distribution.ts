@@ -116,7 +116,7 @@ const ALL_DISTRIBUTION_PAGES: DistributionPage[] = [
     sections: [
       { title: "Pre-publish QA", body: "Run VeracityAPI after generation and before CMS publish, social scheduling, email send, or agent citation." },
       { title: "RAG and training-data hygiene", body: "Filter low-specificity synthetic sludge before it becomes context, training data, or a cited source." },
-      { title: "Pricing", body: "Text analyze-only costs $0.005 / 1k characters. Analyze + revise with auto_revise:true costs $0.010 / 1k characters and may return revised_text when recommended_action=revise." },
+      { title: "Cost model", body: "Text analyze-only costs $0.005 / 1k characters. Analyze + revise with auto_revise:true costs $0.010 / 1k characters and may return revised_text when recommended_action=revise." },
       { title: "Safe claim standard", body: "Use the output as evidence-backed workflow triage, not proof of authorship, identity, truth, or legality." },
     ],
     demo: "text",
@@ -135,7 +135,7 @@ const ALL_DISTRIBUTION_PAGES: DistributionPage[] = [
     sections: [
       { title: "What to submit", body: "Submit the publishable text: article body, caption, review, product description, source excerpt, or generated answer. Strip nav/footer boilerplate first." },
       { title: "What the API returns", body: "The response includes content_trust_score, specificity_risk, provenance_weakness, evidence, recommended_fixes, limitations, and recommended_action." },
-      { title: "Pricing", body: "Analyze-only text is $0.005 / 1k characters. Analyze + revise is $0.010 / 1k characters with auto_revise:true." },
+      { title: "Cost model", body: "Analyze-only text is $0.005 / 1k characters. Analyze + revise is $0.010 / 1k characters with auto_revise:true." },
       { title: "Quality standard", body: "Use VeracityAPI as workflow triage and not authorship proof. High-risk results should trigger revision or human_review, not accusations." },
     ],
     faq: [
@@ -228,7 +228,7 @@ const ALL_DISTRIBUTION_PAGES: DistributionPage[] = [
       { title: "MVP input", body: "POST /v1/analyze-video accepts a direct downloadable HTTPS video URL plus context and store_content:false. The initial private-beta cap is designed for short clips, not long-form video archives." },
       { title: "How scoring works", body: "A zero-idle ffmpeg extractor samples six representative frames into a 3x2 contact sheet and returns safe metadata. Claude Haiku vision scores visual synthetic-video cues and metadata risk in one structured call." },
       { title: "Privacy posture", body: "VeracityAPI stores no raw video, extracted frames, contact sheet, or full URL. D1 analysis logs keep only URL hash, hostname, safe metadata, and the action/risk result." },
-      { title: "Pricing", body: "Video analysis is $0.05 per successful request in the video_v0 billing bucket. Failed analyses do not bill." },
+      { title: "Cost model", body: "Video analysis is $0.05 per successful request in the video_v0 billing bucket. Failed analyses do not bill." },
     ],
     demo: "video",
     code: `const result = await veracity.analyzeVideo({
@@ -468,7 +468,7 @@ function renderDemo(page: DistributionPage): string {
   }
   if (page.demo === "video") {
     const sampleJson = JSON.stringify(DEMO_VIDEO_SAMPLE, null, 2);
-    return `<section class="card" id="preprocessed-video-demo"><h2>Preprocessed AI video detection demo</h2><p>This SEO page uses the same playable fixed fixture as the homepage. The public page does not accept arbitrary video URLs; authenticated private-beta customers call <code>POST /v1/analyze-video</code>. VeracityAPI extracts a bounded 3x2 contact sheet plus metadata, stores no raw video/frames/contact sheet/full URL, and bills $0.05 only on success.</p><video controls preload="metadata" playsinline src="${DEMO_VIDEO_URL}" style="width:100%;max-height:520px;background:#111;border:2px solid var(--line);border-radius:12px;margin:10px 0 8px"></video><label>Demo video URL<input value="${DEMO_VIDEO_URL}" readonly /></label><div class="grid"><div class="card"><h3>Preprocessed result</h3><p><strong>Action:</strong> ${esc(String(DEMO_VIDEO_SAMPLE.recommended_action))} · <strong>Risk:</strong> ${esc(String(DEMO_VIDEO_SAMPLE.risk_level))} · <strong>Visual risk:</strong> ${Math.round(Number(DEMO_VIDEO_SAMPLE.synthetic_video_risk) * 100)}%</p><p>${esc(String((DEMO_VIDEO_SAMPLE.evidence?.[0] as any)?.explanation || "Low apparent visual manipulation risk from sampled frames; not forensic proof."))}</p></div><div class="card"><h3>Why this is preprocessed</h3><p>No-key arbitrary video analysis would create immediate abuse cost. The fixture shows the exact result shape, URL behavior, privacy posture, and private-beta workflow without letting bots burn video extraction/vision budget.</p></div></div><pre>${esc(sampleJson)}</pre></section>`;
+    return `<section class="card" id="preprocessed-video-demo"><h2>Preprocessed AI video detection demo</h2><p>This SEO page uses the same playable fixed fixture as the homepage. The public page does not accept arbitrary video URLs; authenticated private-beta customers call <code>POST /v1/analyze-video</code>. VeracityAPI extracts a bounded 3x2 contact sheet plus metadata, stores no raw video/frames/contact sheet/full URL, and bills $0.05 only on success.</p><video controls preload="metadata" playsinline src="${DEMO_VIDEO_URL}" class="videoFixture"></video><label>Demo video URL<input value="${DEMO_VIDEO_URL}" readonly /></label><div class="grid"><div class="card"><h3>Preprocessed result</h3><p><strong>Action:</strong> ${esc(String(DEMO_VIDEO_SAMPLE.recommended_action))} · <strong>Risk:</strong> ${esc(String(DEMO_VIDEO_SAMPLE.risk_level))} · <strong>Visual risk:</strong> ${Math.round(Number(DEMO_VIDEO_SAMPLE.synthetic_video_risk) * 100)}%</p><p>${esc(String((DEMO_VIDEO_SAMPLE.evidence?.[0] as any)?.explanation || "Low apparent visual manipulation risk from sampled frames; not forensic proof."))}</p></div><div class="card"><h3>Why this is preprocessed</h3><p>No-key arbitrary video analysis would create immediate abuse cost. The fixture shows the exact result shape, URL behavior, privacy posture, and private-beta workflow without letting bots burn video extraction/vision budget.</p></div></div><pre>${esc(sampleJson)}</pre></section>`;
   }
   return "";
 }

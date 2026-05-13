@@ -15,6 +15,7 @@ import { ogPngBytes } from "./ogPng";
 import { aboutHtml, alternativesHtml, benchmark2026Html, blogIndexHtml, blogPostHtml, categoryHtml, changelogHtml, comparisonHtml, docsHtml, docsErrorsHtml, evalsHtml, examplesHtml, forAgentsHtml, howItWorksHtml, methodologyHtml, trustModelHtml, mcpHtml, pricingHtml, privacyHtml, subprocessorsHtml, securityHtml, termsHtml, requestAccessHtml, statusHtml, useCaseHtml, useCasesIndexHtml, vsIndexHtml, whatWeDetectHtml } from "./pages";
 import { distributionPageHtml, distributionRedirectTarget } from "./distribution";
 import { homepageHtml } from "./site";
+import { y2kCss } from "./y2k";
 import { welcomeHtml } from "./welcome";
 import { WELCOME_IMAGE_STEP_1_PATH, WELCOME_IMAGE_STEP_2_PATH, WELCOME_RESULT_PATH, WELCOME_RIGHT_CLICK_PATH, WELCOME_SCREENSHOT_CONTENT_TYPE, welcomeImageStep1Bytes, welcomeImageStep2Bytes, welcomeResultBytes, welcomeRightClickBytes } from "./welcomeAssets";
 import type { AnalyzeAudioResponse, AnalyzeBatchRequest, AnalyzeImageRequest, AnalyzeImageResponse, AnalyzeResponse, AnalyzeVideoResponse, Env } from "./types";
@@ -168,6 +169,14 @@ export default {
     if (request.method === "POST" && url.pathname === "/billing/checkout") return handleCheckout(request, env);
     if (request.method === "POST" && url.pathname === "/billing/webhook") return handleStripeWebhook(request, env);
 
+    if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/assets/site.css") {
+      return text(request.method === "HEAD" ? "" : y2kCss(), "text/css; charset=utf-8", { "cache-control": "public, max-age=31536000, immutable" });
+    }
+
+    if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/site.webmanifest") {
+      return text(request.method === "HEAD" ? "" : JSON.stringify(siteManifest()), "application/manifest+json; charset=utf-8", { "cache-control": "public, max-age=31536000, immutable" });
+    }
+
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/openapi.json") {
       return text(request.method === "HEAD" ? "" : JSON.stringify(openApiSpec(), null, 2), "application/json; charset=utf-8", { "cache-control": "public, max-age=300" });
     }
@@ -216,6 +225,11 @@ export default {
 
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/og.svg") {
       return text(request.method === "HEAD" ? "" : ogSvg(), "image/svg+xml; charset=utf-8");
+    }
+
+    if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/apple-touch-icon.png") {
+      const iconBytes = ogPngBytes();
+      return new Response(request.method === "HEAD" ? null : (iconBytes.buffer.slice(iconBytes.byteOffset, iconBytes.byteOffset + iconBytes.byteLength) as ArrayBuffer), { headers: { "content-type": "image/png", "cache-control": "public, max-age=31536000, immutable", ...securityHeaders(), "x-request-id": requestId() } });
     }
 
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/og.png") {
@@ -1296,18 +1310,27 @@ function mcpHttpResponse(body: unknown, status = 200): Response {
 }
 
 function html(body: string, cache = true, status = 200, extraHeaders: Record<string, string> = {}): Response {
-  const htmlBody = injectGoogleAnalytics(body);
+  const nonce = cspNonce();
+  const htmlBody = prepareHtml(body, nonce);
   return new Response(htmlBody, {
     status,
     headers: {
       "content-type": "text/html; charset=utf-8",
-      "cache-control": cache ? "public, max-age=120" : "no-store",
+      "cache-control": cache ? "public, max-age=120, stale-while-revalidate=86400" : "no-store",
       ...extraHeaders,
       ...corsHeaders(),
-      ...securityHeaders(),
+      ...securityHeaders(nonce),
       "x-request-id": requestId(),
     },
   });
+}
+
+function prepareHtml(body: string, nonce: string): string {
+  let htmlBody = injectGoogleAnalytics(body);
+  htmlBody = extractSharedCss(htmlBody);
+  htmlBody = injectAppHeadAssets(htmlBody);
+  htmlBody = addNonceAttributes(htmlBody, nonce);
+  return htmlBody;
 }
 
 function injectGoogleAnalytics(body: string): string {
@@ -1315,6 +1338,56 @@ function injectGoogleAnalytics(body: string): string {
   if (body.includes("<title>VeracityAPI Account</title>") || body.includes("<title>Connect Veracity</title>")) return body;
   if (body.includes("</head>")) return body.replace("</head>", `${GOOGLE_ANALYTICS_TAG}</head>`);
   return body;
+}
+
+function extractSharedCss(body: string): string {
+  const sharedCss = y2kCss();
+  if (!body.includes(sharedCss)) return body;
+  let out = body.split(sharedCss).join("");
+  out = out.replace(/<style>\s*<\/style>/g, "");
+  if (!out.includes('/assets/site.css')) {
+    const link = '<link rel="stylesheet" href="/assets/site.css"/>';
+    out = out.includes('<style>') ? out.replace('<style>', `${link}<style>`) : out.replace('</head>', `${link}</head>`);
+  }
+  return out;
+}
+
+function injectAppHeadAssets(body: string): string {
+  if (!body.includes("</head>")) return body;
+  const tags = [
+    body.includes('rel="apple-touch-icon"') ? "" : '<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"/>',
+    body.includes('rel="manifest"') ? "" : '<link rel="manifest" href="/site.webmanifest"/>',
+  ].join("");
+  return tags ? body.replace("</head>", `${tags}</head>`) : body;
+}
+
+function addNonceAttributes(body: string, nonce: string): string {
+  return body
+    .replace(/<script(?![^>]*\bnonce=)/g, `<script nonce="${nonce}"`)
+    .replace(/<style(?![^>]*\bnonce=)/g, `<style nonce="${nonce}"`);
+}
+
+function cspNonce(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function siteManifest(): Record<string, unknown> {
+  return {
+    name: "VeracityAPI",
+    short_name: "VeracityAPI",
+    description: "Content verification API for AI agents and publishing workflows.",
+    start_url: "/",
+    scope: "/",
+    display: "standalone",
+    background_color: "#f6f1df",
+    theme_color: "#f4f0e8",
+    icons: [
+      { src: "/apple-touch-icon.png", sizes: "180x180", type: "image/png", purpose: "any" },
+      { src: "/og.png", sizes: "1200x630", type: "image/png", purpose: "any" },
+    ],
+  };
 }
 
 function text(body: string, contentType: string, headers: Record<string, string> = {}): Response {
@@ -1375,7 +1448,9 @@ function corsHeaders(origin = "https://veracityapi.com"): Record<string, string>
   };
 }
 
-function securityHeaders(): Record<string, string> {
+function securityHeaders(nonce?: string): Record<string, string> {
+  const scriptNonce = nonce ? ` 'nonce-${nonce}'` : "";
+  const styleNonce = nonce ? ` 'nonce-${nonce}'` : "";
   return {
     "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
     "X-Content-Type-Options": "nosniff",
@@ -1383,6 +1458,6 @@ function securityHeaders(): Record<string, string> {
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
     "Cross-Origin-Opener-Policy": "same-origin",
-    "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; media-src 'self' https:; connect-src 'self' https://api.veracityapi.com https://www.google-analytics.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://checkout.stripe.com",
+    "Content-Security-Policy": `default-src 'self'; script-src 'self'${scriptNonce} https://www.googletagmanager.com https://www.google-analytics.com https://static.cloudflareinsights.com; style-src 'self'${styleNonce} https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; media-src 'self' https:; connect-src 'self' https://api.veracityapi.com https://www.google-analytics.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://checkout.stripe.com`,
   };
 }

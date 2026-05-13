@@ -250,8 +250,9 @@ describe("agent distribution surfaces", () => {
       const res = await worker.fetch(new Request(`https://veracityapi.com${path}`), env);
       const html = await res.text();
       expect(res.status, path).toBe(200);
-      expect(html, path).toContain("--bg:#d8d6d2");
+      expect(html, path).toContain('href="/assets/site.css"');
       expect(html, path).not.toMatch(/--bg:#08090a|background:#0f1011|✅|og\.svg/);
+      expect(html, path).not.toContain("--bg:#d8d6d2");
       expect(html, path).toContain("og.png");
     }
     const gptzero = await (await worker.fetch(new Request("https://veracityapi.com/alternatives/gptzero-api"), env)).text();
