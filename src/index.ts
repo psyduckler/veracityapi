@@ -418,7 +418,9 @@ async function handleDemoAnalyze(request: Request, env: Env): Promise<Response> 
       response,
       latencyMs: Date.now() - start,
     });
-    return json(response);
+    const publicResponse = { ...response } as Record<string, unknown>;
+    delete publicResponse.synthetic_texture_risk;
+    return json(publicResponse);
   } catch (err) {
     if (err instanceof ValidationError) return json({ error: "bad_request", message: err.message }, 400);
     if (err instanceof LlmError) return json({ error: "llm_unavailable", message: "Scoring model unavailable. Retry shortly." }, 503, { "Retry-After": "10" });

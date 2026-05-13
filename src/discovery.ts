@@ -590,7 +590,6 @@ export function sampleAnalyzeResponse(analysisId = "demo_01KRA1EQPDJ7N2KHBXCQMGZ
     content_trust_score: 0.22,
     specificity_risk: 0.78,
     provenance_weakness: 0.78,
-    synthetic_texture_risk: 0.72,
     synthetic_risk: 0.72,
     slop_risk: 0.78,
     confidence: "medium",
