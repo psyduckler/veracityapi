@@ -10,6 +10,7 @@ import { agentsJson, faviconSvg, INDEXNOW_KEY, llmsTxt, llmsFullTxt, ogSvg, open
 import { authorizeExtension, exchangeExtensionCode, ExtensionAuthError, extensionConnectHtml, safeExtensionNextPath, safeRelativeNext, validateExtensionRedirectUri, validateExtensionState } from "./extensionAuth";
 import { DEMO_IMAGE_CONTENT_TYPE, DEMO_IMAGE_PATH, demoImageBytes } from "./demoImage";
 import { DEMO_AUDIO_CONTENT_TYPE, DEMO_AUDIO_PATH, demoAudioBytes } from "./demoAudio";
+import { DEMO_VIDEO_CONTENT_TYPE, DEMO_VIDEO_PATH, demoVideoBytes } from "./demoVideo";
 import { ogPngBytes } from "./ogPng";
 import { aboutHtml, alternativesHtml, benchmark2026Html, blogIndexHtml, blogPostHtml, categoryHtml, changelogHtml, comparisonHtml, docsHtml, docsErrorsHtml, evalsHtml, examplesHtml, forAgentsHtml, howItWorksHtml, methodologyHtml, trustModelHtml, mcpHtml, pricingHtml, privacyHtml, subprocessorsHtml, securityHtml, termsHtml, requestAccessHtml, statusHtml, useCaseHtml, useCasesIndexHtml, vsIndexHtml, whatWeDetectHtml } from "./pages";
 import { distributionPageHtml, distributionRedirectTarget } from "./distribution";
@@ -251,6 +252,16 @@ export default {
       return new Response(request.method === "HEAD" ? null : demoAudioBytes().buffer as ArrayBuffer, {
         headers: {
           "content-type": DEMO_AUDIO_CONTENT_TYPE,
+          "cache-control": "public, max-age=31536000, immutable",
+          "access-control-allow-origin": "*",
+        },
+      });
+    }
+
+    if ((request.method === "GET" || request.method === "HEAD") && url.pathname === DEMO_VIDEO_PATH) {
+      return new Response(request.method === "HEAD" ? null : demoVideoBytes().buffer as ArrayBuffer, {
+        headers: {
+          "content-type": DEMO_VIDEO_CONTENT_TYPE,
           "cache-control": "public, max-age=31536000, immutable",
           "access-control-allow-origin": "*",
         },

@@ -1,6 +1,7 @@
 import { apiCubeLogoSvg } from "./brand";
 import { DEMO_IMAGE_URL } from "./demoImage";
 import { DEMO_AUDIO_TRANSCRIPT, DEMO_AUDIO_URL } from "./demoAudio";
+import { DEMO_VIDEO_URL } from "./demoVideo";
 import { BLOG_POSTS } from "./blog";
 import { COMPARISONS } from "./comparisons";
 import { USE_CASES } from "./pages";
@@ -706,7 +707,7 @@ POST ${BASE_URL}/demo/analyze
 POST ${BASE_URL}/demo/analyze-image
 POST ${BASE_URL}/demo/analyze-audio
 
-No API key required. store_content=false is forced server-side. Text limit is 4,000 characters. Image demo accepts HTTPS image URLs and audio demo accepts HTTPS audio URLs and returns a Gemini-generated transcript. Media demos log only URL hash + hostname. Rate limited by IP/cookie.
+No API key required for text, image, and audio live demos. store_content=false is forced server-side. Text limit is 4,000 characters. Image demo accepts HTTPS image URLs and audio demo accepts HTTPS audio URLs and returns a Gemini-generated transcript. Media demos log only URL hash + hostname. Rate limited by IP/cookie. Video private beta uses a fixed playable homepage fixture with a preprocessed check, not an arbitrary no-key video analysis form. Demo video fixture: ${DEMO_VIDEO_URL}.
 
 ## SDKs
 
@@ -961,9 +962,10 @@ export function agentsJson(): Record<string, unknown> {
       audio_endpoint: `${BASE_URL}/demo/analyze-audio`,
       method: "POST",
       auth_required: false,
-      limits: "text demo: 4000 chars; image demo: HTTPS image URL; all rate limited and store_content=false forced server-side",
+      limits: "text demo: 4000 chars; image/audio demos: HTTPS media URL; video homepage fixture is playable + preprocessed only; live demos are rate limited and store_content=false forced server-side",
       sample_image_url: DEMO_IMAGE_URL,
       sample_audio_url: DEMO_AUDIO_URL,
+      sample_video_url: DEMO_VIDEO_URL,
     },
     sdk: {
       typescript: {
