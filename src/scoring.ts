@@ -72,3 +72,14 @@ export function deriveAudioRiskLevel(syntheticAudioRisk: number, workflowRisk: n
 export function deriveAudioTrustScore(syntheticAudioRisk: number, workflowRisk: number): number {
   return round2(1 - Math.max(clamp01(syntheticAudioRisk), clamp01(workflowRisk)));
 }
+
+export function deriveVideoRiskLevel(syntheticVideoRisk: number, metadataRisk = 0): RiskLevel {
+  const combined = Math.max(clamp01(syntheticVideoRisk), clamp01(metadataRisk));
+  if (combined >= 0.61) return "high";
+  if (combined >= 0.31) return "medium";
+  return "low";
+}
+
+export function deriveVideoTrustScore(syntheticVideoRisk: number, metadataRisk = 0): number {
+  return round2(1 - Math.max(clamp01(syntheticVideoRisk), clamp01(metadataRisk) * 0.8));
+}

@@ -77,9 +77,11 @@ class VeracityAPITest(unittest.TestCase):
 
         client.analyze_image("https://cdn.example.com/photo.webp", context={"intended_use": "moderate"}, store_content=True)
         client.analyze_audio("https://cdn.example.com/clip.mp3", transcript="Caller supplied transcript.")
+        client.analyze_video("https://cdn.example.com/clip.mp4", context={"format":"social_post"}, store_content=True)
 
         first = json.loads(transport.requests[0][0].data.decode("utf-8"))
         second = json.loads(transport.requests[1][0].data.decode("utf-8"))
+        third = json.loads(transport.requests[2][0].data.decode("utf-8"))
         self.assertEqual(first, {
             "type": "image",
             "content": "https://cdn.example.com/photo.webp",
@@ -92,6 +94,8 @@ class VeracityAPITest(unittest.TestCase):
             "transcript": "Caller supplied transcript.",
             "store_content": False,
         })
+        self.assertEqual(transport.requests[2][0].full_url, "https://api.example.test/v1/analyze-video")
+        self.assertEqual(third, {"video_url":"https://cdn.example.com/clip.mp4", "context":{"format":"social_post"}, "store_content": False})
 
     def test_unified_analyze_batch_and_balance(self):
         transport = FakeTransport(FakeResponse(200, {"ok": True}))

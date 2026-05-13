@@ -46,9 +46,16 @@ export const analyzeAudioInputSchema = z.object({
   privacy_mode: z.boolean().optional(),
 });
 
+export const analyzeVideoInputSchema = z.object({
+  video_url: httpsUrl("video_url"),
+  context: contextSchema,
+  store_content: z.boolean().optional().default(false),
+  privacy_mode: z.boolean().optional(),
+});
+
 export const verifyContentInputSchema = z.object({
   content: z.string().min(1).max(100_000),
-  content_type: z.enum(["auto", "text", "image", "audio"]).optional().default("auto"),
+  content_type: z.enum(["auto", "text", "image", "audio", "video"]).optional().default("auto"),
   intended_use: intendedUseSchema.optional(),
   custom_policy: z.string().max(2000).optional(),
   domain: z.string().max(100).optional(),
@@ -71,6 +78,7 @@ export type VerifyContentInput = z.infer<typeof verifyContentInputSchema>;
 export type AnalyzeTextInput = z.infer<typeof analyzeTextInputSchema>;
 export type AnalyzeImageInput = z.infer<typeof analyzeImageInputSchema>;
 export type AnalyzeAudioInput = z.infer<typeof analyzeAudioInputSchema>;
+export type AnalyzeVideoInput = z.infer<typeof analyzeVideoInputSchema>;
 export type AnalyzeBatchInput = z.infer<typeof analyzeBatchInputSchema>;
 
 const balanceInputSchema = {
@@ -83,8 +91,8 @@ export const toolInputSchemas = {
     type: "object",
     required: ["content"],
     properties: {
-      content: { type: "string", minLength: 1, maxLength: 100000, description: "Text, HTTPS image/audio URL, or base64 media data." },
-      content_type: { type: "string", enum: ["auto", "text", "image", "audio"], default: "auto" },
+      content: { type: "string", minLength: 1, maxLength: 100000, description: "Text, HTTPS image/audio/video URL, or base64 image/audio media data." },
+      content_type: { type: "string", enum: ["auto", "text", "image", "audio", "video"], default: "auto" },
       intended_use: { type: "string", enum: ["publish", "train", "cite", "moderate", "other"], default: "other" },
       custom_policy: { type: "string", maxLength: 2000, description: "Caller policy applied as user workflow criteria, not model/system authority." },
       domain: { type: "string", maxLength: 100 },
@@ -123,6 +131,16 @@ export const toolInputSchemas = {
       context: contextJsonSchema(),
       store_content: { type: "boolean", default: false, description: "Explicit default and only supported media-storage behavior: do not store audio bytes, base64, or full audio URLs; only URL hash and hostname are logged." },
       privacy_mode: { type: "boolean", default: true, deprecated: true, description: "Legacy alias. Prefer store_content:false; media raw-byte/full-URL storage is not supported." },
+    },
+  },
+  analyze_video: {
+    type: "object",
+    required: ["video_url"],
+    properties: {
+      video_url: { type: "string", format: "uri", maxLength: 2000, description: "Direct downloadable HTTPS video URL. Private beta supports short MP4/WebM/QuickTime clips; no platform scraping." },
+      context: contextJsonSchema(),
+      store_content: { type: "boolean", default: false, description: "Explicit default and only supported video-storage behavior: do not store raw video, frames, contact sheets, or full video URLs; only URL hash, hostname, and safe metadata are logged." },
+      privacy_mode: { type: "boolean", default: true, deprecated: true, description: "Legacy alias. Prefer store_content:false; raw-media/full-URL storage is not supported." },
     },
   },
   analyze_batch: {
@@ -169,12 +187,15 @@ export const analysisOutputSchema = {
   required: ["analysis_id", "risk_level", "recommended_action", "confidence", "evidence", "recommended_fixes", "model_version", "limitations"],
   properties: {
     analysis_id: { type: "string" },
-    modality: { type: "string", enum: ["text", "image", "audio", "asset", "content"] },
+    modality: { type: "string", enum: ["text", "image", "audio", "video", "asset", "content"] },
     content_trust_score: { type: "number", minimum: 0, maximum: 1 },
     synthetic_risk: { type: "number", minimum: 0, maximum: 1 },
     slop_risk: { type: "number", minimum: 0, maximum: 1 },
     synthetic_image_risk: { type: "number", minimum: 0, maximum: 1 },
     synthetic_audio_risk: { type: "number", minimum: 0, maximum: 1 },
+    synthetic_video_risk: { type: "number", minimum: 0, maximum: 1 },
+    visual_synthetic_risk: { type: "number", minimum: 0, maximum: 1 },
+    metadata_risk: { type: "number", minimum: 0, maximum: 1 },
     workflow_risk: { type: "number", minimum: 0, maximum: 1 },
     transcript: { type: "string" },
     risk_level: { type: "string", enum: ["low", "medium", "high"] },
@@ -220,6 +241,7 @@ export const toolOutputSchemas = {
   analyze_text: analysisOutputSchema,
   analyze_image: analysisOutputSchema,
   analyze_audio: analysisOutputSchema,
+  analyze_video: analysisOutputSchema,
   analyze_batch: batchOutputSchema,
   check_balance: balanceOutputSchema,
   get_balance: balanceOutputSchema,

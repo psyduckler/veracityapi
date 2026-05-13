@@ -1,9 +1,10 @@
 import { ulid } from "ulid";
 import { sha256Hex } from "./auth";
 import { accountHtml, buildAccountView, cleanEmail, clearSessionCookie, consumeMagicLink, createApiKey, createMagicLink, getSessionAccount, parseForm, redirect, requireAccount, sendMagicLink, sessionCookie, validEmail } from "./account";
-import { authenticateUsageKey, BillingAuthError, creditCheckoutSession, CREDIT_PACKS, debitForAudio, debitForBatchRequest, debitForImage, debitForRequest, getBalanceSummary, InsufficientBalanceError, refundUsage, verifyStripeWebhook } from "./billing";
+import { authenticateUsageKey, BillingAuthError, creditCheckoutSession, CREDIT_PACKS, debitForAudio, debitForBatchRequest, debitForImage, debitForRequest, debitForVideo, getBalanceSummary, InsufficientBalanceError, refundUsage, verifyStripeWebhook } from "./billing";
 import { logAnalysis } from "./db";
 import { LlmError, reviseText, scoreAudio, scoreImage, scoreText } from "./llm";
+import { buildAnalyzeVideoResponse, extractVideoContactSheet, scoreVideoContactSheet, VideoAnalysisError } from "./video";
 import { deriveAction, deriveAudioRiskLevel, deriveAudioTrustScore, deriveImageRiskLevel, deriveImageTrustScore, derivePrimaryReason, deriveRiskLevel, deriveTrustSignals } from "./scoring";
 import { agentsJson, faviconSvg, INDEXNOW_KEY, llmsTxt, llmsFullTxt, ogSvg, openApiSpec, robotsTxt, sitemapXml } from "./discovery";
 import { authorizeExtension, exchangeExtensionCode, ExtensionAuthError, extensionConnectHtml, safeExtensionNextPath, safeRelativeNext, validateExtensionRedirectUri, validateExtensionState } from "./extensionAuth";
@@ -15,8 +16,8 @@ import { distributionPageHtml, distributionRedirectTarget } from "./distribution
 import { homepageHtml } from "./site";
 import { welcomeHtml } from "./welcome";
 import { WELCOME_IMAGE_STEP_1_PATH, WELCOME_IMAGE_STEP_2_PATH, WELCOME_RESULT_PATH, WELCOME_RIGHT_CLICK_PATH, WELCOME_SCREENSHOT_CONTENT_TYPE, welcomeImageStep1Bytes, welcomeImageStep2Bytes, welcomeResultBytes, welcomeRightClickBytes } from "./welcomeAssets";
-import type { AnalyzeAudioResponse, AnalyzeBatchRequest, AnalyzeImageRequest, AnalyzeImageResponse, AnalyzeResponse, Env } from "./types";
-import { parseAnalyzeAudioRequest, parseAnalyzeBatchRequest, parseAnalyzeImageRequest, parseAnalyzeRequest, parseUnifiedAnalyzeRequest, ValidationError } from "./validate";
+import type { AnalyzeAudioResponse, AnalyzeBatchRequest, AnalyzeImageRequest, AnalyzeImageResponse, AnalyzeResponse, AnalyzeVideoResponse, Env } from "./types";
+import { parseAnalyzeAudioRequest, parseAnalyzeBatchRequest, parseAnalyzeImageRequest, parseAnalyzeRequest, parseAnalyzeVideoRequest, parseUnifiedAnalyzeRequest, ValidationError } from "./validate";
 
 const LIMITATIONS = [
   "Scores are probabilistic workflow risk signals, not proof of AI authorship or truth.",
@@ -35,6 +36,12 @@ const AUDIO_LIMITATIONS = [
   "Gemini-powered audio workflow triage, not proof of AI generation.",
   "Not voice-clone proof, speaker identity verification, or forensic determination.",
   "Scores can be affected by compression, background noise, short clips, edits, music beds, and recording quality.",
+];
+
+const VIDEO_LIMITATIONS = [
+  "Video authenticity-risk scoring is workflow triage, not forensic proof of AI generation or manipulation.",
+  "MVP uses six sampled frames in a 3x2 contact sheet plus sanitized metadata; short artifacts outside sampled frames can be missed.",
+  "Compression, edits, screen recordings, captions, and platform re-uploads can raise or lower visible synthetic-risk signals.",
 ];
 
 
@@ -302,6 +309,10 @@ export default {
       return handleAnalyzeAudio(request, env);
     }
 
+    if (request.method === "POST" && url.pathname === "/v1/analyze-video") {
+      return handleAnalyzeVideo(request, env);
+    }
+
 
     return notFound(request);
   },
@@ -503,6 +514,10 @@ async function handleUnifiedAnalyze(request: Request, env: Env): Promise<Respons
       const audioUrl = parsed.source?.kind === "url" ? parsed.source.url : typeof parsed.content === "string" ? parsed.content : undefined;
       return handleAnalyzeAudio(jsonRequestFrom(request, { audio_url: audioUrl, source: parsed.source, transcript: parsed.transcript, context: parsed.context, privacy_mode: parsed.privacy_mode }), env);
     }
+    if (parsed.type === "video") {
+      const videoUrl = parsed.source?.kind === "url" ? parsed.source.url : typeof parsed.content === "string" ? parsed.content : undefined;
+      return handleAnalyzeVideo(jsonRequestFrom(request, { video_url: videoUrl, context: parsed.context, privacy_mode: parsed.privacy_mode }), env);
+    }
     return json({ error: "bad_request", message: "asset input is validated and documented; production mixed-asset scoring is staged behind the async/multimodal implementation path" }, 400);
   } catch (err) {
     if (err instanceof ValidationError) return json({ error: "bad_request", message: err.message }, 400);
@@ -679,6 +694,31 @@ async function handleAnalyzeImage(request: Request, env: Env): Promise<Response>
 }
 
 
+
+
+async function handleAnalyzeVideo(request: Request, env: Env): Promise<Response> {
+  const start = Date.now();
+  try {
+    const auth = await authenticateUsageKey(request, env);
+    const parsed = await parseAnalyzeVideoRequest(request);
+    const analysisId = `vid_${ulid()}`;
+    const extraction = await extractVideoContactSheet(env, parsed);
+    const scored = await scoreVideoContactSheet(env, parsed, extraction);
+    const rawBilling = await debitForVideo(env, auth.accountId, auth.apiKeyId, analysisId);
+    const billing = { units_analyzed: rawBilling.units_analyzed ?? 1, bucket: rawBilling.bucket, price_cents: rawBilling.price_cents, remaining_balance_cents: rawBilling.remaining_balance_cents };
+    const response: AnalyzeVideoResponse = { ...buildAnalyzeVideoResponse(analysisId, scored, extraction, env.VIDEO_VISION_MODEL || env.ANTHROPIC_MODEL || env.MODEL_VERSION || "claude-haiku-4-5-20251001"), limitations: VIDEO_LIMITATIONS, billing };
+    await logAnalysis({ env, analysisId, apiKeyHash: auth.apiKeyHash, request: parsed, response, latencyMs: Date.now() - start, kind: "video" });
+    await logApiCallSuccess(env, request, auth.accountId, auth.apiKeyId, "video", response.analysis_id);
+    return jsonForRequest(response, request);
+  } catch (err) {
+    if (err instanceof BillingAuthError) return jsonForRequest({ error: "unauthorized" }, request, 401);
+    if (err instanceof InsufficientBalanceError) return jsonForRequest({ error: "insufficient_balance", message: `This video analysis costs $${(err.requiredCents / 100).toFixed(2)}. Your balance is $${(err.balanceCents / 100).toFixed(2)}.`, required_cents: err.requiredCents, balance_cents: err.balanceCents, top_up_url: "https://veracityapi.com/account" }, request, 402);
+    if (err instanceof ValidationError) return jsonForRequest({ error: "bad_request", message: err.message }, request, 400);
+    if (err instanceof VideoAnalysisError && /download|format|unsupported|too large|private|localhost|https/i.test(err.message)) return jsonForRequest({ error: "bad_request", message: err.message }, request, 400);
+    if (err instanceof VideoAnalysisError) return jsonForRequest({ error: "video_unavailable", message: "Video scoring unavailable. Retry shortly." }, request, err.status || 503, { "Retry-After": "10" });
+    console.error(err); return jsonForRequest({ error: "internal_error" }, request, 500);
+  }
+}
 
 async function handleAnalyzeAudio(request: Request, env: Env): Promise<Response> {
   const start = Date.now();

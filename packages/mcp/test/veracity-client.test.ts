@@ -53,6 +53,20 @@ describe("VeracityClient", () => {
     }));
   });
 
+  it("sends direct video requests to the private-beta endpoint", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ analysis_id: "vid_1", modality: "video", recommended_action: "human_review" }), { status: 200, headers: { "content-type": "application/json" } }));
+    const client = new VeracityClient({ apiKey: "vapi_secret", baseUrl: "https://api.example.test", fetchImpl: fetchMock as typeof fetch });
+
+    const result = await client.analyzeVideo({ video_url: "https://example.com/clip.mp4", store_content: true, privacy_mode: false, context: { format: "social_post", intended_use: "moderate" } });
+
+    expect(result).toMatchObject({ analysis_id: "vid_1" });
+    expect(fetchMock).toHaveBeenCalledWith("https://api.example.test/v1/analyze-video", expect.objectContaining({
+      method: "POST",
+      headers: expect.objectContaining({ Authorization: "Bearer vapi_secret" }),
+      body: JSON.stringify({ video_url: "https://example.com/clip.mp4", context: { format: "social_post", intended_use: "moderate" }, store_content: false })
+    }));
+  });
+
   it("sends analyze batch requests to the batch endpoint", async () => {
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({ batch_id: "bat_1", results: [] }), { status: 200, headers: { "content-type": "application/json" } }));
     const client = new VeracityClient({ apiKey: "vapi_secret", baseUrl: "https://api.example.test", fetchImpl: fetchMock as typeof fetch });

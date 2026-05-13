@@ -1,11 +1,12 @@
 import { z } from "zod";
-import type { AnalyzeAudioRequest, AnalyzeBatchRequest, AnalyzeImageRequest, AnalyzeRequest, MediaSource, UnifiedAnalyzeRequest } from "./types";
+import type { AnalyzeAudioRequest, AnalyzeBatchRequest, AnalyzeImageRequest, AnalyzeRequest, AnalyzeVideoRequest, MediaSource, UnifiedAnalyzeRequest } from "./types";
 
 const CUSTOM_POLICY_MAX = 2000;
 const MAX_IMAGE_BYTES = 5_000_000;
 const MAX_AUDIO_BYTES = 4_000_000;
 const IMAGE_MEDIA_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
 const AUDIO_MEDIA_TYPES = ["audio/mpeg", "audio/wav", "audio/x-wav", "audio/mp4", "audio/m4a", "audio/webm", "audio/ogg"] as const;
+const VIDEO_MEDIA_TYPES = ["video/mp4", "video/webm", "video/quicktime"] as const;
 
 const formatSchema = z.enum(["article", "social_post", "product_review", "caption", "other"]).default("other");
 const intendedUseSchema = z.enum(["publish", "train", "cite", "moderate", "other"]).default("other");
@@ -55,10 +56,19 @@ const audioRequestSchema = z.object({
   store_content: z.boolean().optional(),
 });
 
+const videoRequestSchema = z.object({
+  video_url: z.string().url().max(2000).refine((value) => {
+    try { return new URL(value).protocol === "https:"; } catch { return false; }
+  }, "video_url must be an https URL"),
+  context: contextSchema,
+  privacy_mode: z.boolean().optional(),
+  store_content: z.boolean().optional(),
+});
+
 
 const unifiedRequestSchema = z.object({
-  type: z.enum(["text", "image", "audio", "asset"]),
-  content: z.union([z.string().min(1).max(100_000), z.array(z.object({ type: z.enum(["text", "image", "audio"]), text: z.string().optional(), source: sourceSchema.optional() })).min(1).max(8)]),
+  type: z.enum(["text", "image", "audio", "video", "asset"]),
+  content: z.union([z.string().min(1).max(100_000), z.array(z.object({ type: z.enum(["text", "image", "audio", "video"]), text: z.string().optional(), source: sourceSchema.optional() })).min(1).max(8)]),
   source: sourceSchema.optional(),
   transcript: z.string().max(10000).optional(),
   context: contextSchema,
@@ -124,7 +134,7 @@ function isPublicHostname(hostname: string): boolean {
   return true;
 }
 
-function normalizeSource(type: "image" | "audio" | "text" | "asset", source: MediaSource): MediaSource {
+function normalizeSource(type: "image" | "audio" | "video" | "text" | "asset", source: MediaSource): MediaSource {
   if (source.kind === "url") {
     validateHttpsUrl(source.url, "source.url: Media source URL must be an https URL");
     return source;
@@ -245,6 +255,23 @@ export async function parseAnalyzeAudioRequest(request: Request): Promise<Analyz
     audio_url,
     source,
     transcript: parsed.data.transcript,
+    context: normalizedContext(parsed.data.context),
+    privacy_mode: privacyModeFrom(parsed.data),
+  };
+}
+
+
+export async function parseAnalyzeVideoRequest(request: Request): Promise<AnalyzeVideoRequest> {
+  let body: unknown;
+  try { body = await request.json(); } catch { throw new ValidationError("Request body must be valid JSON"); }
+  const parsed = videoRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    throw new ValidationError(`${issue.path.join(".") || "body"}: ${issue.message}`);
+  }
+  validateHttpsUrl(parsed.data.video_url, "video_url must be a public https URL");
+  return {
+    video_url: parsed.data.video_url,
     context: normalizedContext(parsed.data.context),
     privacy_mode: privacyModeFrom(parsed.data),
   };

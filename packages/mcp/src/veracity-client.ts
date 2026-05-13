@@ -1,4 +1,4 @@
-import type { AnalyzeAudioInput, AnalyzeBatchInput, AnalyzeImageInput, AnalyzeTextInput, VerifyContentInput } from "./schemas.js";
+import type { AnalyzeAudioInput, AnalyzeBatchInput, AnalyzeImageInput, AnalyzeTextInput, AnalyzeVideoInput, VerifyContentInput } from "./schemas.js";
 
 export interface VeracityClientOptions {
   apiKey?: string;
@@ -42,6 +42,10 @@ export class VeracityClient {
 
   analyzeAudio(input: AnalyzeAudioInput): Promise<Record<string, unknown>> {
     return this.post("/v1/analyze", { type: "audio", content: input.audio_url, transcript: input.transcript, context: input.context, store_content: false });
+  }
+
+  analyzeVideo(input: AnalyzeVideoInput): Promise<Record<string, unknown>> {
+    return this.post("/v1/analyze-video", { video_url: input.video_url, context: input.context, store_content: false });
   }
 
   analyzeBatch(input: AnalyzeBatchInput): Promise<Record<string, unknown>> {
@@ -96,14 +100,16 @@ function errorMessage(status: number, body: Record<string, unknown>): string {
   return `VeracityAPI returned HTTP ${status}: ${apiMessage}`;
 }
 
-function detectContentType(content: string, mediaType?: string): "text" | "image" | "audio" {
+function detectContentType(content: string, mediaType?: string): "text" | "image" | "audio" | "video" {
   if (mediaType?.startsWith("image/")) return "image";
   if (mediaType?.startsWith("audio/")) return "audio";
+  if (mediaType?.startsWith("video/")) return "video";
   try {
     const url = new URL(content);
     const pathname = url.pathname.toLowerCase();
     if (/\.(png|jpe?g|webp|gif)$/.test(pathname)) return "image";
-    if (/\.(mp3|wav|m4a|mp4|webm|ogg)$/.test(pathname)) return "audio";
+    if (/\.(mp4|mov|m4v|webm)$/.test(pathname)) return "video";
+    if (/\.(mp3|wav|m4a|ogg)$/.test(pathname)) return "audio";
   } catch {}
   return "text";
 }

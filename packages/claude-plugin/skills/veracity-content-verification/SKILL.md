@@ -58,7 +58,7 @@ Before citing, indexing, or training on a source, analyze the text or media. If 
 
 ### Upload moderation
 
-For user-submitted screenshots, generated images, voice clips, podcasts, call recordings, or other media, use image/audio tools and route by `recommended_action`. Do not claim speaker identity or voice-clone proof.
+For user-submitted screenshots, generated images, voice clips, podcasts, call recordings, short video clips, or other media, use image/audio/video tools and route by `recommended_action`. Do not claim speaker identity or voice-clone proof.
 
 ### Batch QA
 

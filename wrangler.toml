@@ -10,6 +10,7 @@ routes = [
 
 [vars]
 MODEL_VERSION = "v0.1"
+VIDEO_VISION_MODEL = "claude-haiku-4-5-20251001"
 DEMO_RATE_LIMIT_PER_HOUR = "12"
 
 [[d1_databases]]

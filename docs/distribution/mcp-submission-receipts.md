@@ -34,7 +34,7 @@ Last updated: 2026-05-11
 **OpenAPI:** https://veracityapi.com/openapi.json  
 **Repository:** https://github.com/psyduckler/veracityapi/tree/main/packages/mcp  
 **Safety framing:** Workflow-risk scoring only; not forensic proof of authorship, truth, voice cloning, speaker identity, or legal determination.  
-**Privacy:** Text can use `store_content:false`; image/audio calls store no raw media bytes, base64 payloads, or full media URLs by default.
+**Privacy:** Text can use `store_content:false`; image/audio/video calls store no raw media bytes, base64 payloads, frames/contact sheets, or full media URLs by default.
 
 ## Next manual action
 
