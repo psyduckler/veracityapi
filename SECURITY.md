@@ -10,7 +10,7 @@ VeracityAPI is a beta content-verification API for agent workflows. Please repor
 
 ## Reporting a vulnerability
 
-Email **bernard@tabiji.ai** with:
+Email [hello@veracityapi.com](mailto:hello@veracityapi.com) with:
 
 - affected endpoint, page, package, or integration
 - steps to reproduce
