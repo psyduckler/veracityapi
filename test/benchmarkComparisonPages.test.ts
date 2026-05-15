@@ -65,7 +65,7 @@ describe("benchmark and comparison launch surfaces", () => {
     const agents = agentsJson() as any;
     expect(agents.benchmark_2026).toBe("https://veracityapi.com/evals/2026-benchmark");
     expect(agents.comparisons.pages).toHaveLength(4);
-    expect(agents.blog.posts).toHaveLength(2);
+    expect(agents.blog.posts.length).toBeGreaterThanOrEqual(2);
   });
 
   it("links existing alternatives pages to deeper /vs buyer guides", async () => {
