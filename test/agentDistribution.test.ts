@@ -327,6 +327,8 @@ describe("static discovery hygiene", () => {
     expect(a).toContain("https://veracityapi.com/alternatives");
     expect(a).toContain("https://veracityapi.com/author/bernard-huang");
     expect(a).not.toContain("https://veracityapi.com/trust-model");
+    // Do not submit noindex pages to sitemap or IndexNow.
+    expect(a).not.toContain("https://veracityapi.com/evals/2026-benchmark");
   });
 
   it("redirects www host to canonical apex", async () => {

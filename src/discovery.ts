@@ -23,12 +23,12 @@ const TEXT_CODE_SAMPLES = [
 ];
 const IMAGE_CODE_SAMPLES = [
   { lang: "curl", source: `curl ${API_BASE_URL}/v1/analyze \\\n  -H "Authorization: Bearer $VERACITY_API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d '{"type":"image","content":"https://example.com/photo.jpg","context":{"format":"social_post","intended_use":"publish"},"store_content":false}'` },
-  { lang: "TypeScript", label: "TypeScript SDK", source: `const result = await veracity.analyzeImage({ image_url: "https://example.com/photo.jpg", context: { format: "social_post", intended_use: "publish" } });` },
+  { lang: "TypeScript", label: "TypeScript SDK", source: `const result = await veracity.analyzeImage({ imageUrl: "https://example.com/photo.jpg", context: { format: "social_post", intended_use: "publish" } });` },
   { lang: "Python", source: `result = client.analyze_image("https://example.com/photo.jpg", context={"format": "social_post", "intended_use": "publish"})` },
 ];
 const AUDIO_CODE_SAMPLES = [
   { lang: "curl", source: `curl ${API_BASE_URL}/v1/analyze \\\n  -H "Authorization: Bearer $VERACITY_API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d '{"type":"audio","content":"https://example.com/voice.mp3","context":{"format":"social_post","intended_use":"moderate"},"store_content":false}'` },
-  { lang: "TypeScript", label: "TypeScript SDK", source: `const result = await veracity.analyzeAudio({ audio_url: "https://example.com/voice.mp3", context: { format: "social_post", intended_use: "moderate" } });` },
+  { lang: "TypeScript", label: "TypeScript SDK", source: `const result = await veracity.analyzeAudio({ audioUrl: "https://example.com/voice.mp3", context: { format: "social_post", intended_use: "moderate" } });` },
   { lang: "Python", source: `result = client.analyze_audio("https://example.com/voice.mp3", context={"format": "social_post", "intended_use": "moderate"})` },
 ];
 const VIDEO_CODE_SAMPLES = [
@@ -942,10 +942,10 @@ function lastModFor(path: string): string {
 }
 
 export function sitemapUrls(): string[] {
-  // /vs and /vs/* are intentionally excluded — they serve X-Robots-Tag: noindex, follow
-  // until the 2026 benchmark freeze. Including them in the sitemap would send Google
-  // contradictory signals (sitemap "please index" + header "please don't").
-  return ["/", "/docs", "/docs/errors", "/what-we-detect", "/methodology", "/for-agents", "/mcp", "/how-it-works", "/use-cases", ...USE_CASES.map((u) => `/use-cases/${u.slug}`), ...DISTRIBUTION_PAGES.map((p) => p.path), "/evals", "/evals/2026-benchmark", "/blog", ...BLOG_POSTS.map((p) => `/blog/${p.slug}`), "/author/bernard-huang", "/examples", "/pricing", "/about", "/status", "/changelog", "/privacy", "/security", "/subprocessors", "/terms", "/request-access", "/alternatives"];
+  // /vs, /vs/*, and /evals/2026-benchmark are intentionally excluded — they serve
+  // X-Robots-Tag: noindex, follow until the 2026 benchmark freeze. Including them in
+  // the sitemap or IndexNow pings would send contradictory indexability signals.
+  return ["/", "/docs", "/docs/errors", "/what-we-detect", "/methodology", "/for-agents", "/mcp", "/how-it-works", "/use-cases", ...USE_CASES.map((u) => `/use-cases/${u.slug}`), ...DISTRIBUTION_PAGES.map((p) => p.path), "/evals", "/blog", ...BLOG_POSTS.map((p) => `/blog/${p.slug}`), "/author/bernard-huang", "/examples", "/pricing", "/about", "/status", "/changelog", "/privacy", "/security", "/subprocessors", "/terms", "/request-access", "/alternatives"];
 }
 
 export function sitemapXml(): string {

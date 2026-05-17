@@ -15,8 +15,8 @@ const BASE = "https://veracityapi.com";
 const UNPUBLISHED = ["/alternatives/reality-defender", "/alternatives/resemble-detect", "/use-cases/audio-customer-support-call-qa"];
 const ROUTED_OPERATIONAL_PATHS = new Set(["/account", "/health", "/openapi.json", "/llms.txt", "/llms-full.txt", "/agents.json", "/sitemap.xml", "/favicon.svg", "/favicon.ico", "/og.png", "/blog.atom", "/changelog.atom"]);
 // Paths that are reachable + render 200 but are deliberately excluded from sitemap.xml
-// because they serve X-Robots-Tag: noindex, follow (e.g. /vs and /vs/* until the 2026 benchmark freeze).
-const NOINDEX_REACHABLE = new Set<string>(["/vs", "/vs/gptzero", "/vs/originality-ai", "/vs/copyleaks", "/vs/hive"]);
+// because they serve X-Robots-Tag: noindex, follow (e.g. /vs, /vs/*, and gated benchmark pages).
+const NOINDEX_REACHABLE = new Set<string>(["/vs", "/vs/gptzero", "/vs/originality-ai", "/vs/copyleaks", "/vs/hive", "/evals/2026-benchmark"]);
 
 function sitemapPaths(): string[] {
   return Array.from(sitemapXml().matchAll(/<loc>(.*?)<\/loc>/g)).map((match) => {
