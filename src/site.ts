@@ -3,6 +3,7 @@ import { sampleAnalyzeImageResponse, sampleAnalyzeResponse } from "./discovery";
 import { DEMO_IMAGE_URL } from "./demoImage";
 import { DEMO_AUDIO_TRANSCRIPT, DEMO_AUDIO_URL } from "./demoAudio";
 import { DEMO_VIDEO_SAMPLE, DEMO_VIDEO_URL } from "./demoVideo";
+import { CHANGELOG_ENTRIES, ORGANIZATION_JSON_LD, ORG_SAME_AS } from "./pages";
 
 const BASE_URL = "https://veracityapi.com";
 const API_BASE_URL = "https://api.veracityapi.com";
@@ -15,9 +16,13 @@ export function homepageHtml(): string {
   const imageSampleJson = JSON.stringify(IMAGE_SAMPLE, null, 2);
   const audioSampleJson = JSON.stringify(AUDIO_SAMPLE, null, 2);
   const videoSampleJson = JSON.stringify(DEMO_VIDEO_SAMPLE, null, 2);
-  const jsonLd = JSON.stringify({
+  // Latest changelog date — used as VideoObject.uploadDate so it stays deterministic
+  // and rolls forward whenever we publish a new changelog entry (or update the demo).
+  const latestDate = CHANGELOG_ENTRIES[0]?.date ?? "2026-01-01";
+  const softwareJsonLd = JSON.stringify({
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
+    "@id": `${BASE_URL}/#software`,
     name: "VeracityAPI",
     applicationCategory: "DeveloperApplication",
     operatingSystem: "Web API",
@@ -25,16 +30,39 @@ export function homepageHtml(): string {
     description: "A linter for AI outputs. Detect text slop and AI forgeries in images and audio before they ship. Returns an action plus evidence.",
     offers: { "@type": "AggregateOffer", priceCurrency: "USD", lowPrice: "0.005", highPrice: "0.05", availability: "https://schema.org/InStock", description: "No subscriptions. New accounts get $1.50 free credit — enough for 300 analyze-only 1k-character text requests or 150 Analyze + revise requests. Analyze-only text is $0.005 per 1,000 characters; Analyze + revise is $0.010 per 1,000 characters; image analysis is $0.02/image; audio workflow triage with transcript return is $0.01/request; private-beta video authenticity-risk analysis is $0.05/successful request." },
     softwareHelp: `${BASE_URL}/llms.txt`,
-    sameAs: [`${BASE_URL}/openapi.json`, `${BASE_URL}/llms-full.txt`, `${BASE_URL}/agents.json`, `${BASE_URL}/methodology`, `${BASE_URL}/evals`],
+    sameAs: [...ORG_SAME_AS, `${BASE_URL}/openapi.json`, `${BASE_URL}/llms-full.txt`, `${BASE_URL}/agents.json`, `${BASE_URL}/methodology`, `${BASE_URL}/evals`],
     potentialAction: { "@type": "UseAction", target: `${API_BASE_URL}/v1/analyze`, name: "Lint AI outputs" },
     codeRepository: "https://github.com/psyduckler/veracityapi",
+    publisher: { "@id": `${BASE_URL}/#organization` },
   });
+  // Standalone Organization node so external sameAs links anchor on the homepage and
+  // crawlers find the canonical Organization @id referenced by all other pages.
+  const orgJsonLd = JSON.stringify({ "@context": "https://schema.org", ...ORGANIZATION_JSON_LD });
+  // VideoObject for the playable demo clip. duration is intentionally omitted — we
+  // don't track the actual clip duration in code, and an incorrect value here would
+  // be worse than none. thumbnailUrl falls back to og.png until we generate a frame.
+  const videoJsonLd = JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "VideoObject",
+    "@id": `${BASE_URL}/#demo-video`,
+    name: "VeracityAPI video authenticity-risk demo",
+    description: "Short hosted demo clip used to illustrate the private-beta video authenticity-risk endpoint. Preprocessed; not billable.",
+    contentUrl: DEMO_VIDEO_URL,
+    embedUrl: BASE_URL,
+    thumbnailUrl: [`${BASE_URL}/og.png`],
+    uploadDate: latestDate,
+    publisher: { "@id": `${BASE_URL}/#organization` },
+    isFamilyFriendly: true,
+  });
+  const jsonLd = softwareJsonLd;
+  // emit additional schema nodes alongside the SoftwareApplication
+  const additionalSchemaScripts = `<script type="application/ld+json">${orgJsonLd}</script><script type="application/ld+json">${videoJsonLd}</script>`;
 
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>AI Slop + AI Forgery Detection API | VeracityAPI</title><meta name="description" content="A linter for AI outputs. Detect text slop and AI forgeries in images/audio before they ship. One API call returns an action plus evidence."/>
 <link rel="canonical" href="${BASE_URL}/"/><meta property="og:title" content="AI Slop + AI Forgery Detection API | VeracityAPI"/><meta property="og:description" content="A linter for AI outputs: text slop, image/audio/video forgeries, action plus evidence."/><meta property="og:type" content="website"/><meta property="og:url" content="${BASE_URL}/"/><meta property="og:image" content="${BASE_URL}/og.png"/><meta property="og:image:width" content="1200"/><meta property="og:image:height" content="630"/><meta property="og:image:type" content="image/png"/>
 <meta name="twitter:card" content="summary_large_image"/><meta name="twitter:title" content="AI Slop + AI Forgery Detection API"/><meta name="twitter:description" content="A linter for AI outputs. Detect slop and forgeries before they ship."/><meta name="twitter:image" content="${BASE_URL}/og.png"/><link rel="icon" type="image/svg+xml" href="${BASE_URL}/favicon.svg"/><link rel="shortcut icon" href="${BASE_URL}/favicon.ico"/><meta name="theme-color" content="#f4f0e8"/>
-<link rel="alternate" type="text/plain" href="${BASE_URL}/llms.txt" title="llms.txt"/><link rel="alternate" type="text/plain" href="${BASE_URL}/llms-full.txt" title="llms-full.txt"/><link rel="alternate" type="application/json" href="${BASE_URL}/.well-known/agents.json" title="agents.json"/><link rel="alternate" type="application/atom+xml" href="${BASE_URL}/blog.atom" title="VeracityAPI Blog (Atom)"/><link rel="alternate" type="application/atom+xml" href="${BASE_URL}/changelog.atom" title="VeracityAPI Changelog (Atom)"/><link rel="service-desc" type="application/openapi+json" href="${BASE_URL}/openapi.json"/><script type="application/ld+json">${jsonLd}</script>
+<link rel="alternate" type="text/plain" href="${BASE_URL}/llms.txt" title="llms.txt"/><link rel="alternate" type="text/plain" href="${BASE_URL}/llms-full.txt" title="llms-full.txt"/><link rel="alternate" type="application/json" href="${BASE_URL}/.well-known/agents.json" title="agents.json"/><link rel="alternate" type="application/atom+xml" href="${BASE_URL}/blog.atom" title="VeracityAPI Blog (Atom)"/><link rel="alternate" type="application/atom+xml" href="${BASE_URL}/changelog.atom" title="VeracityAPI Changelog (Atom)"/><link rel="service-desc" type="application/openapi+json" href="${BASE_URL}/openapi.json"/><script type="application/ld+json">${jsonLd}</script>${additionalSchemaScripts}
 <style>${css()}</style></head><body class="loud">
 ${canonicalNav("loud")}
 ${marqueeTicker(["AI OUTPUT LINTER", "AI SLOP DETECTOR", "TEXT SLOP", "AI FORGERIES", "ACTION + EVIDENCE", "NO FORENSIC CLAIMS"])}

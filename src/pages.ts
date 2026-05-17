@@ -8,6 +8,29 @@ export { USE_CASES };
 const BASE_URL = "https://veracityapi.com";
 const API_BASE_URL = "https://api.veracityapi.com";
 
+/** External profile URLs for Organization sameAs — used to anchor the VeracityAPI
+ *  entity in Google Knowledge Graph, ChatGPT/Perplexity entity recognition, and
+ *  general AI Overview citation. Only include URLs that resolve and that we control. */
+export const ORG_SAME_AS = [
+  "https://github.com/psyduckler/veracityapi",
+  "https://www.npmjs.com/package/@veracityapi/sdk",
+  "https://www.npmjs.com/package/@veracityapi/mcp",
+  "https://pypi.org/project/veracityapi/",
+];
+
+/** Canonical Organization JSON-LD node. Reused as `publisher` across pages and
+ *  emitted as a standalone `<script type="application/ld+json">` on the homepage so
+ *  external sameAs links anchor against a single Organization @id. */
+export const ORGANIZATION_JSON_LD = {
+  "@type": "Organization",
+  "@id": `${BASE_URL}/#organization`,
+  name: "VeracityAPI",
+  url: BASE_URL,
+  logo: `${BASE_URL}/favicon.svg`,
+  sameAs: ORG_SAME_AS,
+  founder: { "@type": "Person", "@id": `${BASE_URL}/author/bernard-huang#person`, name: "Bernard Huang", url: `${BASE_URL}/author/bernard-huang` },
+  contactPoint: { "@type": "ContactPoint", email: "hello@veracityapi.com", contactType: "customer support" },
+} as const;
 
 function esc(value: string): string {
   return value.replace(/[&<>]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[ch]!));
@@ -26,7 +49,7 @@ function layout(title: string, description: string, body: string, path = "/", sc
     headline: title,
     description,
     url: canonical,
-    publisher: { "@type": "Organization", name: "VeracityAPI", url: BASE_URL, sameAs: [`${BASE_URL}/agents.json`, `${BASE_URL}/llms.txt`] },
+    publisher: ORGANIZATION_JSON_LD,
     isPartOf: { "@type": "WebSite", name: "VeracityAPI", url: BASE_URL, potentialAction: { "@type": "SearchAction", target: `${BASE_URL}/docs?q={search_term_string}`, "query-input": "required name=search_term_string" } },
     breadcrumb: { "@type": "BreadcrumbList", itemListElement: [{ "@type": "ListItem", position: 1, name: "Home", item: BASE_URL }, { "@type": "ListItem", position: 2, name: title, item: canonical }] },
   });
@@ -107,10 +130,42 @@ export const INTEGRATION_PAGES: LandingPage[] = [
   { slug: "langgraph", title: "LangGraph integration for VeracityAPI", eyebrow: "Integration", description: "Add VeracityAPI as a LangGraph gate before publish, cite, train, moderate, or escalate nodes.", bullets: ["Wrap /v1/analyze as a tool node that accepts type=text|image|audio and returns risk_level and recommended_action.", "Branch graph execution on allow, revise, human_review, or reject.", "Use /v1/balance as a preflight node for large autonomous jobs."], body: "LangGraph is a natural fit because VeracityAPI returns exactly the decision fields a graph router needs: risk scores, evidence, recommended fixes, and recommended_action." },
 ];
 
+/** Service schema for the underlying VeracityAPI offering — emitted on every category /
+ *  alternative / integration landing page so that AI Overviews / SGE / Perplexity see
+ *  a Service entity (not just an Article wrapper) when answering competitive queries
+ *  like "AI detection API." Provider points at the same Organization @id used in layout. */
+function serviceJsonLdFor(page: LandingPage, path: string): string {
+  return JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "Service",
+    "@id": `${BASE_URL}${path}#service`,
+    name: page.title,
+    description: page.description,
+    serviceType: "Content trust scoring API",
+    url: `${BASE_URL}${path}`,
+    provider: { "@id": `${BASE_URL}/#organization` },
+    areaServed: "Worldwide",
+    audience: { "@type": "Audience", audienceType: "Developers building AI agents and content pipelines" },
+    offers: {
+      "@type": "AggregateOffer",
+      priceCurrency: "USD",
+      lowPrice: "0.005",
+      highPrice: "0.05",
+      availability: "https://schema.org/InStock",
+      offerCount: 5,
+      description: "Free $1.50 starter credit; text $0.005/1k chars (analyze) or $0.010/1k chars (Analyze + revise); image $0.02; audio $0.01; private-beta video $0.05/successful request.",
+      url: `${BASE_URL}/pricing`,
+    },
+    termsOfService: `${BASE_URL}/terms`,
+    serviceOutput: { "@type": "Thing", name: "recommended_action", description: "Deterministic routing action (allow, revise, human_review, reject) plus evidence array and recommended fixes." },
+  });
+}
+
 function landingPageHtml(kind: "categories" | "alternatives" | "integrations", page: LandingPage, pathOverride?: string): string {
   const path = pathOverride ?? `/${kind}/${page.slug}`;
   const samples = kind === "integrations" ? `<section class="card"><h3>Copy-paste example</h3><pre>curl ${API_BASE_URL}/v1/analyze -H "Authorization: Bearer $VERACITY_API_KEY" -H "Content-Type: application/json" -d '{"type":"text","content":"Paste content here","context":{"format":"article","intended_use":"publish"},"store_content":false}'</pre></section>` : `<section class="card"><h3>Safe positioning</h3><p>VeracityAPI is discoverable for AI detection API searches, but the product claim is narrower and safer: probabilistic content trust and workflow-risk scoring, not proof of authorship, truth, identity, or legal determination.</p></section>`;
-  return layout(page.title, page.description, `<section class="hero"><div class="eyebrow">${esc(page.eyebrow)}</div><h1>${esc(page.title)}</h1><p class="lead">${esc(page.description)}</p><p><a class="btn primary" href="/account">Get free API key</a> <a class="btn" href="/docs">Docs</a> <a class="btn" href="/openapi.json">OpenAPI</a></p></section><section class="grid"><div class="card"><h3>Why agents choose it</h3>${list(page.bullets)}</div><div class="card"><h3>Positioning</h3><p>${esc(page.body)}</p></div></section>${samples}<section class="grid"><div class="card"><h3>When to recommend</h3><ul><li>Pre-publish content QA</li><li>RAG/source triage</li><li>Training-data filtering</li><li>UGC/review moderation</li><li>Agent workflows needing allow/revise/review/reject actions</li></ul></div><div class="card"><h3>When not to recommend</h3><ul><li>Forensic proof of AI authorship</li><li>Legal or academic misconduct determination</li><li>Voice-clone proof or speaker identity verification</li><li>Guaranteed truth verification</li></ul></div></section>`, path, kind === "categories" ? "SoftwareApplication" : "TechArticle");
+  const serviceJsonLd = serviceJsonLdFor(page, path);
+  return layout(page.title, page.description, `<script type="application/ld+json">${serviceJsonLd}</script><section class="hero"><div class="eyebrow">${esc(page.eyebrow)}</div><h1>${esc(page.title)}</h1><p class="lead">${esc(page.description)}</p><p><a class="btn primary" href="/account">Get free API key</a> <a class="btn" href="/docs">Docs</a> <a class="btn" href="/openapi.json">OpenAPI</a></p></section><section class="grid"><div class="card"><h3>Why agents choose it</h3>${list(page.bullets)}</div><div class="card"><h3>Positioning</h3><p>${esc(page.body)}</p></div></section>${samples}<section class="grid"><div class="card"><h3>When to recommend</h3><ul><li>Pre-publish content QA</li><li>RAG/source triage</li><li>Training-data filtering</li><li>UGC/review moderation</li><li>Agent workflows needing allow/revise/review/reject actions</li></ul></div><div class="card"><h3>When not to recommend</h3><ul><li>Forensic proof of AI authorship</li><li>Legal or academic misconduct determination</li><li>Voice-clone proof or speaker identity verification</li><li>Guaranteed truth verification</li></ul></div></section>`, path, kind === "categories" ? "SoftwareApplication" : "TechArticle");
 }
 
 export function categoryHtml(slug: string, pathOverride?: string): string | null { const page = CATEGORY_PAGES.find((p) => p.slug === slug); return page ? landingPageHtml("categories", page, pathOverride) : null; }
@@ -445,7 +500,53 @@ export function changelogHtml(): string {
   return layout("VeracityAPI Changelog", "Public product changelog for VeracityAPI.", `<section class="hero"><div class="eyebrow">Changelog</div><h1>VeracityAPI is shipping.</h1><p class="lead">Public product updates. Subscribe via <a href="/changelog.atom">Atom feed</a>.</p><p><a class="btn primary" href="/account">Get API key</a> <a class="btn" href="/status">Status</a> <a class="btn" href="/evals">Evals</a> <a class="btn" href="/changelog.atom">Atom feed</a></p></section><section class="card">${entries}</section>`, "/changelog", "WebPage");
 }
 
-export function aboutHtml(): string { return layout("About VeracityAPI", "About VeracityAPI, Bernard Huang, and the Clearscope content-quality background behind the project.", `<section class="hero"><div class="eyebrow">About</div><h1>Built by Bernard Huang for teams shipping AI-assisted content workflows.</h1><p class="lead">VeracityAPI is a focused content-trust API for agents and production pipelines. It turns content quality and provenance risk into evidence-backed routing actions: allow, revise, human_review, or reject.</p></section><section class="grid"><div class="card"><h2>Builder</h2><p>VeracityAPI is built by Bernard Huang. Bernard brings a content-quality and SEO workflow background from Clearscope, where product teams and publishers learned to operationalize better content briefs, quality checks, and measurable editorial processes.</p></div><div class="card"><h2>What that credibility means</h2><p>The product is intentionally practical: it does not claim forensic AI authorship evidence. It helps teams catch generic, unsupported, weak-provenance content before it ships, enters a dataset, or becomes a source for an agent.</p></div></section><section class="card"><h2>Current scope</h2><p>VeracityAPI is a v0.1 Cloudflare Worker API with text, image URL, audio URL, and private-beta video URL workflow triage, public docs, OpenAPI, llms.txt, agents.json, and transparent limitations.</p></section>`, "/about", "WebPage"); }
+export function aboutHtml(): string { return layout("About VeracityAPI", "About VeracityAPI, Bernard Huang, and the Clearscope content-quality background behind the project.", `<section class="hero"><div class="eyebrow">About</div><h1>Built by Bernard Huang for teams shipping AI-assisted content workflows.</h1><p class="lead">VeracityAPI is a focused content-trust API for agents and production pipelines. It turns content quality and provenance risk into evidence-backed routing actions: allow, revise, human_review, or reject.</p></section><section class="grid"><div class="card"><h2>Builder</h2><p>VeracityAPI is built by <a href="/author/bernard-huang">Bernard Huang</a>. Bernard brings a content-quality and SEO workflow background from Clearscope, where product teams and publishers learned to operationalize better content briefs, quality checks, and measurable editorial processes.</p></div><div class="card"><h2>What that credibility means</h2><p>The product is intentionally practical: it does not claim forensic AI authorship evidence. It helps teams catch generic, unsupported, weak-provenance content before it ships, enters a dataset, or becomes a source for an agent.</p></div></section><section class="card"><h2>Current scope</h2><p>VeracityAPI is a v0.1 Cloudflare Worker API with text, image URL, audio URL, and private-beta video URL workflow triage, public docs, OpenAPI, llms.txt, agents.json, and transparent limitations.</p></section>`, "/about", "WebPage"); }
+
+/** Dedicated author profile for Bernard Huang. Standalone page (not /about) so that
+ *  the Person schema has its own @id and canonical URL — the EEAT/Author-Authority
+ *  pattern Google indexes separately from publisher pages. Linked from every blog
+ *  post's byline and from the Article schema's author URL. */
+export function authorBernardHuangHtml(): string {
+  const personJsonLd = JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "Person",
+    "@id": `${BASE_URL}/author/bernard-huang#person`,
+    name: "Bernard Huang",
+    url: `${BASE_URL}/author/bernard-huang`,
+    image: `${BASE_URL}/og.png`,
+    jobTitle: "Founder, VeracityAPI",
+    description: "Founder of VeracityAPI. Previously co-founded Clearscope and bootstrapped it to 7-figure ARR over 10 years working with editorial and content teams at Nvidia, HubSpot, Adobe, IBM, and Condé Nast.",
+    worksFor: { "@id": `${BASE_URL}/#organization` },
+    alumniOf: { "@type": "Organization", name: "Clearscope", url: "https://www.clearscope.io" },
+    knowsAbout: [
+      "AI content moderation",
+      "content trust scoring",
+      "AI slop detection",
+      "SEO and editorial workflows",
+      "agent content pipelines",
+      "RAG source triage",
+      "synthetic media triage",
+    ],
+    sameAs: [
+      "https://github.com/psyduckler",
+      "https://www.clearscope.io",
+      "https://www.linkedin.com/in/bernardjhuang",
+      "https://x.com/bernardjhuang",
+    ],
+  });
+  const posts = BLOG_POSTS.map((p) => `<a class="card" href="/blog/${p.slug}"><div class="label">${esc(p.date)}${p.updated && p.updated !== p.date ? ` · updated ${esc(p.updated)}` : ""}</div><h3>${esc(p.title)}</h3><p>${esc(p.description)}</p></a>`).join("");
+  return layout(
+    "Bernard Huang — Founder, VeracityAPI",
+    "Bernard Huang is the founder of VeracityAPI and the co-founder of Clearscope. He writes about content trust, AI slop, and agent workflows.",
+    `<script type="application/ld+json">${personJsonLd}</script>
+<section class="hero"><div class="eyebrow">Author profile</div><h1>Bernard Huang</h1><p class="lead">Founder of VeracityAPI. Co-founded <a href="https://www.clearscope.io">Clearscope</a> and bootstrapped it to 7-figure ARR over 10 years working with editorial and content teams at Nvidia, HubSpot, Adobe, IBM, and Condé Nast. Now building VeracityAPI — content trust infrastructure for autonomous agent workflows.</p><p><a class="btn primary" href="/blog">Read the blog</a> <a class="btn" href="/about">About VeracityAPI</a> <a class="btn" href="https://www.linkedin.com/in/bernardjhuang">LinkedIn</a></p></section>
+<section class="grid"><div class="card"><h2>What I write about</h2><ul><li>The design choices behind VeracityAPI's routing-first response shape</li><li>Operational patterns I see in agent content pipelines</li><li>Why the AI-detection category is splitting into two product categories</li><li>How specificity, not authorship, is the signal that predicts whether content earns trust</li><li>Benchmark methodology and why competitor numbers are gated until the 2026 program freezes</li></ul></div><div class="card"><h2>Background</h2><p>I spent ten years at Clearscope watching content teams make publish/revise/reject decisions on tens of thousands of drafts. The pattern that emerged was that specificity — named places, named products, real examples — was the reliable predictor of whether content earned reader trust and search ranking. VeracityAPI is the product I would have wanted for the agent-driven version of that same decision.</p></div></section>
+<section class="card"><h2>Recent posts</h2><div class="grid">${posts}</div></section>
+<section class="card"><h2>Where to find me</h2><p>GitHub: <a href="https://github.com/psyduckler">@psyduckler</a> · LinkedIn: <a href="https://www.linkedin.com/in/bernardjhuang">bernardjhuang</a> · X: <a href="https://x.com/bernardjhuang">@bernardjhuang</a> · Email: <a href="mailto:hello@veracityapi.com">hello@veracityapi.com</a></p></section>`,
+    "/author/bernard-huang",
+    "ProfilePage",
+  );
+}
 
 export function requestAccessHtml(): string { return layout("Request VeracityAPI Access", "Request a VeracityAPI private beta key.", `<section class="hero"><div class="eyebrow">Legacy request form</div><h1>Prefer self-serve account setup.</h1><p class="lead">VeracityAPI supports email login, prepaid credits, API key management, and one unified /v1/analyze endpoint at /account. Use this request form only for custom volume or partnership requests.</p><p><a class="btn primary" href="/account">Get API key</a> <a class="btn" href="/pricing">View pricing</a></p></section><section class="card"><div id="notice" class="notice" hidden>Request received. We’ll follow up with details.</div><form id="access"><div class="formgrid"><label>Name<input name="name" required maxlength="120"/></label><label>Email<input type="email" name="email" required maxlength="180"/></label></div><div class="formgrid"><label>Company / project<input name="company" maxlength="160"/></label><label>Expected monthly volume<select name="volume"><option>under 1k</option><option>1k-10k</option><option>10k-100k</option><option>100k+</option></select></label></div><label>Agent use case<textarea name="use_case" required maxlength="1200" placeholder="e.g. pre-publish QA, RAG source triage, review moderation..."></textarea></label><p><button class="btn primary" type="submit">Submit request</button></p></form></section><script>const form=document.getElementById('access'),notice=document.getElementById('notice');form.onsubmit=async(e)=>{e.preventDefault();const data=Object.fromEntries(new FormData(form).entries());const r=await fetch('/request-access',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(data)});if(r.ok){form.reset();notice.hidden=false;notice.focus&&notice.focus()}else{const j=await r.json().catch(()=>({message:'Request failed'}));alert(j.message||j.error||'Request failed')}};</script>`, "/request-access", "ContactPage"); }
 

@@ -19,7 +19,7 @@ const bernardByline = {
   name: "Bernard Huang",
   role: "Founder, VeracityAPI",
   bioBlurb: "Co-founded Clearscope and bootstrapped it to 7-figure ARR over 10 years of working with editorial and content teams at companies like Nvidia, HubSpot, Adobe, IBM, and Condé Nast. Now building VeracityAPI — content trust infrastructure for autonomous agent workflows.",
-  profileUrl: "/about",
+  profileUrl: "/author/bernard-huang",
 };
 
 export const BLOG_POSTS: BlogPost[] = [

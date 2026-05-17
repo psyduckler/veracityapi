@@ -289,18 +289,46 @@ describe("agent distribution surfaces", () => {
 describe("static discovery hygiene", () => {
   it("serves static discovery bodies without dynamic request ids and deterministic sitemap", async () => {
     const env = { DB: new EmptyDb(), ANTHROPIC_API_KEY: "test", API_KEYS: "" } as any;
-    for (const path of ["/openapi.json", "/agents.json", "/.well-known/agents.json"]) {
+    for (const path of ["/openapi.json", "/agents.json", "/.well-known/agents.json", "/.well-known/ai-plugin.json"]) {
       const res = await worker.fetch(new Request(`https://veracityapi.com${path}`), env);
       const body = await res.text();
       expect(res.status, path).toBe(200);
+      expect(res.headers.get("content-type"), path).toContain("application/json");
       expect(body, path).not.toMatch(/req_[A-Za-z0-9]/);
+    }
+    // ai-plugin.json: legacy ChatGPT plugin manifest. Points agents at the live OpenAPI.
+    const aiPlugin = await (await worker.fetch(new Request("https://veracityapi.com/.well-known/ai-plugin.json"), env)).json() as any;
+    expect(aiPlugin.schema_version).toBe("v1");
+    expect(aiPlugin.api.url).toBe("https://veracityapi.com/openapi.json");
+    expect(aiPlugin.auth.type).toBe("user_http");
+    // OpenAPI must include x-codeSamples + x-recommend-when on the primary unified endpoint.
+    const spec = openApiSpec() as any;
+    expect(spec.paths["/v1/analyze"].post["x-codeSamples"]).toBeTruthy();
+    expect(spec.paths["/v1/analyze"].post["x-recommend-when"]).toBeTruthy();
+    expect(spec.paths["/v1/analyze"].post["x-do-not-recommend-when"]).toBeTruthy();
+    // robots.txt: explicit AI-bot stanzas matter because Google-Extended / Applebot-Extended
+    // only honor explicit Allow (not the wildcard catch-all).
+    const robots = await (await worker.fetch(new Request("https://veracityapi.com/robots.txt"), env)).text();
+    for (const bot of ["GPTBot", "ClaudeBot", "PerplexityBot", "Google-Extended", "Applebot-Extended"]) {
+      expect(robots, bot).toContain(`User-agent: ${bot}`);
     }
     const a = sitemapXml();
     const b = sitemapXml();
     expect(a).toBe(b);
-    expect(a).not.toContain("<lastmod>");
+    // <lastmod> is now emitted (deterministic — derived from CHANGELOG_ENTRIES[0].date
+    // and per-post blog dates, never new Date()) so Google can prioritize fresh URLs.
+    expect(a).toContain("<lastmod>");
+    expect(a).toMatch(/<lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/);
+    // Image + video sitemap extensions for richer image/video search surface.
+    expect(a).toContain("xmlns:image=");
+    expect(a).toContain("xmlns:video=");
+    expect(a).toContain("<image:image>");
+    expect(a).toContain("<video:video>");
     expect(a).toContain("https://veracityapi.com/alternatives");
+    expect(a).toContain("https://veracityapi.com/author/bernard-huang");
     expect(a).not.toContain("https://veracityapi.com/trust-model");
+    // Do not submit noindex pages to sitemap or IndexNow.
+    expect(a).not.toContain("https://veracityapi.com/evals/2026-benchmark");
   });
 
   it("redirects www host to canonical apex", async () => {
