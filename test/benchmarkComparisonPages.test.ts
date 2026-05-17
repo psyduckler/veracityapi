@@ -56,10 +56,15 @@ describe("benchmark and comparison launch surfaces", () => {
     }
   });
 
-  it("adds new benchmark/comparison/blog URLs to discovery surfaces", () => {
+  it("adds new benchmark/blog URLs to discovery surfaces and excludes noindex /vs/* from sitemap", () => {
     const sitemap = sitemapXml();
-    for (const path of ["/evals/2026-benchmark", "/vs", "/vs/originality-ai", "/vs/gptzero", "/vs/hive", "/vs/copyleaks", "/blog", "/blog/benchmarking-ai-detectors-routing-f1", "/blog/not-an-ai-detector-routing-linter"]) {
+    // /vs and /vs/* serve X-Robots-Tag: noindex, follow and must be excluded from the sitemap
+    // to avoid contradictory crawl signals while the 2026 benchmark is unfrozen.
+    for (const path of ["/evals/2026-benchmark", "/blog", "/blog/benchmarking-ai-detectors-routing-f1", "/blog/not-an-ai-detector-routing-linter"]) {
       expect(sitemap).toContain(`https://veracityapi.com${path}`);
+    }
+    for (const path of ["/vs", "/vs/originality-ai", "/vs/gptzero", "/vs/hive", "/vs/copyleaks"]) {
+      expect(sitemap).not.toContain(`<loc>https://veracityapi.com${path}</loc>`);
     }
     expect(llmsTxt()).toContain("2026 benchmark program");
     const agents = agentsJson() as any;
