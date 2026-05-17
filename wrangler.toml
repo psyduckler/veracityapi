@@ -13,6 +13,12 @@ MODEL_VERSION = "v0.1"
 VIDEO_VISION_MODEL = "claude-haiku-4-5-20251001"
 DEMO_RATE_LIMIT_PER_HOUR = "12"
 
+# Daily IndexNow ping at 06:15 UTC. Submits the current sitemap to Bing/Yandex so
+# fresh blog and changelog content lands in the indexes ChatGPT Search and other
+# AI-citation surfaces read from. The handler is in src/index.ts (scheduled()).
+[triggers]
+crons = ["15 6 * * *"]
+
 [[d1_databases]]
 binding = "DB"
 database_name = "veracityapi"

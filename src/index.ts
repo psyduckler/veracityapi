@@ -6,13 +6,13 @@ import { logAnalysis } from "./db";
 import { LlmError, reviseText, scoreAudio, scoreImage, scoreText } from "./llm";
 import { buildAnalyzeVideoResponse, extractVideoContactSheet, scoreVideoContactSheet, VideoAnalysisError } from "./video";
 import { deriveAction, deriveAudioRiskLevel, deriveAudioTrustScore, deriveImageRiskLevel, deriveImageTrustScore, derivePrimaryReason, deriveRiskLevel, deriveTrustSignals } from "./scoring";
-import { agentsJson, blogAtomXml, changelogAtomXml, faviconSvg, INDEXNOW_KEY, llmsTxt, llmsFullTxt, ogSvg, openApiSpec, robotsTxt, sitemapXml } from "./discovery";
+import { agentsJson, aiPluginJson, blogAtomXml, changelogAtomXml, faviconSvg, INDEXNOW_KEY, llmsTxt, llmsFullTxt, ogSvg, openApiSpec, pingIndexNow, robotsTxt, sitemapUrls, sitemapXml } from "./discovery";
 import { authorizeExtension, exchangeExtensionCode, ExtensionAuthError, extensionConnectHtml, safeExtensionNextPath, safeRelativeNext, validateExtensionRedirectUri, validateExtensionState } from "./extensionAuth";
 import { DEMO_IMAGE_CONTENT_TYPE, DEMO_IMAGE_PATH, demoImageBytes } from "./demoImage";
 import { DEMO_AUDIO_CONTENT_TYPE, DEMO_AUDIO_PATH, demoAudioBytes } from "./demoAudio";
 import { DEMO_VIDEO_CONTENT_TYPE, DEMO_VIDEO_PATH, demoVideoBytes } from "./demoVideo";
 import { ogPngBytes } from "./ogPng";
-import { aboutHtml, alternativesHtml, benchmark2026Html, blogIndexHtml, blogPostHtml, categoryHtml, CHANGELOG_ENTRIES, changelogHtml, comparisonHtml, docsHtml, docsErrorsHtml, evalsHtml, examplesHtml, forAgentsHtml, howItWorksHtml, methodologyHtml, trustModelHtml, mcpHtml, pricingHtml, privacyHtml, subprocessorsHtml, securityHtml, termsHtml, requestAccessHtml, statusHtml, useCaseHtml, useCasesIndexHtml, vsIndexHtml, whatWeDetectHtml } from "./pages";
+import { aboutHtml, alternativesHtml, authorBernardHuangHtml, benchmark2026Html, blogIndexHtml, blogPostHtml, categoryHtml, CHANGELOG_ENTRIES, changelogHtml, comparisonHtml, docsHtml, docsErrorsHtml, evalsHtml, examplesHtml, forAgentsHtml, howItWorksHtml, methodologyHtml, trustModelHtml, mcpHtml, pricingHtml, privacyHtml, subprocessorsHtml, securityHtml, termsHtml, requestAccessHtml, statusHtml, useCaseHtml, useCasesIndexHtml, vsIndexHtml, whatWeDetectHtml } from "./pages";
 import { distributionPageHtml, distributionRedirectTarget } from "./distribution";
 import { homepageHtml } from "./site";
 import { y2kCss } from "./y2k";
@@ -92,6 +92,7 @@ export default {
       "/use-cases": useCasesIndexHtml,
       "/pricing": pricingHtml,
       "/about": aboutHtml,
+      "/author/bernard-huang": authorBernardHuangHtml,
       "/status": statusHtml,
       "/changelog": changelogHtml,
       "/privacy": privacyHtml,
@@ -183,6 +184,10 @@ export default {
 
     if ((request.method === "GET" || request.method === "HEAD") && (url.pathname === "/.well-known/agents.json" || url.pathname === "/agents.json")) {
       return text(request.method === "HEAD" ? "" : JSON.stringify(agentsJson(), null, 2), "application/json; charset=utf-8", { "cache-control": "public, max-age=300" });
+    }
+
+    if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/.well-known/ai-plugin.json") {
+      return text(request.method === "HEAD" ? "" : JSON.stringify(aiPluginJson(), null, 2), "application/json; charset=utf-8", { "cache-control": "public, max-age=3600" });
     }
 
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/.well-known/openai-apps-challenge") {
@@ -348,6 +353,22 @@ export default {
 
 
     return notFound(request);
+  },
+
+  /**
+   * Cron-triggered IndexNow ping. Submits the current sitemap URLs to Bing/Yandex
+   * (and downstream consumers like ChatGPT Search which rides on Bing's index) so
+   * fresh content lands in AI-citation surfaces without waiting for the next crawl.
+   * Failures are logged-and-swallowed — IndexNow is fire-and-forget by design.
+   */
+  async scheduled(_event: ScheduledEvent, _env: Env, ctx: ExecutionContext): Promise<void> {
+    const urls = sitemapUrls().map((path) => `https://veracityapi.com${path}`);
+    ctx.waitUntil(
+      pingIndexNow(urls).then(
+        (res) => { if (!res.ok) console.warn(`IndexNow ping returned ${res.status}`); },
+        (err) => { console.warn("IndexNow ping failed:", err); },
+      ),
+    );
   },
 };
 
