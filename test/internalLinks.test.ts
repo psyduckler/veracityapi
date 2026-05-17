@@ -13,7 +13,10 @@ const env = { DB: new EmptyDb(), ANTHROPIC_API_KEY: "test", API_KEYS: "" } as an
 
 const BASE = "https://veracityapi.com";
 const UNPUBLISHED = ["/alternatives/reality-defender", "/alternatives/resemble-detect", "/use-cases/audio-customer-support-call-qa"];
-const ROUTED_OPERATIONAL_PATHS = new Set(["/account", "/health", "/openapi.json", "/llms.txt", "/llms-full.txt", "/agents.json", "/sitemap.xml", "/favicon.svg", "/favicon.ico", "/og.png"]);
+const ROUTED_OPERATIONAL_PATHS = new Set(["/account", "/health", "/openapi.json", "/llms.txt", "/llms-full.txt", "/agents.json", "/sitemap.xml", "/favicon.svg", "/favicon.ico", "/og.png", "/blog.atom", "/changelog.atom"]);
+// Paths that are reachable + render 200 but are deliberately excluded from sitemap.xml
+// because they serve X-Robots-Tag: noindex, follow (e.g. /vs and /vs/* until the 2026 benchmark freeze).
+const NOINDEX_REACHABLE = new Set<string>(["/vs", "/vs/gptzero", "/vs/originality-ai", "/vs/copyleaks", "/vs/hive"]);
 
 function sitemapPaths(): string[] {
   return Array.from(sitemapXml().matchAll(/<loc>(.*?)<\/loc>/g)).map((match) => {
@@ -74,7 +77,8 @@ describe("internal linking architecture", () => {
 
     const minimums: Record<string, number> = {
       "/what-we-detect": 5,
-      "/vs": 5,
+      // /vs is intentionally excluded from sitemap (noindex,follow), so it does not appear in
+      // graph.incoming (which keys off sitemap paths). It still gets footer/contextual inlinks.
       "/blog": 3,
       "/examples": 3,
       "/mcp": 3,
@@ -112,7 +116,7 @@ describe("internal linking architecture", () => {
       expect(linked.has(unpublished), `${unpublished} should not be linked`).toBe(false);
     }
 
-    const contentLinks = Array.from(linked.keys()).filter((path) => !path.includes(".") && !path.startsWith("/demo/") && !path.startsWith("/assets/") && !ROUTED_OPERATIONAL_PATHS.has(path));
+    const contentLinks = Array.from(linked.keys()).filter((path) => !path.includes(".") && !path.startsWith("/demo/") && !path.startsWith("/assets/") && !ROUTED_OPERATIONAL_PATHS.has(path) && !NOINDEX_REACHABLE.has(path));
     const sitemapSet = new Set(graph.paths);
     const missing = contentLinks.filter((path) => !sitemapSet.has(path));
     expect(missing).toEqual([]);

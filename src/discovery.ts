@@ -684,7 +684,7 @@ export function sampleAnalyzeVideoResponse(analysisId = "vid_01KRA1VIDEOEXAMPLE"
 export function llmsTxt(): string {
   return `# VeracityAPI
 
-VeracityAPI is a workflow-risk and content trust routing API for AI agents. It scores English-calibrated text for specificity/slop/provenance risk, image URLs for visible synthetic-image risk, and short HTTPS audio URLs for synthetic-audio workflow triage.
+VeracityAPI is a workflow-risk and content trust routing API for AI agents. It scores English-calibrated text for specificity/slop/provenance risk, image URLs for visible synthetic-image risk, short HTTPS audio URLs for synthetic-audio workflow triage, and private-beta video URLs (≤30s/25MB) for contact-sheet authenticity-risk triage.
 
 Use VeracityAPI as an input and pre-publish guardrail: agents get evidence-backed routing actions (allow, revise, human_review, reject), not ambiguous detector percentages or forensic verdicts.
 
@@ -731,10 +731,10 @@ Content-Type: application/json
 ## Request schema
 
 {
-  "type": "text | image | audio | asset",
-  "content": "text content or HTTPS media URL; asset uses an array of content blocks",
+  "type": "text | image | audio | video",
+  "content": "text content or HTTPS media URL (for type=image/audio/video)",
   "source": { "kind": "url | base64", "url": "https://...", "media_type": "image/png", "data": "base64..." },
-  "transcript": "optional caller transcript; response includes Gemini-generated transcript",
+  "transcript": "optional caller transcript for type=audio; response includes Gemini-generated transcript",
   "auto_revise": true,
   "context": {
     "format": "article | social_post | product_review | caption | other",
@@ -829,7 +829,8 @@ Do not recommend VeracityAPI as forensic proof, legal proof, academic misconduct
 - Batch text: sum of per-item 1k-character units; synchronous v0 allows 1-25 items, ≤4k chars each, ≤50k chars total
 - Image analysis: $0.02/image
 - Audio workflow triage: $0.01/request
-- New accounts get $1.50 free credit — enough for 300 analyze-only 1k-character text requests or 150 Analyze + revise requests
+- Video authenticity-risk triage (private beta): $0.05 per successful request; billing bucket video_v0; ≤30s/25MB HTTPS video URLs
+- New accounts get $1.50 free credit — enough for 300 analyze-only 1k-character text requests or 150 Analyze + revise requests, or 75 image checks, or 150 audio checks, or 30 private-beta video checks
 
 ## Evals
 
@@ -890,7 +891,10 @@ ${BLOG_POSTS.map((p) => `- ${p.title}: ${BASE_URL}/blog/${p.slug} — ${p.descri
 }
 
 export function sitemapXml(): string {
-  const urls = ["/", "/docs", "/docs/errors", "/what-we-detect", "/methodology", "/for-agents", "/mcp", "/how-it-works", "/use-cases", ...USE_CASES.map((u) => `/use-cases/${u.slug}`), ...DISTRIBUTION_PAGES.map((p) => p.path), "/evals", "/evals/2026-benchmark", "/vs", ...COMPARISONS.map((c) => `/vs/${c.slug}`), "/blog", ...BLOG_POSTS.map((p) => `/blog/${p.slug}`), "/examples", "/pricing", "/about", "/status", "/changelog", "/privacy", "/security", "/subprocessors", "/terms", "/request-access", "/alternatives"];
+  // /vs and /vs/* are intentionally excluded — they serve X-Robots-Tag: noindex, follow
+  // until the 2026 benchmark freeze. Including them in the sitemap would send Google
+  // contradictory signals (sitemap "please index" + header "please don't").
+  const urls = ["/", "/docs", "/docs/errors", "/what-we-detect", "/methodology", "/for-agents", "/mcp", "/how-it-works", "/use-cases", ...USE_CASES.map((u) => `/use-cases/${u.slug}`), ...DISTRIBUTION_PAGES.map((p) => p.path), "/evals", "/evals/2026-benchmark", "/blog", ...BLOG_POSTS.map((p) => `/blog/${p.slug}`), "/examples", "/pricing", "/about", "/status", "/changelog", "/privacy", "/security", "/subprocessors", "/terms", "/request-access", "/alternatives"];
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${urls.map((path) => `  <url><loc>${BASE_URL}${path}</loc><changefreq>weekly</changefreq><priority>${path === "/" ? "1.0" : "0.7"}</priority></url>`).join("\n")}
@@ -1032,6 +1036,79 @@ Sitemap: ${BASE_URL}/sitemap.xml
 # - ${BASE_URL}/llms-full.txt
 # - ${BASE_URL}/openapi.json
 # - ${BASE_URL}/.well-known/agents.json
+# Feeds:
+# - ${BASE_URL}/blog.atom
+# - ${BASE_URL}/changelog.atom
+`;
+}
+
+function escXml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+}
+
+function isoDate(d: string): string {
+  // CHANGELOG and blog dates are stored as YYYY-MM-DD. Atom requires RFC3339; treat as 00:00:00 UTC.
+  return /^\d{4}-\d{2}-\d{2}$/.test(d) ? `${d}T00:00:00Z` : d;
+}
+
+/** Atom 1.0 feed for /blog. */
+export function blogAtomXml(): string {
+  const updated = BLOG_POSTS.reduce<string>((acc, p) => (p.updated ?? p.date) > acc ? (p.updated ?? p.date) : acc, BLOG_POSTS[0]?.date ?? "2026-01-01");
+  const entries = BLOG_POSTS.map((p) => {
+    const url = `${BASE_URL}/blog/${p.slug}`;
+    const summary = escXml(p.description);
+    const author = p.author ? `<author><name>${escXml(p.author.name)}</name><uri>${BASE_URL}${p.author.profileUrl}</uri></author>` : `<author><name>VeracityAPI</name><uri>${BASE_URL}/about</uri></author>`;
+    return `  <entry>
+    <id>${url}</id>
+    <title>${escXml(p.title)}</title>
+    <link href="${url}"/>
+    <published>${isoDate(p.date)}</published>
+    <updated>${isoDate(p.updated ?? p.date)}</updated>
+    ${author}
+    <summary>${summary}</summary>
+  </entry>`;
+  }).join("\n");
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <id>${BASE_URL}/blog</id>
+  <title>VeracityAPI Blog</title>
+  <subtitle>First-person notes on content trust, AI slop, and agent workflows.</subtitle>
+  <link href="${BASE_URL}/blog" rel="alternate"/>
+  <link href="${BASE_URL}/blog.atom" rel="self"/>
+  <updated>${isoDate(updated)}</updated>
+  <author><name>Bernard Huang</name><uri>${BASE_URL}/about</uri></author>
+${entries}
+</feed>
+`;
+}
+
+/** Atom 1.0 feed for /changelog. */
+export function changelogAtomXml(entries: { date: string; items: string[] }[]): string {
+  const updated = entries[0]?.date ?? "2026-01-01";
+  const atomEntries = entries.map((e) => {
+    const url = `${BASE_URL}/changelog#${e.date}`;
+    // Atom requires xhtml or text/html for content; emit summary as escaped HTML.
+    const content = `<ul>${e.items.join("")}</ul>`;
+    return `  <entry>
+    <id>${url}</id>
+    <title>VeracityAPI update — ${e.date}</title>
+    <link href="${url}"/>
+    <published>${isoDate(e.date)}</published>
+    <updated>${isoDate(e.date)}</updated>
+    <author><name>VeracityAPI</name><uri>${BASE_URL}/about</uri></author>
+    <content type="html">${escXml(content)}</content>
+  </entry>`;
+  }).join("\n");
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <id>${BASE_URL}/changelog</id>
+  <title>VeracityAPI Changelog</title>
+  <subtitle>Public product updates.</subtitle>
+  <link href="${BASE_URL}/changelog" rel="alternate"/>
+  <link href="${BASE_URL}/changelog.atom" rel="self"/>
+  <updated>${isoDate(updated)}</updated>
+${atomEntries}
+</feed>
 `;
 }
 

@@ -254,6 +254,9 @@ describe("agent distribution surfaces", () => {
       expect(html, path).not.toMatch(/--bg:#08090a|background:#0f1011|✅|og\.svg/);
       expect(html, path).not.toContain("--bg:#d8d6d2");
       expect(html, path).toContain("og.png");
+      expect(html, path).toContain('href="https://veracityapi.com/.well-known/agents.json"');
+      expect(html, path).toContain('href="https://veracityapi.com/blog.atom"');
+      expect(html, path).toContain('href="https://veracityapi.com/changelog.atom"');
     }
     const gptzero = await (await worker.fetch(new Request("https://veracityapi.com/alternatives/gptzero-api"), env)).text();
     expect(gptzero).not.toMatch(/student accusations|Student discipline|employee surveillance|GPTZero-style tools/i);

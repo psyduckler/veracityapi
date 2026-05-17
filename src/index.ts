@@ -6,13 +6,13 @@ import { logAnalysis } from "./db";
 import { LlmError, reviseText, scoreAudio, scoreImage, scoreText } from "./llm";
 import { buildAnalyzeVideoResponse, extractVideoContactSheet, scoreVideoContactSheet, VideoAnalysisError } from "./video";
 import { deriveAction, deriveAudioRiskLevel, deriveAudioTrustScore, deriveImageRiskLevel, deriveImageTrustScore, derivePrimaryReason, deriveRiskLevel, deriveTrustSignals } from "./scoring";
-import { agentsJson, faviconSvg, INDEXNOW_KEY, llmsTxt, llmsFullTxt, ogSvg, openApiSpec, robotsTxt, sitemapXml } from "./discovery";
+import { agentsJson, blogAtomXml, changelogAtomXml, faviconSvg, INDEXNOW_KEY, llmsTxt, llmsFullTxt, ogSvg, openApiSpec, robotsTxt, sitemapXml } from "./discovery";
 import { authorizeExtension, exchangeExtensionCode, ExtensionAuthError, extensionConnectHtml, safeExtensionNextPath, safeRelativeNext, validateExtensionRedirectUri, validateExtensionState } from "./extensionAuth";
 import { DEMO_IMAGE_CONTENT_TYPE, DEMO_IMAGE_PATH, demoImageBytes } from "./demoImage";
 import { DEMO_AUDIO_CONTENT_TYPE, DEMO_AUDIO_PATH, demoAudioBytes } from "./demoAudio";
 import { DEMO_VIDEO_CONTENT_TYPE, DEMO_VIDEO_PATH, demoVideoBytes } from "./demoVideo";
 import { ogPngBytes } from "./ogPng";
-import { aboutHtml, alternativesHtml, benchmark2026Html, blogIndexHtml, blogPostHtml, categoryHtml, changelogHtml, comparisonHtml, docsHtml, docsErrorsHtml, evalsHtml, examplesHtml, forAgentsHtml, howItWorksHtml, methodologyHtml, trustModelHtml, mcpHtml, pricingHtml, privacyHtml, subprocessorsHtml, securityHtml, termsHtml, requestAccessHtml, statusHtml, useCaseHtml, useCasesIndexHtml, vsIndexHtml, whatWeDetectHtml } from "./pages";
+import { aboutHtml, alternativesHtml, benchmark2026Html, blogIndexHtml, blogPostHtml, categoryHtml, CHANGELOG_ENTRIES, changelogHtml, comparisonHtml, docsHtml, docsErrorsHtml, evalsHtml, examplesHtml, forAgentsHtml, howItWorksHtml, methodologyHtml, trustModelHtml, mcpHtml, pricingHtml, privacyHtml, subprocessorsHtml, securityHtml, termsHtml, requestAccessHtml, statusHtml, useCaseHtml, useCasesIndexHtml, vsIndexHtml, whatWeDetectHtml } from "./pages";
 import { distributionPageHtml, distributionRedirectTarget } from "./distribution";
 import { homepageHtml } from "./site";
 import { y2kCss } from "./y2k";
@@ -213,6 +213,14 @@ export default {
 
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/sitemap.xml") {
       return text(request.method === "HEAD" ? "" : sitemapXml(), "application/xml; charset=utf-8");
+    }
+
+    if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/blog.atom") {
+      return text(request.method === "HEAD" ? "" : blogAtomXml(), "application/atom+xml; charset=utf-8", { "cache-control": "public, max-age=300" });
+    }
+
+    if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/changelog.atom") {
+      return text(request.method === "HEAD" ? "" : changelogAtomXml(CHANGELOG_ENTRIES), "application/atom+xml; charset=utf-8", { "cache-control": "public, max-age=300" });
     }
 
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/robots.txt") {
