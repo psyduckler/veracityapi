@@ -480,6 +480,24 @@ describe("patches 1-4 audit remediations", () => {
     expect(res.headers.get("x-robots-tag")).toContain("noindex");
     expect(html).not.toContain("googletagmanager.com/gtag/js");
     expect(html).not.toContain("G-BMB8X59JBY");
+    expect(html).not.toContain("AW-18172560521");
+  });
+
+  it("adds the Google Ads tag to public pages without malformed Slack URLs", async () => {
+    const env = { DB: new EmptyDb(), ANTHROPIC_API_KEY: "test", API_KEYS: "" } as any;
+    for (const path of ["/", "/docs", "/privacy", "/subprocessors"]) {
+      const res = await worker.fetch(new Request(`https://veracityapi.com${path}`), env);
+      const html = await res.text();
+      expect(html, path).toContain("https://www.googletagmanager.com/gtag/js?id=AW-18172560521");
+      expect(html, path).toContain("gtag('config','AW-18172560521')");
+      expect(html, path).toContain("gtag('config','G-BMB8X59JBY'");
+      expect(html, path).not.toContain("AW-18172560521 (https://www.googletagmanager.com");
+      expect(html.match(/gtag\/js\?id=AW-18172560521/g)?.length ?? 0, path).toBe(1);
+    }
+    const csp = (await worker.fetch(new Request("https://veracityapi.com/docs"), env)).headers.get("content-security-policy") ?? "";
+    expect(csp).toContain("https://www.googletagmanager.com");
+    expect(csp).toContain("https://www.googleadservices.com");
+    expect(csp).toContain("https://googleads.g.doubleclick.net");
   });
 
   it("serves alternatives hub and canonicalizes trust aliases to methodology", async () => {

@@ -50,7 +50,10 @@ const VIDEO_LIMITATIONS = [
 const demoHits = new Map<string, { count: number; resetAt: number }>();
 const loginHits = new Map<string, { count: number; resetAt: number }>();
 const DEMO_MAX_CHARS = 4_000;
-const GOOGLE_ANALYTICS_TAG = `<script>(function(){var id='cookie_consent';function load(){if(window.__vapGaLoaded)return;window.__vapGaLoaded=true;var s=document.createElement('script');s.async=true;s.src='https://www.googletagmanager.com/gtag/js?id=G-BMB8X59JBY';document.head.appendChild(s);window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}window.gtag=gtag;gtag('js',new Date());gtag('config','G-BMB8X59JBY',{anonymize_ip:true})}function ready(){if(localStorage.getItem(id)==='accepted')load()}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',ready);else ready();})();</script>`;
+const GOOGLE_ADS_TAG_ID = "AW-18172560521";
+const GOOGLE_ANALYTICS_TAG_ID = "G-BMB8X59JBY";
+const GOOGLE_TAG_LOADER_URL = `https://www.googletagmanager.com/gtag/js?id=${GOOGLE_ADS_TAG_ID}`;
+const GOOGLE_ANALYTICS_TAG = `<script>(function(){var id='cookie_consent';function load(){if(window.__vapGaLoaded)return;window.__vapGaLoaded=true;var s=document.createElement('script');s.async=true;s.src='${GOOGLE_TAG_LOADER_URL}';document.head.appendChild(s);window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}window.gtag=gtag;gtag('js',new Date());gtag('config','${GOOGLE_ADS_TAG_ID}');gtag('config','${GOOGLE_ANALYTICS_TAG_ID}',{anonymize_ip:true})}function ready(){if(localStorage.getItem(id)==='accepted')load()}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',ready);else ready();})();</script>`;
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -1363,7 +1366,7 @@ function prepareHtml(body: string, nonce: string): string {
 }
 
 function injectGoogleAnalytics(body: string): string {
-  if (!body || body.includes("G-BMB8X59JBY")) return body;
+  if (!body || body.includes(GOOGLE_ADS_TAG_ID) || body.includes(GOOGLE_ANALYTICS_TAG_ID)) return body;
   if (body.includes("<title>VeracityAPI Account</title>") || body.includes("<title>Connect Veracity</title>")) return body;
   if (body.includes("</head>")) return body.replace("</head>", `${GOOGLE_ANALYTICS_TAG}</head>`);
   return body;
@@ -1487,6 +1490,6 @@ function securityHeaders(nonce?: string): Record<string, string> {
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
     "Cross-Origin-Opener-Policy": "same-origin",
-    "Content-Security-Policy": `default-src 'self'; script-src 'self'${scriptNonce} https://www.googletagmanager.com https://www.google-analytics.com https://static.cloudflareinsights.com; style-src 'self'${styleNonce} https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; media-src 'self' https:; connect-src 'self' https://api.veracityapi.com https://www.google-analytics.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://checkout.stripe.com`,
+    "Content-Security-Policy": `default-src 'self'; script-src 'self'${scriptNonce} https://www.googletagmanager.com https://www.google-analytics.com https://static.cloudflareinsights.com; style-src 'self'${styleNonce} https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; media-src 'self' https:; connect-src 'self' https://api.veracityapi.com https://www.google-analytics.com https://www.google.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://stats.g.doubleclick.net; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://checkout.stripe.com`,
   };
 }
